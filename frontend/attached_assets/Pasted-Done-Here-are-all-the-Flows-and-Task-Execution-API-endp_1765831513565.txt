@@ -1,0 +1,61 @@
+Done! Here are all the Flows and Task Execution API endpoints (all under /api/v1/flows/):
+
+Flow Management
+Method	Endpoint	Description
+GET	/	List all flows
+GET	/{flow_id}/	Get flow details
+POST	/{flow_id}/save/	Save flow draft
+POST	/{flow_id}/validate/	Validate flow graph
+POST	/{flow_id}/toggle-active/	Toggle flow active state
+POST	/{flow_id}/new-version/	Create new version from published
+GET	/{flow_id}/versions/	List flow versions
+GET	/{flow_id}/versions/{version_id}/	Get version details
+POST	/{flow_id}/versions/{version_id}/publish/	Publish version
+POST	/{flow_id}/versions/{version_id}/archive/	Archive version
+POST	/{flow_id}/versions/{version_id}/arm/	Arm version for preview
+POST	/{flow_id}/versions/{version_id}/disarm/	Disarm preview version
+Flow Execution & Preview
+Method	Endpoint	Description
+POST	/{flow_id}/preview/	Start flow preview execution
+GET	/{flow_id}/preview/{run_id}/	Get preview status
+GET	/{flow_id}/executions/	List flow executions
+GET	/{flow_id}/executions/{execution_id}/	Get execution details
+GET	/executions/	List all executions (across flows)
+GET	/executions/running/	List currently running executions
+Scheduled Tasks
+Method	Endpoint	Description
+GET	/scheduled-tasks/	List all scheduled tasks
+POST	/scheduled-tasks/	Create scheduled task
+GET	/scheduled-tasks/available-tasks/	List available Celery tasks
+GET	/scheduled-tasks/{id}/	Get task details
+PATCH	/scheduled-tasks/{id}/	Update task
+DELETE	/scheduled-tasks/{id}/	Delete task
+POST	/scheduled-tasks/{id}/toggle/	Toggle active state
+POST	/scheduled-tasks/{id}/run-now/	Trigger immediate execution
+GET	/scheduled-tasks/{id}/executions/	Get task execution history
+Task Executions (NEW)
+Method	Endpoint	Description
+GET	/task-executions/	List all task executions with filters
+GET	/task-executions/running/	List running/pending executions
+GET	/task-executions/stats/	Get execution statistics
+GET	/task-executions/celery-status/{celery_task_id}/	Query Celery directly for real-time status
+GET	/task-executions/{id}/	Get detailed execution info
+Events
+Method	Endpoint	Description
+GET	/events/	List event definitions
+GET	/events/{id}/	Get event definition
+GET	/event-logs/	List event logs
+GET	/event-logs/{id}/	Get event log details
+Other
+Method	Endpoint	Description
+GET	/definitions/	Get node type definitions
+POST	/scripts/validate/	Validate script code
+GET	/{flow_id}/schedules/	List flow schedules
+Filters available on /task-executions/:
+
+status - pending, running, success, failed, timeout, cancelled
+task_id - filter by scheduled task UUID
+task_name - search by Celery task name
+trigger_type - scheduled, manual, api
+from_date / to_date - date range filter
+limit / offset - pagination

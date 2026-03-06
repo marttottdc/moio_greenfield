@@ -1,0 +1,625 @@
+{
+  "ok": true,
+  "total": 11,
+  "limit": 50,
+  "offset": 0,
+  "executions": [
+    {
+      "id": "f1877998-50b7-4f1b-ae08-5af2eb441cb1",
+      "flow_id": "4f376b60-0d45-4181-8bb6-b0b4ca9a9fc4",
+      "flow_name": "Echo Whatsapp",
+      "status": "success",
+      "status_display": "Success",
+      "execution_mode": "preview",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": 37,
+      "started_at": "2025-12-15T16:20:33.239055+00:00",
+      "completed_at": "2025-12-15T16:20:43.954098+00:00",
+      "input": {
+        "name": "Martin",
+        "type": "whatsapp",
+        "template_id": "12122323",
+        "whatsapp_number": "59891941411"
+      },
+      "output": {
+        "steps": [
+          {
+            "kind": "trigger_webhook",
+            "name": "Webhook",
+            "input": {
+              "name": "Martin",
+              "type": "whatsapp",
+              "template_id": "12122323",
+              "whatsapp_number": "59891941411"
+            },
+            "output": {
+              "data": {
+                "name": "Martin",
+                "type": "whatsapp",
+                "template_id": "12122323",
+                "whatsapp_number": "59891941411"
+              },
+              "trigger": "webhook"
+            },
+            "status": "success",
+            "node_id": "node_1",
+            "started_at": "2025-12-15T16:20:43.920466Z",
+            "finished_at": "2025-12-15T16:20:43.922319Z",
+            "transitions": [
+              {
+                "target": "node_2",
+                "source_port": "out",
+                "target_port": "in"
+              }
+            ],
+            "incoming_port": null
+          },
+          {
+            "kind": "tool_send_whatsapp_template",
+            "name": "WhatsApp Template",
+            "input": {
+              "data": {
+                "name": "Martin",
+                "type": "whatsapp",
+                "template_id": "12122323",
+                "whatsapp_number": "59891941411"
+              },
+              "trigger": "webhook"
+            },
+            "output": {
+              "error": "send_whatsapp_template_task() got an unexpected keyword argument 'parameters'",
+              "success": false
+            },
+            "status": "success",
+            "node_id": "node_2",
+            "started_at": "2025-12-15T16:20:43.933572Z",
+            "finished_at": "2025-12-15T16:20:43.942911Z",
+            "transitions": [],
+            "incoming_port": "in"
+          }
+        ],
+        "errors": [],
+        "status": "success",
+        "context": {
+          "$input": {
+            "name": "Martin",
+            "type": "whatsapp",
+            "template_id": "12122323",
+            "whatsapp_number": "59891941411"
+          },
+          "$loops": {},
+          "node_1": {
+            "data": {
+              "name": "Martin",
+              "type": "whatsapp",
+              "template_id": "12122323",
+              "whatsapp_number": "59891941411"
+            },
+            "trigger": "webhook"
+          },
+          "node_2": {
+            "error": "send_whatsapp_template_task() got an unexpected keyword argument 'parameters'",
+            "success": false
+          },
+          "$outputs": [],
+          "$trigger": {
+            "run_id": "2b407bd8-5148-4e59-b871-3871c0db4b47",
+            "source": "preview"
+          },
+          "tenant_id": "40",
+          "$tool_failures": [
+            {
+              "kind": "tool_send_whatsapp_template",
+              "error": "send_whatsapp_template_task() got an unexpected keyword argument 'parameters'",
+              "input": {
+                "data": {
+                  "name": "Martin",
+                  "type": "whatsapp",
+                  "template_id": "12122323",
+                  "whatsapp_number": "59891941411"
+                },
+                "trigger": "webhook"
+              },
+              "node_id": "node_2",
+              "node_name": "WhatsApp Template"
+            }
+          ]
+        },
+        "outputs": []
+      },
+      "error": {},
+      "context": {
+        "timeline": [
+          {
+            "kind": "trigger_webhook",
+            "name": "Webhook",
+            "input": {
+              "name": "Martin",
+              "type": "whatsapp",
+              "template_id": "12122323",
+              "whatsapp_number": "59891941411"
+            },
+            "output": {
+              "data": {
+                "name": "Martin",
+                "type": "whatsapp",
+                "template_id": "12122323",
+                "whatsapp_number": "59891941411"
+              },
+              "trigger": "webhook"
+            },
+            "status": "success",
+            "node_id": "node_1",
+            "started_at": "2025-12-15T16:20:43.920466Z",
+            "finished_at": "2025-12-15T16:20:43.922319Z",
+            "transitions": [
+              {
+                "target": "node_2",
+                "source_port": "out",
+                "target_port": "in"
+              }
+            ],
+            "incoming_port": null
+          },
+          {
+            "kind": "tool_send_whatsapp_template",
+            "name": "WhatsApp Template",
+            "input": {
+              "data": {
+                "name": "Martin",
+                "type": "whatsapp",
+                "template_id": "12122323",
+                "whatsapp_number": "59891941411"
+              },
+              "trigger": "webhook"
+            },
+            "output": {
+              "error": "send_whatsapp_template_task() got an unexpected keyword argument 'parameters'",
+              "success": false
+            },
+            "status": "success",
+            "node_id": "node_2",
+            "started_at": "2025-12-15T16:20:43.933572Z",
+            "finished_at": "2025-12-15T16:20:43.942911Z",
+            "transitions": [],
+            "incoming_port": "in"
+          }
+        ],
+        "status_log": [
+          {
+            "at": "2025-12-15T16:20:33.238701+00:00",
+            "status": "awaiting_trigger"
+          },
+          {
+            "at": "2025-12-15T16:20:42.650500+00:00",
+            "status": "webhook_received"
+          },
+          {
+            "at": "2025-12-15T16:20:43.603521+00:00",
+            "status": "running"
+          },
+          {
+            "at": "2025-12-15T16:20:43.954073+00:00",
+            "status": "success"
+          }
+        ],
+        "webhook_id": "119881de-efe0-4916-be70-84c913a65aa4",
+        "webhook_url": "https://devcrm.moio.ai/webhooks/119881de-efe0-4916-be70-84c913a65aa4/",
+        "graph_version": "",
+        "execution_mode": "preview",
+        "preview_active": false,
+        "preview_run_id": "2b407bd8-5148-4e59-b871-3871c0db4b47",
+        "awaiting_webhook": false,
+        "trigger_metadata": {
+          "headers": {
+            "Host": "platform.moio.ai",
+            "Accept": "*/*",
+            "Grip-Sig": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NjU4MTkyNDIsImlzcyI6InB1c2hwaW4ifQ.Ga4TToVIHujsum9cWzxR_UYid8IQ4pJRtjizvMN8oaY",
+            "X-Scheme": "https",
+            "X-Real-Ip": "167.61.138.198",
+            "User-Agent": "PostmanRuntime/7.51.0",
+            "Content-Type": "application/json",
+            "Grip-Feature": "status, session, link:next, link:gone, filter:skip-self, filter:skip-users, filter:require-sub, filter:build-id, filter:var-subst",
+            "X-Request-Id": "d2dd629560d801c8a2b65bde5a1ee61a",
+            "Authorization": "Bearer 2605a6f652fb5d9bef493d55506db55d75e5c5d3040729282b65011f9499c593",
+            "Cache-Control": "no-cache",
+            "Postman-Token": "5f74134a-374c-4e62-9cd5-a420f1838723",
+            "Content-Length": "113",
+            "X-Forwarded-For": "10.1.126.227",
+            "X-Forwarded-Host": "platform.moio.ai",
+            "X-Forwarded-Port": "443",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Scheme": "https"
+          },
+          "webhook": {
+            "id": "119881de-efe0-4916-be70-84c913a65aa4",
+            "name": "Masini Comunicados"
+          },
+          "content_type": "application/json"
+        },
+        "preview_started_at": "2025-12-15T16:20:33.238731+00:00",
+        "preview_finished_at": "2025-12-15T16:20:43.954095+00:00"
+      },
+      "timeline": [
+        {
+          "kind": "trigger_webhook",
+          "name": "Webhook",
+          "input": {
+            "name": "Martin",
+            "type": "whatsapp",
+            "template_id": "12122323",
+            "whatsapp_number": "59891941411"
+          },
+          "output": {
+            "data": {
+              "name": "Martin",
+              "type": "whatsapp",
+              "template_id": "12122323",
+              "whatsapp_number": "59891941411"
+            },
+            "trigger": "webhook"
+          },
+          "status": "success",
+          "node_id": "node_1",
+          "started_at": "2025-12-15T16:20:43.920466Z",
+          "finished_at": "2025-12-15T16:20:43.922319Z",
+          "transitions": [
+            {
+              "target": "node_2",
+              "source_port": "out",
+              "target_port": "in"
+            }
+          ],
+          "incoming_port": null
+        },
+        {
+          "kind": "tool_send_whatsapp_template",
+          "name": "WhatsApp Template",
+          "input": {
+            "data": {
+              "name": "Martin",
+              "type": "whatsapp",
+              "template_id": "12122323",
+              "whatsapp_number": "59891941411"
+            },
+            "trigger": "webhook"
+          },
+          "output": {
+            "error": "send_whatsapp_template_task() got an unexpected keyword argument 'parameters'",
+            "success": false
+          },
+          "status": "success",
+          "node_id": "node_2",
+          "started_at": "2025-12-15T16:20:43.933572Z",
+          "finished_at": "2025-12-15T16:20:43.942911Z",
+          "transitions": [],
+          "incoming_port": "in"
+        }
+      ],
+      "graph_version": ""
+    },
+    {
+      "id": "460ea4de-d984-4673-b47d-6e699856e357",
+      "flow_id": "4f376b60-0d45-4181-8bb6-b0b4ca9a9fc4",
+      "flow_name": "Echo Whatsapp",
+      "status": "awaiting_trigger",
+      "status_display": "Awaiting Trigger",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-15T16:20:18.957548+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-15T16:20:18.957219+00:00",
+            "status": "awaiting_trigger"
+          }
+        ],
+        "webhook_id": "119881de-efe0-4916-be70-84c913a65aa4",
+        "webhook_url": "https://devcrm.moio.ai/webhooks/119881de-efe0-4916-be70-84c913a65aa4/",
+        "graph_version": "",
+        "preview_active": true,
+        "preview_run_id": "f31ffd38-4976-4f3d-8715-44406d48a6eb",
+        "awaiting_webhook": true,
+        "preview_started_at": "2025-12-15T16:20:18.957241+00:00"
+      },
+      "timeline": [],
+      "graph_version": ""
+    },
+    {
+      "id": "1a5ec326-0f22-485d-abd7-83ce577f14b5",
+      "flow_id": "4f376b60-0d45-4181-8bb6-b0b4ca9a9fc4",
+      "flow_name": "Echo Whatsapp",
+      "status": "awaiting_trigger",
+      "status_display": "Awaiting Trigger",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-15T16:18:26.622395+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-15T16:18:26.621915+00:00",
+            "status": "awaiting_trigger"
+          }
+        ],
+        "webhook_id": "119881de-efe0-4916-be70-84c913a65aa4",
+        "webhook_url": "https://devcrm.moio.ai/webhooks/119881de-efe0-4916-be70-84c913a65aa4/",
+        "graph_version": "",
+        "preview_active": true,
+        "preview_run_id": "d4ae8e22-ca9b-46fd-a67e-4b0b36e782f6",
+        "awaiting_webhook": true,
+        "preview_started_at": "2025-12-15T16:18:26.621948+00:00"
+      },
+      "timeline": [],
+      "graph_version": ""
+    },
+    {
+      "id": "118ab210-5487-4c98-ae30-e69a60df2a9c",
+      "flow_id": "4f376b60-0d45-4181-8bb6-b0b4ca9a9fc4",
+      "flow_name": "Echo Whatsapp",
+      "status": "awaiting_trigger",
+      "status_display": "Awaiting Trigger",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-15T16:17:24.173903+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-15T16:17:24.173677+00:00",
+            "status": "awaiting_trigger"
+          }
+        ],
+        "webhook_id": "119881de-efe0-4916-be70-84c913a65aa4",
+        "webhook_url": "https://devcrm.moio.ai/webhooks/119881de-efe0-4916-be70-84c913a65aa4/",
+        "graph_version": "",
+        "preview_active": true,
+        "preview_run_id": "97569ab7-e9bc-4a3a-abd5-6c3c57c50fc5",
+        "awaiting_webhook": true,
+        "preview_started_at": "2025-12-15T16:17:24.173703+00:00"
+      },
+      "timeline": [],
+      "graph_version": ""
+    },
+    {
+      "id": "1184d669-8f8c-417e-8014-73325a25d22b",
+      "flow_id": "4f376b60-0d45-4181-8bb6-b0b4ca9a9fc4",
+      "flow_name": "Echo Whatsapp",
+      "status": "failed",
+      "status_display": "Failed",
+      "execution_mode": "preview",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": 8,
+      "started_at": "2025-12-15T16:11:52.075696+00:00",
+      "completed_at": "2025-12-15T16:11:53.359856+00:00",
+      "input": {},
+      "output": {},
+      "error": {
+        "message": "graph is empty"
+      },
+      "context": {
+        "timeline": [],
+        "status_log": [
+          {
+            "at": "2025-12-15T16:11:52.075260+00:00",
+            "status": "queued"
+          },
+          {
+            "at": "2025-12-15T16:11:53.005958+00:00",
+            "status": "running"
+          },
+          {
+            "at": "2025-12-15T16:11:53.359660+00:00",
+            "status": "failed"
+          }
+        ],
+        "graph_version": "",
+        "execution_mode": "preview",
+        "preview_active": false,
+        "preview_run_id": "867ab399-08c8-4ac2-9fea-72808eb2f3b1",
+        "preview_started_at": "2025-12-15T16:11:52.075323+00:00",
+        "preview_finished_at": "2025-12-15T16:11:53.359845+00:00"
+      },
+      "timeline": [],
+      "graph_version": ""
+    },
+    {
+      "id": "3e29630a-6ee5-4200-b0db-7246486e8a5d",
+      "flow_id": "602a14ca-7568-424e-808d-664ce3178c42",
+      "flow_name": "Pruebas Flujos",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-11T04:46:08.805568+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-11T04:46:08.805141+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v2.4",
+        "preview_active": false,
+        "preview_run_id": "73d496a9-75fd-48b9-835f-003c404e0649",
+        "preview_started_at": "2025-12-11T04:46:08.805198+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v2.4"
+    },
+    {
+      "id": "42c78ddf-7c2f-425e-940f-34969604cf4d",
+      "flow_id": "602a14ca-7568-424e-808d-664ce3178c42",
+      "flow_name": "Pruebas Flujos",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-10T23:00:25.933427+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-10T23:00:25.932846+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v2.4",
+        "preview_active": false,
+        "preview_run_id": "78481fa7-6e91-46c1-9a35-3c2cde922df6",
+        "preview_started_at": "2025-12-10T23:00:25.932955+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v2.4"
+    },
+    {
+      "id": "72e4c8f1-cc84-41f6-a439-b9e89c33b1d6",
+      "flow_id": "602a14ca-7568-424e-808d-664ce3178c42",
+      "flow_name": "Pruebas Flujos",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-10T23:00:05.636530+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-10T23:00:05.635796+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v2.4",
+        "preview_active": false,
+        "preview_run_id": "bfbaa58e-baf9-4a2b-ab33-f7f8dec4d6a6",
+        "preview_started_at": "2025-12-10T23:00:05.635901+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v2.4"
+    },
+    {
+      "id": "34324614-7edc-4a3c-875c-3e273a08e050",
+      "flow_id": "037da9e3-2703-4349-9edf-2095db47bee6",
+      "flow_name": "Prueba 1",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-10T22:35:51.260481+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-10T22:35:51.260084+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v1.0",
+        "preview_active": false,
+        "preview_run_id": "e9550b6b-c98d-4717-970a-503015b51538",
+        "preview_started_at": "2025-12-10T22:35:51.260149+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v1.0"
+    },
+    {
+      "id": "58cdf536-82df-4823-9e01-23084bef8dbc",
+      "flow_id": "037da9e3-2703-4349-9edf-2095db47bee6",
+      "flow_name": "Prueba 1",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-10T22:35:29.470845+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-10T22:35:29.470436+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v1.0",
+        "preview_active": false,
+        "preview_run_id": "e63671cf-3895-4856-86c6-003230e75a02",
+        "preview_started_at": "2025-12-10T22:35:29.470503+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v1.0"
+    },
+    {
+      "id": "c14d41c5-2ad4-4280-8581-b75ada852d29",
+      "flow_id": "602a14ca-7568-424e-808d-664ce3178c42",
+      "flow_name": "Pruebas Flujos",
+      "status": "pending",
+      "status_display": "Pending",
+      "execution_mode": "unknown",
+      "trigger_source": "preview",
+      "sandbox": false,
+      "duration_ms": null,
+      "started_at": "2025-12-08T04:46:30.635550+00:00",
+      "completed_at": null,
+      "input": {},
+      "output": {},
+      "error": {},
+      "context": {
+        "status_log": [
+          {
+            "at": "2025-12-08T04:46:30.635188+00:00",
+            "status": "queued"
+          }
+        ],
+        "graph_version": "v1.0",
+        "preview_active": false,
+        "preview_run_id": "a01836d9-11e9-40c9-8192-3ebe46d94dd6",
+        "preview_started_at": "2025-12-08T04:46:30.635246+00:00"
+      },
+      "timeline": [],
+      "graph_version": "v1.0"
+    }
+  ]
+}

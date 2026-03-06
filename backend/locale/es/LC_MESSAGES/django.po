@@ -1,0 +1,2317 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-08 11:48-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? "
+"1 : 2;\n"
+
+#: campaigns/templates/campaigns/campaign_form.html:5
+#: campaigns/templates/campaigns/campaign_form.html:14
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Edit Campaign"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/campaign_form.html:5
+#: campaigns/templates/campaigns/campaign_form.html:14
+#: crm/templates/crm/campaigns.html:8
+#: crm/templates/crm/modals/new_campaign_modal.html:7
+msgid "New Campaign"
+msgstr "Nueva Campaña"
+
+#: campaigns/templates/campaigns/campaign_form.html:22
+#: crm/templates/crm/tickets/partials/ticket_details.html:79
+#: fam/templates/fam/modals/print_format_modal.html:250
+msgid "Save"
+msgstr "Guardar"
+
+#: campaigns/templates/campaigns/campaign_form.html:23
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:97
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:60
+#: campaigns/templates/campaigns/modals/audience_config_static.html:17
+#: campaigns/templates/campaigns/modals/audience_form.html:44
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:90
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:55
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:91
+#: campaigns/templates/campaigns/modals/campaign_validation.html:22
+#: campaigns/templates/campaigns/modals/whatsapp_template_details_modal.html:15
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:39
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:147
+#: campaigns/templates/campaigns/partials/data_import_preview.html:45
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:149
+#: campaigns/templates/campaigns/partials/whatsapp_templates_selector.html:64
+#: crm/templates/crm/modals/data_import_form.html:53
+#: crm/templates/crm/modals/import_contacts.html:11
+#: crm/templates/crm/partials/data_import_mapper.html:147
+#: crm/templates/crm/partials/data_import_preview.html:45
+#: fam/templates/fam/modals/assign_label_form.html:33
+#: fam/templates/fam/modals/print_format_modal.html:235
+#: fam/templates/fam/modals/qr_tags_creation_form.html:28
+#: portal/templates/account/logout_modal.html:18
+#: portal/templates/portal/partials/tenant_form.html:35
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: campaigns/templates/campaigns/campaigns.html:10
+#: campaigns/templates/campaigns/campaigns.html:23
+#: crm/templates/crm/campaigns.html:6 portal/templates/sidebar.html:42
+msgid "Campaigns"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/campaigns.html:11
+msgid "Manage your marketing campaigns across all channels"
+msgstr "Administra tus campañas de marketing"
+
+#: campaigns/templates/campaigns/campaigns.html:28
+msgid "Audiences"
+msgstr "Audiencias"
+
+#: campaigns/templates/campaigns/campaigns.html:33
+msgid "Templates"
+msgstr "Plantillas"
+
+#: campaigns/templates/campaigns/campaigns.html:38
+#: crm/templates/crm/tickets/partials/tickets_pill_menu.html:10
+#: fam/templates/fam/partials/fam_nav_pills.html:20
+msgid "Analytics"
+msgstr "Análisis"
+
+#: campaigns/templates/campaigns/campaigns.html:43
+#: campaigns/templates/campaigns/tabs/whatsapp_templates_tab.html:6
+msgid "WhatsApp Templates"
+msgstr "Plantillas de Whatsapp"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:5
+msgid "Configure Dynamic Audience"
+msgstr "Configurar Audiencia Dinámica"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:5
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:4
+#: campaigns/templates/campaigns/modals/audience_config_static.html:6
+msgid "Step 2 of 2"
+msgstr "Paso 2 de 2"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:6
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:5
+#: campaigns/templates/campaigns/modals/audience_config_static.html:7
+#: campaigns/templates/campaigns/modals/audience_form.html:7
+#: campaigns/templates/campaigns/modals/campaign_scheduler.html:4
+#: campaigns/templates/campaigns/partials/data_import_confirmation.html:9
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:9
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:146
+#: crm/templates/crm/partials/data_import_confirmation.html:9
+#: crm/templates/crm/partials/data_import_mapper.html:9
+#: crm/templates/crm/tickets/partials/ticket_details.html:48
+#: fam/templates/fam/modals/assign_label_form.html:4
+#: fam/templates/fam/modals/label_designer_modal.html:4
+#: fam/templates/fam/modals/label_designer_modal.html:100
+#: fam/templates/fam/modals/label_designer_modal_mm.html:6
+#: fam/templates/fam/modals/label_designer_modal_mm.html:98
+#: fam/templates/fam/modals/label_print_format_selector.html:5
+#: fam/templates/fam/modals/layout_picker.html:4
+#: fam/templates/fam/modals/layout_picker.html:42
+#: fam/templates/fam/modals/print_format_modal.html:6
+#: fam/templates/fam/modals/qr_preview.html:4
+#: fam/templates/fam/modals/qr_preview.html:143
+#: fam/templates/fam/modals/qr_tags_creation_form.html:4
+#: portal/templates/users/user_offcanvas.html:69
+msgid "Close"
+msgstr "Cerrar"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:20
+msgid "Filter Conditions"
+msgstr "Filtrar"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:25
+msgid "All of these (AND)"
+msgstr "Se cumplen todos"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:34
+msgid "AND"
+msgstr "Y"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:53
+msgid "Any of these (OR)"
+msgstr "Se cumple cualquiera"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:62
+msgid "OR"
+msgstr "O"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:89
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:52
+msgid "Membership count:"
+msgstr "Miembros:"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:90
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:53
+msgid "calculating"
+msgstr "calculando"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic.html:98
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:66
+#: campaigns/templates/campaigns/modals/audience_config_static.html:23
+msgid "Save Audience"
+msgstr "Guardar audiencia"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:4
+msgid "Configure Dynamic Audience (Assisted)"
+msgstr "Configurar Audiencia Dinámica (asistido)"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:15
+msgid "Describe your audience"
+msgstr "Describe la audiencia"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:18
+msgid "Plain language; we’ll translate to rules."
+msgstr "Nosotros las convertiremos en reglas"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:27
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:48
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:166
+msgid "Preview"
+msgstr "Vista Previa"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:35
+msgid "Auto-preview"
+msgstr "Vista Previa Automática"
+
+#: campaigns/templates/campaigns/modals/audience_config_dynamic_assisted.html:41
+msgid "No preview yet."
+msgstr "No hay vista previa"
+
+#: campaigns/templates/campaigns/modals/audience_config_static.html:6
+#, fuzzy
+#| msgid "Contacts"
+msgid "Select Contacts"
+msgstr "Contactos"
+
+#: campaigns/templates/campaigns/modals/audience_config_static.html:11
+msgid "Choose contacts to include. Changes are saved instantly."
+msgstr ""
+
+#: campaigns/templates/campaigns/modals/audience_form.html:6
+msgid "New Audience"
+msgstr "Crear Audiencia"
+
+#: campaigns/templates/campaigns/modals/audience_form.html:6
+msgid "Step 1 of 2"
+msgstr "Paso 1 de 2"
+
+#: campaigns/templates/campaigns/modals/audience_form.html:25
+msgid "Audience Name"
+msgstr "Nombre"
+
+#: campaigns/templates/campaigns/modals/audience_form.html:30
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:49
+msgid "Description"
+msgstr "Descripción"
+
+#: campaigns/templates/campaigns/modals/audience_form.html:35
+msgid "Audience Type"
+msgstr "Tipo de Audiencia"
+
+#: campaigns/templates/campaigns/modals/audience_form.html:38
+msgid ""
+"Choose 'Dynamic' to define rules, or 'Static' to select contacts manually."
+msgstr ""
+
+#: campaigns/templates/campaigns/modals/audience_form.html:45
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:93
+#: campaigns/templates/campaigns/modals/whatsapp_template_details_modal.html:17
+msgid "Next"
+msgstr "Siguiente"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:4
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:12
+#: campaigns/templates/campaigns/partials/whatsapp_templates_selector.html:4
+#: crm/templates/crm/tickets/partials/tickets_pill_menu.html:15
+#: fam/templates/fam/partials/fam_nav_pills.html:25
+msgid "Configuration"
+msgstr "Configuración"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:25
+msgid "Data Configuration"
+msgstr "Configurar Datos"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:28
+msgid "Set message data"
+msgstr "Datos de Mensaje"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:46
+msgid "Message Configuration"
+msgstr "Configurar Mensaje"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:49
+#, fuzzy
+#| msgid "WhatsApp Templates"
+msgid "Select Whatsapp Template"
+msgstr "Plantillas de Whatsapp"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:67
+msgid "Map message fields"
+msgstr "Asociar Columnas"
+
+#: campaigns/templates/campaigns/modals/campaign_behaviour_form.html:108
+msgid "Validate"
+msgstr "Validar"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:5
+#, fuzzy
+#| msgid "New Campaign"
+msgid "Import campaign data "
+msgstr "Nueva Campaña"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:27
+#: crm/templates/crm/modals/data_import_form.html:26
+msgid "Skip"
+msgstr "Saltear"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:28
+#: crm/templates/crm/modals/data_import_form.html:27
+msgid "Number of rows to skip"
+msgstr "Cantidad de filas a saltear"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:33
+#: crm/templates/crm/modals/data_import_form.html:32
+#, fuzzy
+#| msgid "Preview"
+msgid "Preview rows"
+msgstr "Vista Previa"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:34
+#: crm/templates/crm/modals/data_import_form.html:33
+msgid "Number of rows to preview"
+msgstr "Filas a previsualizar "
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:59
+#: crm/templates/crm/modals/data_import_form.html:57
+msgid "Map"
+msgstr "Asociar"
+
+#: campaigns/templates/campaigns/modals/campaign_form_import.html:61
+#: crm/templates/crm/modals/data_import_form.html:59
+#: crm/templates/crm/settings/tabs/tools_tab.html:19
+msgid "Import Data"
+msgstr "Importar Datos"
+
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:4
+#: campaigns/templates/campaigns/modals/whatsapp_template_details_modal.html:4
+#, fuzzy
+#| msgid "New Campaign"
+msgid "New Campaign - Step"
+msgstr "Nueva Campaña"
+
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:25
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Campaign name"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:33
+msgid "Channel"
+msgstr "Canal"
+
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:41
+msgid "Kind"
+msgstr "Clase"
+
+#: campaigns/templates/campaigns/modals/campaign_form_multistep.html:61
+msgid "No active audiences found, create or activate an audience"
+msgstr ""
+
+#: campaigns/templates/campaigns/modals/campaign_form_select_whatsapp_template.html:5
+msgid "Import campaign data"
+msgstr "Importar datos de campaña"
+
+#: campaigns/templates/campaigns/modals/campaign_form_select_whatsapp_template.html:14
+#: campaigns/templates/campaigns/partials/campaign_whatsapp_template_selector.html:68
+#: campaigns/templates/campaigns/tabs/whatsapp_templates_tab.html:23
+msgid "Loading..."
+msgstr "Cargando..."
+
+#: campaigns/templates/campaigns/modals/campaign_scheduler.html:3
+#: campaigns/templates/campaigns/modals/campaign_validation.html:28
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:45
+msgid "Schedule"
+msgstr "Programar"
+
+#: campaigns/templates/campaigns/modals/campaign_scheduler.html:13
+msgid "Execute now"
+msgstr "Ejecutar ahora"
+
+#: campaigns/templates/campaigns/modals/campaign_validation.html:4
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:4
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Validate Campaign Data"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/modals/campaign_validation.html:32
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:49
+msgid "Processing"
+msgstr "Procesando"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:18
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:2
+msgid "Task"
+msgstr "Tarea"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:20
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:4
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:19
+#: portal/templates/portal/admin_console.html:125
+#: portal/templates/portal/admin_console.html:187
+msgid "Status"
+msgstr "Estado"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:20
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:21
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:22
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:4
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:5
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:6
+#: portal/templates/portal/admin_console.html:97
+msgid "Monitoring"
+msgstr "Monitoreando"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:21
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:5
+msgid "Ready"
+msgstr "Listo"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:22
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:6
+msgid "Successful"
+msgstr "Exitoso"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:24
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:8
+msgid "Result"
+msgstr "Resultado"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:39
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:23
+#, fuzzy
+#| msgid "Validate"
+msgid "Valid"
+msgstr "Validar"
+
+#: campaigns/templates/campaigns/modals/campaing_execution_monitor.html:41
+#: campaigns/templates/campaigns/partials/_job_status_panel.html:25
+msgid "Not Valid"
+msgstr "Inválido"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:6
+msgid "Showing"
+msgstr "Mostrando"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:6
+#: campaigns/templates/campaigns/partials/data_import_preview.html:19
+#: crm/templates/crm/partials/data_import_preview.html:19
+msgid "of"
+msgstr "de"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:6
+#: campaigns/templates/campaigns/partials/contact_search_results.html:6
+#, fuzzy
+#| msgid "Contacts"
+msgid "contacts"
+msgstr "Contactos"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:25
+msgid "Added"
+msgstr "Agregado"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:32
+msgid "Remove from audience"
+msgstr "Quitar de la audiencia"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:46
+msgid "Load more contacts"
+msgstr "Cargar más"
+
+#: campaigns/templates/campaigns/partials/audience_contacts_list.html:60
+msgid "No contacts in this audience yet"
+msgstr "Sin contactos"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:13
+msgid "Draft"
+msgstr "Borrador"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:17
+msgid "Live"
+msgstr "Activo"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:27
+msgid "Dynamic"
+msgstr "Dinámica"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:29
+msgid "Smart"
+msgstr "Inteligente"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:31
+msgid "Manual"
+msgstr "Manual"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:35
+msgid "members"
+msgstr "miembros"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:50
+#: campaigns/templates/campaigns/partials/campaign_list.html:69
+msgid "Edit"
+msgstr "Editar"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:55
+msgid "Magic Rules"
+msgstr "Reglas mágicas"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:61
+#: campaigns/templates/campaigns/partials/campaign_list.html:97
+msgid "Delete"
+msgstr "Eliminat"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:74
+msgid "No audiences yet"
+msgstr "Sin audiencias"
+
+#: campaigns/templates/campaigns/partials/audience_list.html:75
+msgid "Create your first audience to start sending campaigns"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:12
+msgid "Defaults"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:14
+#, fuzzy
+#| msgid "Loading..."
+msgid "saving.."
+msgstr "guardando..."
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:21
+msgid "Auto Correct Values"
+msgstr "Auto Corregir Valores"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:25
+msgid "Use First Name"
+msgstr "Usar Primer Nombre"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:29
+#, fuzzy
+#| msgid "New Contact"
+msgid "Save contacts"
+msgstr "Nuevo Contacto"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:33
+msgid "Notify Agent"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:39
+msgid "Country Code"
+msgstr "Código de País"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:47
+msgid "Select default country code"
+msgstr "Selecciona el país por defecto"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:51
+#, fuzzy
+#| msgid "Contact"
+msgid "Contact Type"
+msgstr "Tipo de Contacto"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:53
+#: crm/templates/crm/contacts/contact_details_modal.html:36
+#: crm/templates/crm/contacts/contacts.html:86
+#: crm/templates/crm/contacts/new_contact_modal.html:43
+#: crm/templates/crm/faces/face_page.html:22
+#: crm/templates/crm/faces/faces.html:22
+msgid "Select one"
+msgstr "Elegir"
+
+#: campaigns/templates/campaigns/partials/campaign_configuration_defaults.html:59
+#, fuzzy
+#| msgid "Contacts"
+msgid "Select default contact type"
+msgstr "Contactos"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:25
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Campaign"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:33
+msgid "recipients"
+msgstr "destinatarios"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:41
+msgid "sent"
+msgstr "enviado"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:47
+msgid "opened"
+msgstr "abierto"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:53
+msgid "rate"
+msgstr "ratio"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:75
+#, fuzzy
+#| msgid "Confirm"
+msgid "Configure"
+msgstr "Confirmar"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:81
+msgid "Duplicate"
+msgstr "Clonar"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:87
+msgid "Log"
+msgstr "Registro"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:106
+msgid "Archive"
+msgstr "Archivar"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:118
+#, fuzzy
+#| msgid "New Campaign"
+msgid "No campaigns found"
+msgstr "Nueva Campaña"
+
+#: campaigns/templates/campaigns/partials/campaign_list.html:119
+msgid "Create your first campaign to get started"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_whatsapp_template_selector.html:39
+#: campaigns/templates/campaigns/partials/whatsapp_templates_tab.html:38
+msgid "View Details"
+msgstr "Ver Detalles"
+
+#: campaigns/templates/campaigns/partials/campaign_whatsapp_template_selector.html:49
+#: campaigns/templates/campaigns/partials/whatsapp_templates_tab.html:48
+msgid "No Templates Found"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_whatsapp_template_selector.html:50
+#: campaigns/templates/campaigns/partials/whatsapp_templates_tab.html:49
+msgid "No WhatsApp templates are available for this tenant."
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaign_whatsapp_template_selector.html:62
+msgid "Template Details"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaigns_kpis.html:7
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Total Campaigns"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/partials/campaigns_kpis.html:22
+#: fam/templates/fam/partials/header_kpis.html:22
+#: portal/templates/components/ai_left_offcanvas.html:27
+#: portal/templates/portal/admin_console.html:138
+#: portal/templates/portal/admin_console.html:200
+#: portal/templates/portal/admin_console.html:279
+#: portal/templates/portal/partials/tenant_list.html:8
+msgid "Active"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaigns_kpis.html:37
+msgid "Messages Sent"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/campaigns_kpis.html:52
+msgid "Open Rate"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/contact_search_results.html:6
+msgid "Found"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/contact_search_results.html:28
+msgid "Click to select"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/contact_search_results.html:42
+msgid "No contacts found for"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/contact_search_results.html:52
+msgid "Enter at least 2 characters to search"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/data_import_confirmation.html:8
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:8
+#: crm/templates/crm/partials/data_import_confirmation.html:8
+#: crm/templates/crm/partials/data_import_mapper.html:8
+msgid "Template field mapper"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:15
+#: crm/templates/crm/partials/data_import_mapper.html:15
+msgid "Selección de Campos"
+msgstr "Selección de Campos"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:23
+#: crm/templates/crm/partials/data_import_mapper.html:23
+#, fuzzy
+#| msgid "WhatsApp Templates"
+msgid "Whatsapp Number"
+msgstr "Plantillas de Whatsapp"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:25
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:43
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:61
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:92
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:127
+#: crm/templates/crm/partials/data_import_mapper.html:25
+#: crm/templates/crm/partials/data_import_mapper.html:43
+#: crm/templates/crm/partials/data_import_mapper.html:61
+#: crm/templates/crm/partials/data_import_mapper.html:92
+#: crm/templates/crm/partials/data_import_mapper.html:127
+msgid "Select field"
+msgstr "Seleccionar campo"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:26
+#: crm/templates/crm/partials/data_import_mapper.html:26
+msgid "Fixed Value"
+msgstr "Valor fijo"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:36
+#: crm/templates/crm/partials/data_import_mapper.html:36
+msgid ""
+"Select the field name that contains the target whatsapp phone numbers or "
+"define a fixed one"
+msgstr ""
+"Seleccionar el campo que contiene el número de whatsapp o define uno fijo"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:41
+#: crm/templates/crm/partials/data_import_mapper.html:41
+#, fuzzy
+#| msgid "Contact"
+msgid "Contact Name"
+msgstr "Contacto"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:54
+#: crm/templates/crm/partials/data_import_mapper.html:54
+msgid "Header"
+msgstr "Encabezado"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:62
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:68
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:93
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:128
+#: crm/templates/crm/partials/data_import_mapper.html:62
+#: crm/templates/crm/partials/data_import_mapper.html:68
+#: crm/templates/crm/partials/data_import_mapper.html:93
+#: crm/templates/crm/partials/data_import_mapper.html:128
+msgid "Fixed value"
+msgstr "Valor fijo"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:79
+#: crm/templates/crm/partials/data_import_mapper.html:79
+msgid "Body"
+msgstr "Cuerpo"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:114
+#: crm/templates/crm/partials/data_import_mapper.html:114
+msgid "Footer"
+msgstr "Pie"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:118
+#: crm/templates/crm/partials/data_import_mapper.html:118
+msgid "Buttons"
+msgstr "Botones"
+
+#: campaigns/templates/campaigns/partials/data_import_mapper.html:158
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:177
+#: campaigns/templates/campaigns/partials/whatsapp_templates_selector.html:66
+#: crm/templates/crm/modals/import_contacts.html:12
+#: crm/templates/crm/partials/data_import_mapper.html:158
+#: fam/templates/fam/modals/assign_label_form.html:34
+#: portal/templates/account/email_confirm.html:20
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: campaigns/templates/campaigns/partials/data_import_preview.html:7
+#: crm/templates/crm/partials/data_import_preview.html:7
+msgid "Sheet name"
+msgstr "Hoja"
+
+#: campaigns/templates/campaigns/partials/data_import_preview.html:19
+#: crm/templates/crm/partials/data_import_preview.html:19
+msgid "Showing first"
+msgstr "Mostrando primeros"
+
+#: campaigns/templates/campaigns/partials/data_import_preview.html:25
+#: crm/templates/crm/partials/data_import_preview.html:25
+msgid "Select"
+msgstr "Seleccionar"
+
+#: campaigns/templates/campaigns/partials/data_import_preview.html:56
+#: crm/templates/crm/partials/data_import_preview.html:56
+#, fuzzy
+#| msgid "Confirm"
+msgid "Confim"
+msgstr "Confirmar"
+
+#: campaigns/templates/campaigns/partials/message_logs.html:5
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Campaign Log"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/partials/sheet_name_selector.html:5
+#: crm/templates/crm/partials/sheet_name_selector.html:5
+msgid "Sheet"
+msgstr "Hoja"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:12
+msgid "Template Information"
+msgstr "Información de Plantilla"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:15
+#: crm/templates/crm/contacts/contacts.html:113
+#: fam/templates/fam/modals/print_format_modal.html:52
+#: portal/templates/portal/admin_console.html:123
+#: portal/templates/portal/admin_console.html:185
+msgid "Name"
+msgstr "Nombre"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:27
+msgid "Category"
+msgstr "Categoría"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:31
+msgid "Language"
+msgstr "Lenguaje"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:36
+msgid "Parameters"
+msgstr "Parámetros"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:56
+msgid "Image Header"
+msgstr "Imágen del Encabezado"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:79
+msgid "Test Template"
+msgstr "Probar Plantilla"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:86
+msgid "WhatsApp Number"
+msgstr "Número de Whatsapp"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:97
+msgid "Image URL"
+msgstr "URL de Imágen"
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:109
+msgid "Template Parameters"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:115
+msgid "Parameter"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:124
+msgid "Enter value"
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/template_details_modal_content.html:136
+msgid "Send Test Message"
+msgstr "Enviar Mensaje de Prueba"
+
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:7
+#: chatbot/templates/chatbot/watemplate_details.html:10
+msgid "Requirements for: "
+msgstr ""
+
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:97
+#, fuzzy
+#| msgid "Preview"
+msgid "Preview: "
+msgstr "Vista Previa"
+
+#: campaigns/templates/campaigns/partials/whatsapp_template_detail.html:157
+#: campaigns/templates/campaigns/partials/whatsapp_templates_selector.html:65
+msgid "Test"
+msgstr "Prueba"
+
+#: campaigns/templates/campaigns/partials/whatsapp_templates_selector.html:15
+msgid "Select a template to see preview"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/analytics_tab.html:5
+#: crm/templates/crm/tickets/tabs/analytics_tab.html:7
+#: fam/templates/fam/tabs/analytics_tab.html:7
+msgid "Analytics Coming Soon"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/analytics_tab.html:6
+#: crm/templates/crm/tickets/tabs/analytics_tab.html:8
+#: fam/templates/fam/tabs/analytics_tab.html:8
+msgid "Detailed analytics will be available in a future update."
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:14
+msgid "Search audiences..."
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:19
+msgid "All Sizes"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:20
+msgid "Small (0-100)"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:21
+msgid "Medium (101-1000)"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:22
+msgid "Large (1000+)"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:39
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:47
+#: fam/templates/fam/tabs/assets_tab.html:47
+#: fam/templates/fam/tabs/configuration_tab.html:70
+#: fam/templates/fam/tabs/qr_tags_tab.html:48
+msgid "Create"
+msgstr "Crear"
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:52
+msgid "Loading Audiences"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/audiences_tab.html:53
+msgid "Wait while we load your audiences"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:12
+msgid "Search campaigns..."
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:17
+#: fam/templates/fam/tabs/assets_tab.html:17
+#: fam/templates/fam/tabs/qr_tags_tab.html:17
+msgid "All Statuses"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:27
+#: fam/templates/fam/tabs/assets_tab.html:27
+#: fam/templates/fam/tabs/qr_tags_tab.html:27
+msgid "All Channels"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:63
+#, fuzzy
+#| msgid "Campaigns"
+msgid "Loading Campaigns"
+msgstr "Campañas"
+
+#: campaigns/templates/campaigns/tabs/campaigns_tab.html:64
+msgid "Wait while we load your campaigns"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/templates_tab.html:5
+msgid "Templates Coming Soon"
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/templates_tab.html:6
+msgid "Template management will be available in a future update."
+msgstr ""
+
+#: campaigns/templates/campaigns/tabs/whatsapp_templates_tab.html:15
+#, fuzzy
+#| msgid "Templates"
+msgid "Reload Templates"
+msgstr "Plantillas"
+
+#: campaigns/views/campaigns.py:135
+msgid ""
+"Create your campaign with basic information. You can configure audience and "
+"settings in the next step"
+msgstr ""
+
+#: campaigns/views/campaigns.py:154
+msgid "Configure the campaign behaviour"
+msgstr ""
+
+#: campaigns/views/campaigns.py:169
+msgid "There were errors"
+msgstr ""
+
+#: chatbot/forms.py:47
+msgid "Nombre"
+msgstr ""
+
+#: chatbot/forms.py:48 recruiter/forms.py:135
+msgid "Descripcion"
+msgstr ""
+
+#: chatbot/forms.py:49
+msgid "Fecha Inicio"
+msgstr ""
+
+#: chatbot/forms.py:50
+msgid "Fecha de Cierre"
+msgstr ""
+
+#: chatbot/forms.py:51 recruiter/forms.py:119
+msgid "Template"
+msgstr ""
+
+#: chatbot/models/agent_configuration.py:42
+msgid "JSON representation of the ModelSettings dataclass."
+msgstr ""
+
+#: chatbot/templates/chatbot/campaign.html:4
+msgid "Create Project"
+msgstr ""
+
+#: chatbot/templates/chatbot/partials/template_preview.html:6
+msgid "Example: "
+msgstr ""
+
+#: chatbot/templates/chatbot/wa_campaign_target.html:6
+msgid "Cards"
+msgstr ""
+
+#: crm/models.py:691
+msgid "No auth"
+msgstr ""
+
+#: crm/models.py:692
+msgid "Bearer / header token"
+msgstr ""
+
+#: crm/models.py:693
+msgid "HTTP Basic user+pass"
+msgstr ""
+
+#: crm/models.py:694
+msgid "HMAC-SHA256 signature"
+msgstr ""
+
+#: crm/models.py:695
+msgid "Static value in named header"
+msgstr ""
+
+#: crm/models.py:696
+msgid "Static value in ?token=…"
+msgstr ""
+
+#: crm/models.py:697
+msgid "JWT signed with HS256 / RS256"
+msgstr ""
+
+#: crm/old_templates/company/branches.html:4
+msgid "Sucursales"
+msgstr ""
+
+#: crm/old_templates/customers/add.html:4
+#: crm/old_templates/customers/list.html:4
+#: crm/old_templates/customers/update.html:4
+#: crm/old_templates/orders/list.html:4 crm/old_templates/orders/update.html:4
+#: portal/templates/pages/starter.html:4
+msgid "Starter Page"
+msgstr ""
+
+#: crm/old_templates/management.html:4
+msgid "Management"
+msgstr ""
+
+#: crm/old_templates/orders-list.html:4
+msgid "Order List"
+msgstr ""
+
+#: crm/old_templates/projects.html:4
+msgid "CRM Projects"
+msgstr ""
+
+#: crm/old_templates/tickets/kanban.html:4
+msgid "Kanban Board"
+msgstr ""
+
+#: crm/old_templates/tickets/my_tickets.html:4 crm/templates/crm/tasks.html:7
+#: crm/templates/crm/tickets/my_tickets.html:4 portal/templates/sidebar.html:39
+msgid "Tasks"
+msgstr ""
+
+#: crm/templates/crm/communications/communications.html:6
+msgid "Communications Hub"
+msgstr "Centro de Comunicaciones"
+
+#: crm/templates/crm/communications/communications.html:7
+msgid "Manage all your customer conversations and messages"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/chat_session_item_details.html:11
+msgid "Conversation In Process"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/chat_session_item_details.html:13
+msgid "Conversation Ended"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/chat_session_item_details.html:28
+#: crm/templates/crm/communications/partials/session_list.html:51
+#: portal/templates/components/ai_left_offcanvas.html:35
+msgid "Summary"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/chat_session_item_details.html:29
+msgid "Session: "
+msgstr ""
+
+#: crm/templates/crm/communications/partials/communications_kpis.html:7
+msgid "Active Chats"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/communications_kpis.html:22
+msgid "Unread"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/communications_kpis.html:37
+#: crm/templates/crm/tickets/partials/tickets_kpis.html:52
+msgid "Avg Response"
+msgstr ""
+
+#: crm/templates/crm/communications/partials/communications_kpis.html:52
+msgid "Active Users"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:6
+#: crm/templates/crm/faces/face_page.html:5
+#: crm/templates/crm/faces/faces.html:5 portal/templates/sidebar.html:37
+msgid "Contacts"
+msgstr "Contactos"
+
+#: crm/templates/crm/contacts/contacts.html:7
+msgid "Manage your customer contacts and relationships"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:15
+#, fuzzy
+#| msgid "Contacts"
+msgid "Total Contacts"
+msgstr "Contactos"
+
+#: crm/templates/crm/contacts/contacts.html:30
+msgid "New This Month"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:45
+#, fuzzy
+#| msgid "Contacts"
+msgid "Active Contacts"
+msgstr "Contactos"
+
+#: crm/templates/crm/contacts/contacts.html:60
+msgid "Customers"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:82
+#: crm/templates/crm/faces/face_page.html:18
+#: crm/templates/crm/faces/faces.html:18
+msgid "Search name or email"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:93
+#: crm/templates/crm/faces/face_page.html:29
+#: crm/templates/crm/faces/faces.html:29
+msgid "Filter"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:97
+#: crm/templates/crm/settings/tabs/tools_tab.html:22
+#, fuzzy
+#| msgid "Import Data"
+msgid "Import"
+msgstr "Importar Datos"
+
+#: crm/templates/crm/contacts/contacts.html:100
+#: crm/templates/crm/faces/face_page.html:7
+#: crm/templates/crm/faces/faces.html:7
+msgid "New Contact"
+msgstr "Nuevo Contacto"
+
+#: crm/templates/crm/contacts/contacts.html:114
+#: portal/templates/portal/admin_console.html:184
+#: portal/templates/users/user_offcanvas.html:59
+msgid "Email"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:115
+#: portal/templates/portal/admin_console.html:239
+msgid "Company"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:116
+#: portal/templates/users/user_offcanvas.html:63
+msgid "Phone"
+msgstr ""
+
+#: crm/templates/crm/contacts/contacts.html:117
+msgid "Type"
+msgstr ""
+
+#: crm/templates/crm/contacts/new_contact_modal.html:8
+msgid "Add Contact"
+msgstr ""
+
+#: crm/templates/crm/deals.html:6 portal/templates/sidebar.html:38
+msgid "Deals"
+msgstr ""
+
+#: crm/templates/crm/deals.html:7
+msgid "Manage your sales pipeline and opportunities"
+msgstr ""
+
+#: crm/templates/crm/deals.html:15
+msgid "Total Value"
+msgstr ""
+
+#: crm/templates/crm/deals.html:30
+msgid "Active Deals"
+msgstr ""
+
+#: crm/templates/crm/deals.html:45
+msgid "Won Rate"
+msgstr ""
+
+#: crm/templates/crm/deals.html:60
+msgid "Avg Deal Size"
+msgstr ""
+
+#: crm/templates/crm/deals.html:76
+msgid "Add Deal"
+msgstr ""
+
+#: crm/templates/crm/deals.html:89
+msgid "Qualified"
+msgstr ""
+
+#: crm/templates/crm/deals.html:111
+msgid "Proposal"
+msgstr ""
+
+#: crm/templates/crm/deals.html:139
+msgid "Negotiation"
+msgstr ""
+
+#: crm/templates/crm/deals.html:160
+msgid "Closed"
+msgstr ""
+
+#: crm/templates/crm/modals/data_import_form.html:5
+#, fuzzy
+#| msgid "Import Data"
+msgid "Import data"
+msgstr "Importar Datos"
+
+#: crm/templates/crm/modals/import_contacts.html:4
+#, fuzzy
+#| msgid "Contacts"
+msgid "Import Contacts"
+msgstr "Contactos"
+
+#: crm/templates/crm/modals/new_campaign_modal.html:13
+msgid "Campaign Name"
+msgstr ""
+
+#: crm/templates/crm/modals/setup_settings.html:135
+msgid "Complete the WhatsApp Business Platform registration process below"
+msgstr ""
+
+#: crm/templates/crm/partials/agent_config_form.html:47
+msgid "Agent Enabled"
+msgstr ""
+
+#: crm/templates/crm/partials/agent_config_form.html:54
+msgid "Instructions"
+msgstr ""
+
+#: crm/templates/crm/partials/agent_config_form.html:91
+msgid "Update Agent"
+msgstr ""
+
+#: crm/templates/crm/partials/agent_config_form.html:91
+msgid "Create Agent"
+msgstr ""
+
+#: crm/templates/crm/settings.html:6
+msgid "Settings"
+msgstr ""
+
+#: crm/templates/crm/settings.html:7
+msgid "Configure your CRM settings, preferences, and integrations"
+msgstr ""
+
+#: crm/templates/crm/settings/tabs/integrations_tab.html:7
+msgid "Integration Settings"
+msgstr ""
+
+#: crm/templates/crm/settings/tabs/tools_tab.html:7
+msgid "Tools"
+msgstr ""
+
+#: crm/templates/crm/settings/tabs/tools_tab.html:20
+msgid "Manage data import"
+msgstr ""
+
+#: crm/templates/crm/tasks.html:8
+msgid "Manage and track your tasks and activities"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/ticket_details.html:30
+msgid "Assigned to: "
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/ticket_details.html:40
+msgid "Reply"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/ticket_details.html:41
+msgid "Forward"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/ticket_details.html:56
+msgid "Comments:"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/ticket_details.html:75
+msgid "Add your comment"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/tickets_kpis.html:7
+msgid "Open"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/tickets_kpis.html:22
+msgid "In Progress"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/tickets_kpis.html:37
+msgid "Resolved"
+msgstr ""
+
+#: crm/templates/crm/tickets/partials/tickets_pill_menu.html:5
+#: crm/templates/crm/tickets/tickets.html:6 portal/templates/sidebar.html:43
+msgid "Tickets"
+msgstr ""
+
+#: crm/templates/crm/tickets/tabs/configuration_tab.html:7
+msgid "Configuration Coming Soon"
+msgstr ""
+
+#: crm/templates/crm/tickets/tabs/configuration_tab.html:8
+msgid "Configuration will be available in a future update."
+msgstr ""
+
+#: crm/templates/crm/tickets/tabs/tickets_tab.html:10
+msgid "All Tickets"
+msgstr ""
+
+#: crm/templates/crm/tickets/tabs/tickets_tab.html:13
+msgid "My Tickets"
+msgstr ""
+
+#: crm/templates/crm/tickets/tickets.html:7
+msgid "Manage support tickets and customer inquiries"
+msgstr ""
+
+#: fam/templates/fam/fam.html:10
+msgid "Fixed Asset Management"
+msgstr ""
+
+#: fam/templates/fam/fam.html:11
+msgid "Manage your assets"
+msgstr ""
+
+#: fam/templates/fam/modals/assign_label_form.html:3
+msgid "Tags Assignation"
+msgstr ""
+
+#: fam/templates/fam/modals/assign_label_form.html:15
+msgid "QR Tag id"
+msgstr ""
+
+#: fam/templates/fam/modals/assign_label_form.html:19
+msgid "Select the asset"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal.html:3
+#: fam/templates/fam/modals/label_designer_modal_mm.html:5
+#: fam/templates/fam/modals/layout_picker.html:3
+msgid "Choose a Layout"
+msgstr "Selecciona el Diseño"
+
+#: fam/templates/fam/modals/label_designer_modal.html:14
+#: fam/templates/fam/modals/label_designer_modal_mm.html:16
+msgid "Select layout"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal.html:15
+#: fam/templates/fam/modals/label_designer_modal_mm.html:17
+msgid "New layout"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal.html:52
+#: fam/templates/fam/modals/label_designer_modal_mm.html:48
+msgid "Drag onto canvas"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal.html:101
+#: fam/templates/fam/modals/label_designer_modal_mm.html:99
+msgid "Save layout"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:68
+msgid "Label Size"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:71
+msgid "Width (mm)"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:75
+msgid "Height (mm)"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:80
+#: fam/templates/fam/modals/print_format_modal.html:104
+msgid "Orientation"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:82
+msgid "Portrait"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:83
+msgid "Landscape"
+msgstr ""
+
+#: fam/templates/fam/modals/label_designer_modal_mm.html:87
+msgid "Inspector"
+msgstr ""
+
+#: fam/templates/fam/modals/label_print_format_selector.html:4
+msgid "Print Labels"
+msgstr ""
+
+#: fam/templates/fam/modals/label_print_format_selector.html:15
+msgid "Format"
+msgstr ""
+
+#: fam/templates/fam/modals/label_print_format_selector.html:25
+msgid "Auto decide multi-label sheet"
+msgstr ""
+
+#: fam/templates/fam/modals/label_print_format_selector.html:29
+msgid "Force sheet (uncheck auto to enable)"
+msgstr ""
+
+#: fam/templates/fam/modals/label_print_format_selector.html:33
+msgid "Open PDF"
+msgstr ""
+
+#: fam/templates/fam/modals/layout_picker.html:43
+msgid "Use this layout"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:5
+msgid "Print Formats"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:25
+msgid "Page layout & size"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:37
+msgid "Select Page Layout"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:39
+msgid "➕ Add new…"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:53
+msgid "New format name"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:69
+msgid "Page layout"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:73
+#: fam/templates/fam/modals/qr_preview.html:61
+msgid "Layout"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:83
+msgid "Label W"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:86
+msgid "H"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:95
+msgid "Page Size"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:160
+msgid "Show footer"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:164
+msgid "Show grid"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:174
+msgid "Field Mapping"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:182
+msgid "Select the value"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:183
+msgid "Fixed Text --—>"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:195
+msgid "Fixed text…"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:201
+msgid "This layout has no text elements to map."
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:212
+msgid "Sheet Preview (PDF)"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:221
+msgid "Generate preview"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:222
+msgid "Generating…"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:226
+msgid "Click “Generate preview” to render the page."
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:240
+msgid "Use this format"
+msgstr ""
+
+#: fam/templates/fam/modals/print_format_modal.html:251
+msgid "Saving"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:3
+msgid "QR Label Preview"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:20
+msgid "QR Data"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:25
+msgid "Main Text (above QR)"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:30
+msgid "Code Text (below QR)"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:36
+msgid "Label Width (mm)"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:40
+msgid "Label Height (mm)"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:44
+msgid "DPI"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:51
+msgid "Bleed (mm)"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:55
+msgid "Logo"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:72
+msgid "Single Label Preset"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:86
+msgid "Open single-label PDF"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:91
+msgid "Sheet Preset"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:125
+msgid "Open sheet PDF"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_preview.html:135
+msgid "QR Label"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_tags_creation_form.html:3
+msgid "Tags Creation"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_tags_creation_form.html:12
+msgid "Prefijo"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_tags_creation_form.html:16
+msgid "Digits"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_tags_creation_form.html:20
+msgid "Quantity"
+msgstr ""
+
+#: fam/templates/fam/modals/qr_tags_creation_form.html:30
+msgid "Generate"
+msgstr ""
+
+#: fam/templates/fam/partials/fam_nav_pills.html:5
+#: fam/templates/fam/tabs/configuration_tab.html:98
+#: portal/templates/sidebar.html:45
+msgid "Assets"
+msgstr ""
+
+#: fam/templates/fam/partials/fam_nav_pills.html:10
+msgid "Transactions"
+msgstr ""
+
+#: fam/templates/fam/partials/fam_nav_pills.html:15
+msgid "QR Tags"
+msgstr ""
+
+#: fam/templates/fam/partials/header_kpis.html:7
+msgid "Total Assets"
+msgstr ""
+
+#: fam/templates/fam/partials/header_kpis.html:37
+msgid "Inconsistencies"
+msgstr ""
+
+#: fam/templates/fam/partials/header_kpis.html:52
+msgid "Compliance"
+msgstr ""
+
+#: fam/templates/fam/tabs/assets_tab.html:12
+#: fam/templates/fam/tabs/qr_tags_tab.html:12
+msgid "Search assets..."
+msgstr ""
+
+#: fam/templates/fam/tabs/assets_tab.html:63
+msgid "Loading Assets"
+msgstr ""
+
+#: fam/templates/fam/tabs/assets_tab.html:64
+msgid "Wait while we load your assets"
+msgstr ""
+
+#: fam/templates/fam/tabs/configuration_tab.html:99
+msgid "Asset Config"
+msgstr ""
+
+#: fam/templates/fam/tabs/qr_tags_tab.html:70
+msgid "Loading QR Code Tags"
+msgstr ""
+
+#: fam/templates/fam/tabs/qr_tags_tab.html:71
+msgid "QR Tags management."
+msgstr ""
+
+#: fam/templates/fam/tabs/transactions_tab.html:7
+msgid "Transactions Coming Soon"
+msgstr ""
+
+#: fam/templates/fam/tabs/transactions_tab.html:8
+msgid "Detailed transactions will be available in a future update."
+msgstr ""
+
+#: flows/templates/flows/flows.html:5
+msgid "Flow Managements"
+msgstr ""
+
+#: portal/templates/account/account_inactive.html:5
+#: portal/templates/account/account_inactive.html:8
+msgid "Account Inactive"
+msgstr ""
+
+#: portal/templates/account/account_inactive.html:10
+msgid "This account is inactive."
+msgstr ""
+
+#: portal/templates/account/email.html:6
+msgid "Account"
+msgstr ""
+
+#: portal/templates/account/email.html:9
+msgid "E-mail Addresses"
+msgstr ""
+
+#: portal/templates/account/email.html:12
+msgid "The following e-mail addresses are associated with your account:"
+msgstr ""
+
+#: portal/templates/account/email.html:26
+msgid "Verified"
+msgstr ""
+
+#: portal/templates/account/email.html:28
+msgid "Unverified"
+msgstr ""
+
+#: portal/templates/account/email.html:30
+msgid "Primary"
+msgstr ""
+
+#: portal/templates/account/email.html:36
+msgid "Make Primary"
+msgstr ""
+
+#: portal/templates/account/email.html:37
+msgid "Re-send Verification"
+msgstr ""
+
+#: portal/templates/account/email.html:38
+msgid "Remove"
+msgstr ""
+
+#: portal/templates/account/email.html:45
+msgid "Warning:"
+msgstr ""
+
+#: portal/templates/account/email.html:45
+msgid ""
+"You currently do not have any e-mail address set up. You should really add "
+"an e-mail address so you can receive notifications, reset your password, etc."
+msgstr ""
+
+#: portal/templates/account/email.html:50
+msgid "Add E-mail Address"
+msgstr ""
+
+#: portal/templates/account/email.html:55
+msgid "Add E-mail"
+msgstr ""
+
+#: portal/templates/account/email.html:65
+msgid "Do you really want to remove the selected e-mail address?"
+msgstr ""
+
+#: portal/templates/account/email_confirm.html:6
+#: portal/templates/account/email_confirm.html:10
+msgid "Confirm E-mail Address"
+msgstr ""
+
+#: portal/templates/account/email_confirm.html:16
+#, python-format
+msgid ""
+"Please confirm that <a href=\"mailto:%(email)s\">%(email)s</a> is an e-mail "
+"address for user %(user_display)s."
+msgstr ""
+
+#: portal/templates/account/email_confirm.html:27
+#, python-format
+msgid ""
+"This e-mail confirmation link expired or is invalid. Please <a "
+"href=\"%(email_url)s\">issue a new e-mail confirmation request</a>."
+msgstr ""
+
+#: portal/templates/account/login.html:20
+msgid "Sign In"
+msgstr ""
+
+#: portal/templates/account/login.html:21
+msgid "Enter your email address and password to access admin panel."
+msgstr ""
+
+#: portal/templates/account/login.html:31
+#: portal/templates/account/login2.html:4 portal/templates/pages/login-2.html:4
+#: portal/templates/pages/login.html:4
+msgid "Log In"
+msgstr ""
+
+#: portal/templates/account/login.html:40
+msgid "Don't have an account ?"
+msgstr ""
+
+#: portal/templates/account/login.html:40
+#: portal/templates/account/signup3.html:39
+msgid "Sign Up"
+msgstr ""
+
+#: portal/templates/account/logout.html:3
+#: portal/templates/account/logout.html:6
+#: portal/templates/account/logout.html:15
+#: portal/templates/account/logout_modal.html:4
+#: portal/templates/account/logout_modal.html:19
+msgid "Sign Out"
+msgstr ""
+
+#: portal/templates/account/logout.html:8
+#: portal/templates/account/logout_modal.html:10
+msgid "Are you sure you want to sign out?"
+msgstr ""
+
+#: portal/templates/account/password_change.html:6
+#: portal/templates/account/password_change.html:9
+#: portal/templates/account/password_change.html:14
+#: portal/templates/account/password_reset_from_key.html:4
+#: portal/templates/account/password_reset_from_key.html:29
+#: portal/templates/account/password_reset_from_key_done.html:4
+#: portal/templates/users/user_offcanvas.html:23
+msgid "Change Password"
+msgstr ""
+
+#: portal/templates/account/password_reset.html:5
+#: portal/templates/pages/recoverpw-2.html:4
+#: portal/templates/pages/recoverpw.html:4
+msgid "Recover Password"
+msgstr ""
+
+#: portal/templates/account/password_reset.html:27
+msgid "Reset Password"
+msgstr ""
+
+#: portal/templates/account/password_reset.html:28
+msgid ""
+"Enter your email address and we'll send you an email with instructions to "
+"reset your password."
+msgstr ""
+
+#: portal/templates/account/password_reset.html:39
+msgid "Reset My Password"
+msgstr ""
+
+#: portal/templates/account/password_reset_done.html:4
+msgid "Password Reset"
+msgstr ""
+
+#: portal/templates/account/password_reset_from_key.html:34
+#, python-format
+msgid ""
+"The password reset link was invalid, possibly because\n"
+"                            it has already been used. Please request a <a "
+"href=\"%(passwd_reset_url)s\">new password\n"
+"                                reset</a>."
+msgstr ""
+
+#: portal/templates/account/password_reset_from_key.html:43
+msgid "change password"
+msgstr ""
+
+#: portal/templates/account/password_reset_from_key.html:47
+#: portal/templates/account/password_reset_from_key_done.html:44
+msgid "Your password is now changed."
+msgstr ""
+
+#: portal/templates/account/password_set.html:6
+#: portal/templates/account/password_set.html:9
+#: portal/templates/account/password_set.html:14
+msgid "Set Password"
+msgstr ""
+
+#: portal/templates/account/signup3.html:4 portal/templates/landing.html:43
+#: portal/templates/pages/register-2.html:4
+#: portal/templates/pages/register.html:4
+msgid "Register"
+msgstr "Regístrate"
+
+#: portal/templates/account/signup_closed.html:5
+#: portal/templates/account/signup_closed.html:8
+msgid "Sign Up Closed"
+msgstr ""
+
+#: portal/templates/account/signup_closed.html:10
+msgid "We are sorry, but the sign up is currently closed."
+msgstr ""
+
+#: portal/templates/account/verification_sent.html:5
+#: portal/templates/account/verification_sent.html:8
+#: portal/templates/account/verified_email_required.html:5
+#: portal/templates/account/verified_email_required.html:8
+msgid "Verify Your E-mail Address"
+msgstr ""
+
+#: portal/templates/account/verification_sent.html:10
+msgid ""
+"We have sent an e-mail to you for verification. Follow the link provided to "
+"finalize the signup process. Please contact us if you do not receive it "
+"within a few minutes."
+msgstr ""
+
+#: portal/templates/account/verified_email_required.html:12
+msgid ""
+"This part of the site requires us to verify that\n"
+"you are who you claim to be. For this purpose, we require that you\n"
+"verify ownership of your e-mail address. "
+msgstr ""
+
+#: portal/templates/account/verified_email_required.html:16
+msgid ""
+"We have sent an e-mail to you for\n"
+"verification. Please click on the link inside this e-mail. Please\n"
+"contact us if you do not receive it within a few minutes."
+msgstr ""
+
+#: portal/templates/account/verified_email_required.html:20
+#, python-format
+msgid ""
+"<strong>Note:</strong> you can still <a href=\"%(email_url)s\">change your e-"
+"mail address</a>."
+msgstr ""
+
+#: portal/templates/assets/control_panel.html:4
+msgid "Widgets"
+msgstr ""
+
+#: portal/templates/assets/list.html:4
+msgid "Asset Record List"
+msgstr ""
+
+#: portal/templates/components/ai_left_offcanvas.html:13
+msgid "Desktop Agent"
+msgstr ""
+
+#: portal/templates/components/ai_left_offcanvas.html:29
+#: portal/templates/portal/admin_console.html:140
+#: portal/templates/portal/admin_console.html:202
+#: portal/templates/portal/partials/tenant_list.html:10
+msgid "Inactive"
+msgstr ""
+
+#: portal/templates/components/ai_left_offcanvas.html:70
+msgid "Type a message…"
+msgstr ""
+
+#: portal/templates/components/ai_left_offcanvas.html:71
+msgid "Send"
+msgstr ""
+
+#: portal/templates/landing.html:7
+msgid "Moio.ai - CRM Inteligente para Pymes"
+msgstr ""
+
+#: portal/templates/landing.html:32
+msgid "Home"
+msgstr "Inicio"
+
+#: portal/templates/landing.html:33
+msgid "Features"
+msgstr "Funcionalidades"
+
+#: portal/templates/landing.html:34 portal/templates/pages/pricing.html:4
+msgid "Pricing"
+msgstr "Precios"
+
+#: portal/templates/landing.html:35
+msgid "FAQs"
+msgstr "Preguntas"
+
+#: portal/templates/landing.html:36
+msgid "Contact"
+msgstr "Contacto"
+
+#: portal/templates/landing.html:41
+msgid "Ingresar"
+msgstr ""
+
+#: portal/templates/landing.html:44
+msgid "Log in"
+msgstr ""
+
+#: portal/templates/pages/404-alt.html:4 portal/templates/pages/404.html:4
+msgid "Error 404"
+msgstr ""
+
+#: portal/templates/pages/500.html:4
+msgid "Error 500"
+msgstr ""
+
+#: portal/templates/pages/confirm-mail-2.html:4
+#: portal/templates/pages/confirm-mail.html:4
+msgid "Confirm Email"
+msgstr ""
+
+#: portal/templates/pages/faq.html:4
+msgid "FAQ"
+msgstr "Freguntas"
+
+#: portal/templates/pages/invoice.html:4
+msgid "Invoice"
+msgstr ""
+
+#: portal/templates/pages/lock-screen-2.html:4
+#: portal/templates/pages/lock-screen.html:4
+msgid "Lock Screen"
+msgstr ""
+
+#: portal/templates/pages/logout-2.html:4
+msgid "Log Out"
+msgstr ""
+
+#: portal/templates/pages/logout.html:4
+#: portal/templates/users/user_offcanvas.html:26
+msgid "Logout"
+msgstr ""
+
+#: portal/templates/pages/maintenance.html:4
+msgid "Maintenance"
+msgstr ""
+
+#: portal/templates/pages/preloader.html:4
+msgid "Preloader"
+msgstr ""
+
+#: portal/templates/pages/profile-2.html:4
+#: portal/templates/pages/profile.html:4
+msgid "Profile"
+msgstr ""
+
+#: portal/templates/pages/timeline.html:4
+msgid "Timeline"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:8
+msgid "SaaS Management Console"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:9
+msgid "Manage tenants, users, and system configurations"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:17
+msgid "Total Tenants"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:32
+msgid "Active Tenants"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:47
+msgid "Total Users"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:62
+msgid "System Health"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:82
+msgid "Tenants"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:87
+#: portal/templates/portal/admin_console.html:126
+msgid "Users"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:92
+msgid "System Config"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:108
+msgid "Tenant Management"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:115
+msgid "Add Tenant"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:124
+#: portal/templates/portal/partials/tenant_form.html:22
+msgid "Domain"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:127
+msgid "Created"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:128
+#: portal/templates/portal/admin_console.html:189
+msgid "Actions"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:156
+#: portal/templates/portal/partials/tenant_list.html:26
+msgid "Are you sure you want to toggle this tenant status?"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:177
+msgid "User Management"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:186
+msgid "Tenant"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:188
+msgid "Last Login"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:227
+msgid "System Configuration"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:235
+msgid "Site Name"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:243
+msgid "Base URL"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:249
+msgid "WhatsApp Webhook Token"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:253
+msgid "Facebook System Token"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:258
+msgid "Save Configuration"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:270
+msgid "System Status"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:274
+msgid "Database"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:275
+msgid "Connected"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:278
+msgid "Cache"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:282
+msgid "Celery Workers"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:283
+msgid "Unknown"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:291
+msgid "Recent Activity"
+msgstr ""
+
+#: portal/templates/portal/admin_console.html:296
+msgid "Activity monitoring coming soon"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:5
+msgid "Edit Tenant"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:7
+msgid "Add New Tenant"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:18
+msgid "Tenant Name"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:29
+msgid "Enabled"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:38
+msgid "Update Tenant"
+msgstr ""
+
+#: portal/templates/portal/partials/tenant_form.html:40
+msgid "Create Tenant"
+msgstr ""
+
+#: portal/templates/settings/integrations/partials/waba_registration_results.html:4
+msgid "Webhook Subscription"
+msgstr ""
+
+#: portal/templates/settings/integrations/partials/waba_registration_results.html:14
+#, fuzzy
+#| msgid "Register"
+msgid "Registry Status"
+msgstr "Regístrate"
+
+#: portal/templates/settings/integrations/partials/waba_registration_results.html:32
+msgid "Phone Status:"
+msgstr ""
+
+#: portal/templates/settings/integrations/waba_success.html:12
+msgid "Whatsapp Configuration"
+msgstr ""
+
+#: portal/templates/settings/integrations/waba_success.html:13
+msgid "Configurando la Conexión a Whatsapp Business Cloud"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:10
+msgid "Whatsapp Integration"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:16
+msgid "URL"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:24
+msgid "Phone Id"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:32
+msgid "Account Id"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:40
+msgid "Whatsapp Name"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:48
+msgid "Catalog ID"
+msgstr ""
+
+#: portal/templates/settings/integrations/whatsapp_business_configuration.html:56
+msgid "Token"
+msgstr ""
+
+#: portal/templates/sidebar.html:40
+msgid "Calendar"
+msgstr ""
+
+#: portal/templates/sidebar.html:41
+#, fuzzy
+#| msgid "Communications Hub"
+msgid "Communications"
+msgstr "Centro de Comunicaciones"
+
+#: portal/templates/sidebar.html:44
+msgid "Flows"
+msgstr ""
+
+#: portal/templates/sidebar.html:47
+msgid "Admin Console"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:5
+msgid "User Profile"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:17
+#: portal/templates/users/user_offcanvas.html:37
+msgid "My Profile"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:20
+msgid "Account Settings"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:45
+msgid "Change Photo"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:50
+msgid "First Name"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:54
+msgid "Last Name"
+msgstr ""
+
+#: portal/templates/users/user_offcanvas.html:70
+msgid "Save Changes"
+msgstr ""
+
+#: recruiter/forms.py:131
+msgid "Buscar"
+msgstr ""
+
+#: recruiter/templates/recruiter/admin/import_data.html:4
+msgid "Data Importer"
+msgstr ""
+
+#~ msgid "Schedule Configuration"
+#~ msgstr "Configurar Calendario"
+
+#~ msgid "Search"
+#~ msgstr "Buscar"
+
+#: portal/templates/400.html
+msgid "Bad Request"
+msgstr "Solicitud Incorrecta"
+
+#: portal/templates/400.html
+msgid "The request could not be understood by the server. Please check your input and try again."
+msgstr "El servidor no pudo procesar la solicitud. Por favor revisa los datos ingresados e intenta nuevamente."
+
+#: portal/templates/403.html
+msgid "Access Denied"
+msgstr "Acceso Denegado"
+
+#: portal/templates/403.html
+msgid "You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+msgstr "No tienes permiso para acceder a esta pagina. Por favor contacta al administrador si crees que esto es un error."
+
+#: portal/templates/404.html
+msgid "Page Not Found"
+msgstr "Pagina No Encontrada"
+
+#: portal/templates/404.html
+msgid "The page you're looking for doesn't exist or has been moved. Please check the URL or navigate back home."
+msgstr "La pagina que buscas no existe o ha sido movida. Por favor verifica la URL o regresa al inicio."
+
+#: portal/templates/400.html portal/templates/403.html portal/templates/404.html
+msgid "Go Back"
+msgstr "Volver"
+
+#: portal/templates/400.html portal/templates/403.html portal/templates/404.html
+msgid "Go Home"
+msgstr "Ir al Inicio"

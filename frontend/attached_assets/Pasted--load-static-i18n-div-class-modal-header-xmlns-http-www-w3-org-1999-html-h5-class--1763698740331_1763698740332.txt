@@ -1,0 +1,67 @@
+{% load static i18n %}
+<div class="modal-header" xmlns="http://www.w3.org/1999/html">
+    <h5 class="modal-title">
+      <i class="bi bi-plus-circle me-2"></i>{{ campaign.name }} - {% trans 'Configuration' %} {{ step }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+<div class="modal-body">
+
+    {% if templates %}
+    <div class="d-flex mb-3 justify-content-between">
+        <div class="list-group flex-grow-1" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+            <div class="list-group-item mb-3">
+                <div class="d-flex justify-content-between">
+                    <div class="fw-semibold">{% trans 'Select a template to see preview' %}</div>
+                    <a href="https://business.facebook.com/latest/whatsapp_manager/message_templates?business_id={{moio_fb_id}}&tab=message-templates&nav_ref=whatsapp_manager&asset_id={{waba_id}}" target="_blank">Administrar Templates</a>
+                </div>
+
+            </div>
+        {% for template in templates %}
+            <div class="list-group-item list-group-item-action p-1 mb-1" data-bs-toggle="list"
+                            hx-get="{% url 'campaigns:whatsapp_template_details' template.id %}"
+                            hx-vals='{"campaign_pk":"{{ campaign.pk }}"}'
+                            hx-target="#template-preview"
+                            hx-swap="innerHTML" style="cursor: pointer;">
+
+                    <div class="rounded-3 bg-moio-white px-3 py-2">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="card-title mb-0">{{ template.name }}</h6>
+                        <span class="badge bg-success">{{ template.status }}</span>
+                      </div>
+
+                      <div class="text-muted small mb-2">
+                        <i class="bi bi-translate me-1"></i>{{ template.language }}
+                        <span class="ms-2">
+                          <i class="bi bi-tag me-1"></i>{{ template.category }}
+                        </span>
+                      </div>
+
+                        {% if template.requirements %}
+                        <code>{{ template.requirements }}</code>
+                    {% endif %}
+                    </div>
+
+            </div>
+        {% endfor %}
+        </div>
+
+
+    <div id="template-preview" style="min-width: 40%;">
+
+    </div>
+
+    </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No WhatsApp templates available. Make sure WhatsApp integration is enabled and templates are approved.
+        </div>
+    {% endif %}
+
+</div>
+<div class="modal-footer" id="whatsapp-template-selector-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Cancel' %}</button>
+        <button type="button" class="btn btn-warning" disabled data-bs-dismiss="modal">{% trans 'Test' %}</button>
+        <button type="button" class="btn btn-primary" disabled> {% trans 'Confirm' %} </button>
+</div>

@@ -1,0 +1,138 @@
+import json
+
+from chatbot.config import get_whatsappclient_configuration
+from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient
+from chatbot.lib.whatsapp_client_api import compose_media_template_message, get_template, template_requirements, \
+    build_var_list
+from chatbot.models.wa_templates import WaTemplate, WaTemplateComponent
+
+
+def list_templates(wa):
+    template_package = wa.download_message_templates()
+    for temp in template_package["data"]:
+        for key in temp:
+            print(key, temp[key])
+        input("mostrar siguiente")
+
+
+def import_templates(wa):
+
+    template_package = wa.download_message_templates()
+    print(template_package)
+    #template_list = template_package["data"]
+    for temp in template_package:
+
+        try:
+            new_template = WaTemplate.objects.get(template_id=temp["id"])
+            new_template.template_id = temp["id"]
+            new_template.name = temp["name"]
+            new_template.components = temp["components"]
+            new_template.status = temp["status"]
+            new_template.language = temp["language"]
+            new_template.category = temp["category"]
+
+            new_template.save
+
+        except WaTemplate.DoesNotExist:
+            print(temp["name"])
+            new_template = WaTemplate(whatsapp_business_account_id=WHATSAPP_BUSINESS_ACCOUNT_ID,
+                                      template_id=temp["id"],
+                                      name=temp["name"],
+                                      components=temp["components"],
+                                      status=temp["status"],
+                                      language=temp["language"],
+                                      category=temp["category"])
+
+            new_template.save()
+
+        for component in new_template.components:
+            try:
+                new_component = WaTemplateComponent.objects.get(component_type=component["type"], template=new_template)
+
+            except WaTemplateComponent.DoesNotExist:
+                new_component = WaTemplateComponent(
+                    template=new_template,
+                    component_type=component["type"],
+                    format=component.get("format", ""),
+                    example=component.get("example", ""),
+                    text=component.get("text", ""),
+                    buttons=component.get("buttons", "")
+                )
+                new_component.save()
+
+
+def component_analyzer():
+    templates = WaTemplate.objects.all()
+
+    for temp in templates:
+        components = temp.components
+        for section in components:
+            print(section["type"])
+            print(section)
+
+        input("ver siguiente")
+try:
+
+    configuration = get_whatsappclient_configuration()
+    WHATSAPP_URL = configuration.whatsapp_url
+    WHATSAPP_TOKEN = configuration.whatsapp_token
+    WHATSAPP_BUSINESS_ACCOUNT_ID = configuration.whatsapp_business_account_id
+    WHATSAPP_PHONE_ID = configuration.whatsapp_phone_id
+
+except Exception as e:
+#    raise TypeError("Whatsapp configuration not available")
+    print(e)
+
+
+    wapper = WhatsappBusinessClient(whatsapp_business_account_id=WHATSAPP_BUSINESS_ACCOUNT_ID, whatsapp_url=WHATSAPP_URL, whatsapp_token=WHATSAPP_TOKEN, whatsapp_phone_id=WHATSAPP_PHONE_ID)
+
+
+    template_seleccionado = ""
+    template_list = wapper.download_message_templates()
+
+    while True:
+        print(" === Que quieres hacer ? === ")
+        print()
+        print("1- Listar Templates")
+        print("2- Preparar usando template")
+        print("3- Enviar Mensaje")
+        print("4- Descargar Templates")
+        print("5- Salir")
+        print(f"Template seleccionado: {template_seleccionado}")
+
+        option = input("Selecciona la opcion (1-4)")
+
+        match option.upper():
+            case "1":
+
+                for temp in template_list:
+
+                    print(temp["name"], temp["language"], temp["status"], temp["category"], temp["id"])
+
+                k = input("Press key to continue")
+
+            case "2":
+                template_seleccionado = input("Cual Template quieres usar: ")
+                wa_target_template = get_template(template_list, template_seleccionado)
+
+
+                print(json.dumps(wa_target_template, indent=4))
+                reqs = template_requirements(wa_target_template)
+                print(reqs)
+
+                var_list = build_var_list(reqs)
+                print()
+
+            case "3":
+
+                msg = compose_media_template_message(wa_target_template, var_list)
+                wapper.send_message(msg)
+
+            case "4":
+                import_templates(wapper)
+
+            case "5":
+                break
+
+            case _:
+                print("opcion no valida")

@@ -1,0 +1,180 @@
+{% load my_filters %}
+{% load static i18n %}
+    <div class="d-flex justify-content-evenly align-items-start mb-4">
+        {% if enable_test %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title">{% trans 'Requirements for: ' %} {{target_template.name}}</h6>
+                </div>
+
+                <div class="card-body">
+                    <small class="text-body pt-0 text-muted">Category: {{target_template.category}} | Language: {{target_template.language}}</small>
+                    <p class="small text-muted">Template: {{target_template.id}}</p>
+                    <form
+                          hx-post='{% url "chatbot:wa_template_details" target_template.id %}'
+                          hx-trigger="submit"
+                          hx-vals='{"action":"submit_template_content"}'
+                          hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                          hx-confirm="Enviar el mensaje a {{contact}}?"
+                          hx-disabled-elt="this"
+                          enctype="multipart/form-data" class="needs-validation" novalidate>
+
+                        {% if contacts.count > 0 %}
+                            <h6 for="whatsapp_number" class="form-label mt-3">Destinatario</h6>
+                             <select name="whatsapp_number" class="form-select" id="whatsapp_number">
+                                 <option value="">Elige un Contacto</option>
+                                {% for contact in contacts %}
+                                    <option value="{{ contact.phone }}">{{ contact }}</option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            <label for="whatsapp_number">WhatsApp Number:</label>
+                            <input type="text" id="whatsapp_number" class="form-control" name="whatsapp_number" value="{{ contact.phone }}" placeholder="Enter WhatsApp number">
+                        {% endif %}
+
+                            {% for req in requirements %}
+                                {% if req.type == "header" and req.parameters %}
+                                    <h6 class="text-dark mt-2">Header</h6>
+                                    {%for param_head in req.parameters %}
+                                        {% if param_head.type  == "image" %}
+                                            <label for="{{ param_head.image.link |cut:'{'|cut:'}' }}" class="form-label">{{ param_head.image.link |cut:'{'|cut:'}' }}</label>
+                                            <input type="url" class="form-control" name="{{ param_head.image.link |cut:'{'|cut:'}' }}" id="{{ param_head.image.link |cut:'{'|cut:'}' }}">
+                                        {% elif param_head.type == "document" %}
+                                            <label for="{{ param_head.document.link |cut:'{'|cut:'}' }}" class="form-label">{{ param_head.document.link |cut:'{'|cut:'}' }}</label>
+                                            <input type="url" class="form-control" name="{{ param_head.document.link |cut:'{'|cut:'}' }}" id="{{ param_head.document.link |cut:'{'|cut:'}' }}">
+                                        {% elif param_head.type == "text" %}
+                                            <label for="{{ param_head.text |cut:'{'|cut:'}' }}" class="form-label">{{ param_head.text|cut:'{'|cut:'}' }}</label>
+                                            <input type="url" class="form-control" name="{{ param_head.text|cut:'{'|cut:'}' }}" id="{{ param_head.text |cut:'{'|cut:'}' }}">
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% endif %}
+                            {% endfor %}
+
+                             {% for req in requirements %}
+                                {% if req.type == "body" %}
+                                    <h6 class="text-dark mt-2">Body</h6>
+                                    {%for param_body in req.parameters %}
+                                        {% if param_body.type  == "text" %}
+                                            <label for="{{ param_body.text |cut:'{'|cut:'}' }}" class="form-label">{{ param_body.text|cut:'{'|cut:'}' }}</label>
+                                            {% if param_body.name %}
+                                                <input type="url" class="form-control" name="{{ param_body.name }}" id="{{ param_body.text |cut:'{'|cut:'}' }}">
+                                                {% else %}
+                                                <input type="url" class="form-control" name="{{ param_body.text|cut:'{'|cut:'}' }}" id="{{ param_body.text |cut:'{'|cut:'}' }}">
+                                                {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+
+                             {% for req in requirements %}
+                                 {% if req.type == "footer" %}
+                                     <h6 class="text-dark mt-2">Footer</h6>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% for req in requirements %}
+                                {% if req.type == "button" %}
+                                    <h6 class="text-dark mt-2">Buttons</h6>
+                                    {% if req.sub_type == "url" %}
+                                        {% for button_parameters in req.parameters %}
+                                            <label for="{{ button_parameters.text |cut:'{'|cut:'}' }}" class="form-label">{{ button_parameters.text |cut:'{'|cut:'}' }}</label>
+                                            <input name="{{ button_parameters.text |cut:'{'|cut:'}' }}" id="{{ button_parameters.text |cut:'{'|cut:'}' }}" class="form-control" >
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+
+                        <div class="btn-group-justified text-end">
+                            <button type="submit" class="btn btn-success mt-lg-1">Enviar</button>
+                        </div>
+                    </form>
+                </div> <!-- end card-->
+        </div><!-- end col  -->
+        {% endif %}
+        {% if enable_preview %}
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">{% trans 'Preview: ' %} {{target_template.name}} </div>
+                </div>
+                <div class="card-body ">
+                        {% for component in target_template.components %}
+                            {% if  component.type == 'HEADER' %}
+                            <p class="card-text">
+                                    {% if  component.format == 'IMAGE' %}
+                                        <img class="img-fluid" src="{{ component.example.header_handle.0 }}"  alt="Card image cap">
+                                    {% elif component.format == 'DOCUMENT' %}
+                                        <a href="{{ component.example.header_handle.0 }}"> </a>
+                                    {% elif component.format == 'TEXT' %}
+                                        <b>{{component.text}} </b>
+                                    {% endif %}
+                            </p>
+                            {% elif component.type == 'BODY' %}
+                            <div class="card-text">
+                                {% if component.example %}
+                                    {% if component.example.body_text_named_params %}
+                                        <p>{{component.text|replace_placeholders:component.example.body_text_named_params}} </p>
+                                    {% else %}
+                                        <p>{{component.text|replace_placeholders:component.example.body_text.0}} </p>
+                                    {% endif %}
+                                {% else %}
+                                    <p>{{component.text}} </p>
+                                {% endif %}
+
+                            </div>
+                            {% elif component.type == 'FOOTER' %}
+                            <p class="card-text">
+                                    <i> {{component.text}} </i>
+                            </p>
+                            {% elif component.type == 'BUTTONS' %}
+                            <div class="card-text">
+                                <div class="btn-group-justified text-center">
+                                    <p> {{component.text}} </p>
+                                    {% for button in component.buttons %}
+                                        <div class="col-auto">
+                                            <button type="submit" disabled class="btn btn-outline-success mb-2">{{button.text}}</button>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+
+
+            </div> <!-- end card-->
+            </div><!-- end col  -->
+        {% endif %}
+    </div>
+
+<div class="modal-footer" id="whatsapp-template-selector-footer" hx-swap-oob="true">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Cancel' %}</button>
+
+        {% if enable_preview %}
+        <button type="button" class="btn btn-warning"
+            hx-get="{% url 'campaigns:whatsapp_template_details' target_template.id %}"
+            hx-vals='{"campaign_pk":"{{ campaign.pk }}", "enable_test":"True", "enable_preview":"False"}'
+            hx-target="#template-preview"
+            hx-swap="innerHTML">
+            {% trans 'Test' %}
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" class="htmx-indicator">
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-warning"
+            hx-get="{% url 'campaigns:whatsapp_template_details' target_template.id %}"
+            hx-vals='{"campaign_pk":"{{ campaign.pk }}", "enable_test":"False", "enable_preview":"True"}'
+            hx-target="#template-preview"
+            hx-swap="innerHTML">
+            {% trans 'Preview' %}
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" class="htmx-indicator">
+        </button>
+        {% endif %}
+
+      <button type="button" class="btn btn-primary"
+            hx-post="{% url 'campaigns:campaign-configure' campaign.pk %}"
+            hx-vals='{"campaign_pk":"{{ campaign.pk }}","action":"set_whatsapp_template", "whatsapp_template_id":"{{ target_template.id }}"}'
+            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+            hx-target="#dialog"
+            hx-swap="innerHTML">
+              {% trans 'Confirm' %}
+          <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" class="htmx-indicator">
+      </button>
+</div>

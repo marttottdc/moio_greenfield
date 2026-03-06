@@ -1,0 +1,238 @@
+Campaign Flow V2 FSM - Frontend Integration Guide
+Overview
+The Campaign Flow V2 uses a Finite State Machine (FSM) to manage campaign lifecycles with step-gated transitions and real-time monitoring via Server-Sent Events (SSE).
+
+State Machine Flow
+DRAFT → SELECT_TEMPLATE → IMPORT_DATA → CONFIGURE_MAPPING → SET_AUDIENCE → READY → SCHEDULED → ACTIVE → ENDED → ARCHIVED
+                                                                            ↓
+                                                                      (launch_now)
+                                                                            ↓
+                                                                         ACTIVE
+
+Rollback paths: From READY or SCHEDULED, campaigns can roll back to SET_AUDIENCE.
+
+API Base URL
+/api/campaigns/
+
+Core Endpoints
+1. Get Flow State
+Retrieve current campaign state with allowed actions.
+
+GET /api/campaigns/{campaign_id}/flow-state/
+
+Response:
+
+{
+  "id": "uuid",
+  "name": "My Campaign",
+  "channel": "whatsapp",
+  "kind": "express",
+  "status": "draft",
+  "current_step": "draft",
+  "configuration_state": {
+    "has_template": false,
+    "has_data": false,
+    "has_mapping": false,
+    "has_audience": false,
+    "has_schedule": false,
+    "audience_size": 0
+  },
+  "allowed_actions": ["select_template", "import_data", "set_audience"],
+  "missing_requirements": ["has_template", "has_data", "has_mapping", "has_audience"],
+  "requirements": {
+    "steps": ["select_template", "import_data", "configure_mapping", "set_audience"],
+    "optional_steps": ["schedule"],
+    "required_for_ready": ["has_template", "has_data", "has_mapping", "has_audience"],
+    "schedule_required": false
+  }
+}
+
+2. Configuration Transitions
+Select Template
+POST /api/campaigns/{campaign_id}/transitions/select-template/
+Content-Type: application/json
+{
+  "template_id": "template_123"
+}
+
+Import Data
+POST /api/campaigns/{campaign_id}/transitions/import-data/
+Content-Type: application/json
+{
+  "staging_id": "uuid",
+  "headers": ["phone", "name", "email"],
+  "row_count": 500
+}
+
+Configure Mapping
+POST /api/campaigns/{campaign_id}/transitions/configure-mapping/
+Content-Type: application/json
+{
+  "mapping": [
+    {"source": "phone", "target": "phone_number"},
+    {"source": "name", "target": "contact_name"}
+  ],
+  "contact_name_field": "name"
+}
+
+Set Audience
+POST /api/campaigns/{campaign_id}/transitions/set-audience/
+Content-Type: application/json
+{
+  "audience_id": "uuid"
+}
+
+3. Lifecycle Transitions
+Mark Ready (Validate & Lock Configuration)
+POST /api/campaigns/{campaign_id}/transitions/mark-ready/
+
+Validation: All required_for_ready fields must be satisfied.
+
+Set Schedule
+POST /api/campaigns/{campaign_id}/transitions/set-schedule/
+Content-Type: application/json
+{
+  "schedule_date": "2024-01-15T10:00:00Z"
+}
+
+Schedule Launch (Confirm Schedule)
+POST /api/campaigns/{campaign_id}/transitions/schedule-launch/
+
+Prerequisite: Schedule must be set first.
+
+Launch Now (Immediate Execution)
+POST /api/campaigns/{campaign_id}/transitions/launch-now/
+
+Validation: Audience size must be > 0.
+
+Cancel Schedule
+POST /api/campaigns/{campaign_id}/transitions/cancel-schedule/
+
+Rollback (Return to Configuration)
+POST /api/campaigns/{campaign_id}/transitions/rollback/
+
+Available from: READY or SCHEDULED states.
+
+Complete Campaign
+POST /api/campaigns/{campaign_id}/transitions/complete/
+Content-Type: application/json
+{
+  "reason": "success"  // Options: success, cancelled, exhausted
+}
+
+Cancel Active Campaign
+POST /api/campaigns/{campaign_id}/transitions/cancel/
+
+Archive
+POST /api/campaigns/{campaign_id}/transitions/archive/
+
+Standard Response Format
+Success:
+
+{
+  "success": true,
+  "message": "Template xxx selected",
+  "campaign": { /* Full CampaignFlowSerializer data */ }
+}
+
+Error:
+
+{
+  "success": false,
+  "error": "Missing requirements: has_template, has_audience"
+}
+
+SSE Live Monitoring
+Connect to Stream
+GET /api/campaigns/stream/?campaign_id={campaign_id}
+Accept: text/event-stream
+
+Omit campaign_id to monitor all active campaigns.
+
+JavaScript Example
+const eventSource = new EventSource('/api/campaigns/stream/?campaign_id=xxx', {
+  withCredentials: true
+});
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  switch (data.event) {
+    case 'stats':
+      updateProgressUI(data);
+      break;
+    case 'campaign_scheduled':
+      showScheduledNotification(data);
+      break;
+    case 'campaign_launched':
+      showLaunchedNotification(data);
+      break;
+    case 'campaign_completed':
+      handleCompletion(data);
+      break;
+    case 'error':
+      handleError(data.message);
+      break;
+  }
+};
+// Handle heartbeats (every ~30 seconds)
+eventSource.onerror = (err) => {
+  console.log('Connection error, will auto-reconnect');
+};
+
+SSE Event Types
+Event	Description	Data Fields
+stats	Progress update	total, pending, sent, delivered, failed, skipped, progress_percent, success_rate
+campaign_scheduled	Campaign was scheduled	schedule_date, status
+campaign_launched	Campaign started	status
+campaign_completed	Campaign finished	reason, stats
+message_sent	Individual message sent	contact_id, message_id
+message_delivered	Message delivered	contact_id, message_id
+message_failed	Message failed	contact_id, error
+error	Stream error	message
+UI State Management
+Recommended Approach
+Fetch flow state on component mount
+Use allowed_actions to show/hide action buttons
+Use missing_requirements to show progress checklist
+Use configuration_state for step indicators
+Connect SSE when campaign is ACTIVE
+Poll flow state every 5-10s as backup (optional)
+Example React Hook
+function useCampaignFlow(campaignId) {
+  const [flowState, setFlowState] = useState(null);
+  
+  const fetchFlowState = async () => {
+    const res = await fetch(`/api/campaigns/${campaignId}/flow-state/`);
+    setFlowState(await res.json());
+  };
+  
+  const executeTransition = async (action, payload = {}) => {
+    const res = await fetch(
+      `/api/campaigns/${campaignId}/transitions/${action}/`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    const data = await res.json();
+    if (data.success) {
+      setFlowState(data.campaign);
+    }
+    return data;
+  };
+  
+  const canDo = (action) => flowState?.allowed_actions?.includes(action);
+  
+  return { flowState, fetchFlowState, executeTransition, canDo };
+}
+
+Channel/Kind Requirements Matrix
+Channel	Kind	Required Steps	Schedule Required
+WhatsApp	express	template, data, mapping, audience	No
+WhatsApp	drip	template, data, mapping, audience	Yes
+Email	express	template, data, mapping, audience	No
+SMS	express	template, data, mapping, audience	No
+Telegram	express	template, data, mapping, audience	No
+Error Handling Best Practices
+Always check success field in responses
+Display error messages to users with context
+Re-fetch flow state after any failed transition
+Handle SSE disconnects gracefully with reconnection logic
+Validate client-side using allowed_actions before API calls

@@ -1,0 +1,46 @@
+"hints": {
+                "description": "Routes execution to different paths based on multiple rules. Evaluates rules in order and routes to the first matching branch.",
+                "example_config": {
+                    "rules": [
+                        {
+                            "name": "high_priority",
+                            "expr": "priority == 'high'"
+                        },
+                        {
+                            "name": "medium_priority",
+                            "expr": "priority == 'medium'"
+                        },
+                        {
+                            "name": "low_priority",
+                            "expr": "priority == 'low'"
+                        }
+                    ],
+                    "else": true
+                },
+                "use_cases": [
+                    "Route tickets based on priority level",
+                    "Direct leads to different sales reps based on territory",
+                    "Send different email templates based on customer segment",
+                    "Handle multiple outcomes from a single decision point"
+                ],
+                "expression_examples": [
+                    {
+                        "expr": "status == 'active'",
+                        "description": "Check if status equals a value"
+                    },
+                    {
+                        "expr": "amount > 1000",
+                        "description": "Compare numeric values"
+                    },
+                    {
+                        "expr": "'urgent' in tags",
+                        "description": "Check if item exists in list"
+                    },
+                    {
+                        "expr": "customer.tier == 'premium'",
+                        "description": "Access nested fields"
+                    }
+                ],
+                "tips": "Rules are evaluated top-to-bottom. The first matching rule wins. Enable 'else' for a fallback when no rules match."
+            }
+        },

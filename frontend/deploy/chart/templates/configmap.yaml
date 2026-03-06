@@ -1,0 +1,19 @@
+{{- if or .Values.env.config .Values.configFiles }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "moio-frontend.fullname" . }}-config
+  labels:
+    app.kubernetes.io/name: {{ include "moio-frontend.name" . }}
+    helm.sh/chart: {{ include "moio-frontend.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  {{- range $key, $value := .Values.env.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- range $key, $value := .Values.configFiles }}
+  {{ $key }}: |-
+{{ $value | nindent 4 }}
+  {{- end }}
+{{- end }}

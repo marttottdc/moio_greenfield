@@ -1,0 +1,130 @@
+Flow Triggers - Frontend Developer Guide
+Conceptual Overview
+Flows can be automatically executed by two types of triggers:
+
+Signal Triggers - Execute flows when Django model events occur (e.g., contact created, ticket updated). They hook into the application's data layer and react to real-time changes.
+
+Scheduled Triggers - Execute flows at defined times using cron expressions, intervals, or one-off dates. Managed via Celery Beat.
+
+Signal Triggers
+Lifecycle
+User configures a trigger for a model (e.g., crm.contact) and signal type (e.g., post_save)
+When that model event occurs, the system evaluates conditions (only_on_create, watch_fields, field_conditions)
+If conditions pass, the flow executes with a payload containing current instance data, previous values, and changed fields
+API Endpoints
+Method	Endpoint	Description
+GET	/api/v1/flows/signal-triggers/available-models/	List models & signal types
+GET	/api/v1/flows/{flow_id}/signal-triggers/	List triggers for a flow
+POST	/api/v1/flows/{flow_id}/signal-triggers/	Create trigger
+GET	/api/v1/flows/{flow_id}/signal-triggers/{id}/	Get trigger details
+PUT	/api/v1/flows/{flow_id}/signal-triggers/{id}/	Update trigger
+DELETE	/api/v1/flows/{flow_id}/signal-triggers/{id}/	Delete trigger
+POST	/api/v1/flows/{flow_id}/signal-triggers/{id}/toggle/	Toggle active state
+Available Models Response
+{
+  models: Array<{
+    model_path: string;      // "crm.contact"
+    model_label: string;     // "crm.Contact"
+    name: string;            // "contact"
+    app_label: string;       // "crm"
+    fields: Array<{
+      name: string;
+      type: string;          // "CharField", "ForeignKey", etc.
+      is_relation: boolean;
+    }>;
+  }>;
+  signal_types: Array<{
+    value: string;           // "post_save", "pre_save", etc.
+    label: string;           // "After Save"
+  }>;
+}
+
+Signal Trigger Schema
+interface FlowSignalTrigger {
+  id: string;
+  flow_id: string;
+  tenant_id: string | null;
+  model_path: string;           // "crm.contact"
+  signal_type: string;          // "post_save" | "pre_save" | "post_delete" | "pre_delete" | "m2m_changed"
+  only_on_create: boolean;      // Only fire for new records
+  only_on_update: boolean;      // Only fire for updates
+  watch_fields: string[];       // ["status", "email"] - only trigger if these change
+  field_conditions: Record<string, any>;  // {"status": "active"} - must match
+  is_active: boolean;
+  name: string;
+  description: string;
+  execution_count: number;
+  last_triggered_at: string | null;  // ISO datetime
+  created_at: string;
+  updated_at: string;
+}
+
+Create/Update Request Body
+{
+  model_path: string;           // Required
+  signal_type?: string;         // Default: "post_save"
+  only_on_create?: boolean;     // Default: false
+  only_on_update?: boolean;     // Default: false
+  watch_fields?: string[];      // Default: []
+  field_conditions?: object;    // Default: {}
+  is_active?: boolean;          // Default: true
+  name?: string;
+  description?: string;
+}
+
+Flow Execution Payload (what flows receive)
+{
+  signal: {
+    type: string;               // "post_save"
+    model: string;              // "crm.contact"
+    model_label: string;        // "crm.Contact"
+    created: boolean;           // true if new record
+    changed_fields: string[];   // ["status", "email"]
+  };
+  instance: Record<string, any>;   // Current field values
+  previous: Record<string, any> | null;  // Previous values (null for creates)
+  pk: string;                   // Instance primary key
+}
+
+Scheduled Triggers
+Lifecycle
+User configures a schedule (cron, interval, or one-off datetime)
+Celery Beat syncs the schedule and executes at the defined times
+Flow runs with any configured input data
+API Endpoints
+Method	Endpoint	Description
+GET	/api/v1/flows/{flow_id}/schedules/	List schedules
+POST	/api/v1/flows/{flow_id}/schedules/	Create schedule
+GET	/api/v1/flows/{flow_id}/schedules/{id}/	Get schedule
+PUT	/api/v1/flows/{flow_id}/schedules/{id}/	Update schedule
+DELETE	/api/v1/flows/{flow_id}/schedules/{id}/	Delete schedule
+POST	/api/v1/flows/{flow_id}/schedules/{id}/toggle/	Toggle active
+Schedule Schema
+interface FlowSchedule {
+  id: string;
+  flow_id: string;
+  schedule_type: "cron" | "interval" | "one_off";
+  cron_expression: string | null;    // "0 9 * * 1" (Monday 9am)
+  interval_seconds: number | null;   // 3600 (every hour)
+  run_at: string | null;             // ISO datetime for one-off
+  timezone: string;                  // "America/New_York"
+  is_active: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  inputs: Record<string, any>;       // Data passed to flow
+  created_at: string;
+  updated_at: string;
+}
+
+UI Implementation Tips
+Model Selector - Use /available-models/ to populate a dropdown. Group by app_label.
+
+Field Selector - After model selection, show fields array for watch_fields multi-select.
+
+Condition Builder - For field_conditions, provide key-value inputs based on selected model's fields.
+
+Cron Helper - Consider a cron expression builder for scheduled triggers (e.g., presets for "Daily at 9am", "Every Monday").
+
+Execution History - Show execution_count and last_triggered_at to indicate trigger activity.
+
+Toggle States - Use the toggle endpoint for quick enable/disable without full edit forms.

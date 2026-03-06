@@ -1,0 +1,220 @@
+Modelo de datos del Agente (Agent) en OpenAI SDK
+Un Agente en el OpenAI Agents SDK representa un componente central de la aplicación: esencialmente es un modelo de lenguaje (LLM) configurado con instrucciones, herramientas y otros parámetros
+openai.github.io
+. Cada instancia de Agent define cómo el modelo debe comportarse (mediante un prompt de sistema/instrucciones), qué herramientas puede usar, y cómo puede delegar tareas a otros sub-agentes. La clase Agent es genérica en un tipo de contexto (por ejemplo, una clase Python con datos del usuario), lo que permite inyectar dependencias y estado en la ejecución; este contexto se pasa en cada ejecución (Runner.run()) y está disponible para el agente, sus herramientas y handoffs
+openai.github.io
+.
+Campos de configuración del agente (obligatorios y opcionales)
+Al crear un agente (Agent(...)), se pueden configurar diversos campos para definir su comportamiento. Los más importantes son
+openai.github.io
+:
+name (obligatorio): Nombre identificador del agente (cadena de texto)
+openai.github.io
+.
+instructions (recomendado): Mensaje del desarrollador o prompt de sistema que define el rol y comportamiento del LLM
+openai.github.io
+. Por ejemplo: "You are a helpful assistant.". Nota: Este campo puede ser un string estático o una función (incluso asíncrona) que genera dinámicamente las instrucciones en tiempo de ejecución usando el contexto y el agente
+openai.github.io
+. (El SDK recomienda proveer siempre instructions para guiar al modelo
+openai.github.io
+).
+model (opcional): Especifica el modelo de lenguaje a utilizar. Puede ser el nombre de modelo (ej. "gpt-4.1" o "gpt-3.5-turbo"), o un objeto de modelo personalizado. Si no se indica, se usa el modelo por defecto configurado en el SDK
+openai.github.io
+. Se puede ajustar también la configuración del modelo mediante model_settings – por ejemplo temperatura, top_p, etc. – utilizando un objeto ModelSettings (si se omite, se aplican valores por defecto adecuados al modelo elegido)
+openai.github.io
+.
+tools (opcional): Lista de herramientas que el agente puede utilizar para realizar acciones (búsquedas, cálculos, consultas, etc.)
+openai.github.io
+. Las herramientas expanden las capacidades del agente más allá de la mera respuesta de texto (ver sección de Herramientas más abajo).
+handoffs (opcional): Lista de sub-agentes (Agent) a los que este agente puede delegar la conversación si lo considera pertinente
+openai.github.io
+. Esto habilita un patrón multi-agente descentralizado donde el agente actual transfiere el control a un agente especializado en cierta tarea (ver Patrones multi-agente).
+output_type (opcional): Tipo de dato esperado en la salida final. Por defecto, un agente produce texto plano (str), pero si se especifica output_type (por ejemplo una clase Pydantic, un dataclass, lista, etc.), el agente intentará formatear su respuesta como JSON para ajustarse a ese tipo
+openai.github.io
+. Esto aprovecha la funcionalidad de structured outputs de OpenAI para obtener respuestas estructuradas en vez de texto libre
+openai.github.io
+.
+input_guardrails y output_guardrails (opcionales): Listas de guardrails (barreras de seguridad o validación) que se aplican a la entrada del usuario y a la salida del agente, respectivamente. Permiten, por ejemplo, filtrar o validar que la entrada sea apropiada antes de procesarla, o verificar que la respuesta cumpla ciertos criterios (formato, contenido seguro, relevancia, etc.)
+openai.github.io
+. Los guardrails se definen como objetos que implementan chequeos en paralelo a la ejecución normal.
+hooks (opcional): Un objeto de tipo AgentHooks que permite engancharse al ciclo de vida del agente, recibiendo callbacks en eventos como inicio de ejecución, antes/después de llamadas a la LLM, uso de herramientas, finalización, etc. Para usar hooks, se crea una subclase de AgentHooks y se sobreescriben los métodos deseados, luego se pasa una instancia en este campo
+openai.github.io
+. Esto sirve para registrar logs, métricas, o implementar lógica personalizada en momentos clave de la ejecución.
+tool_use_behavior (opcional): Par\u00e1metro que controla c\u00f3mo el agente maneja las salidas de herramientas y decide continuar o no con el LLM. Por defecto es "run_llm_again", lo que significa que tras ejecutar una herramienta, el resultado se pasa de nuevo al modelo para que contin\u00fae la conversaci\u00f3n
+openai.github.io
+. Alternativamente, se puede fijar en "stop_on_first_tool" para indicar que la primera herramienta que se llame producir\u00e1 la respuesta final directamente (sin m\u00e1s llamadas al LLM)
+openai.github.io
+. Otras opciones incluyen proporcionar un diccionario StopAtTools con una lista de nombres de herramientas para detenerse apenas se use alguna de ellas (tomando su salida como final)
+openai.github.io
+, o incluso pasar una funci\u00f3n personalizada (ToolsToFinalOutputFunction) que reciba los resultados de herramientas y decida program\u00e1ticamente si ya hay una respuesta final o si el LLM debe continuar
+openai.github.io
+openai.github.io
+.
+reset_tool_choice (opcional, por defecto True): Indicador de si se debe resetear la elecci\u00f3n de herramienta tras cada uso de una herramienta. En la pr\u00e1ctica, esto hace que cualquier preferencia forzada de herramienta (por ejemplo, tool_choice requerido, ver m\u00e1s abajo) se desactive despu\u00e9s de ejecutarla, evitando as\u00ed ciclos infinitos de invocaci\u00f3n de la misma herramienta repetidamente
+openai.github.io
+openai.github.io
+. En general conviene dejar esto en True para que el agente, tras usar una herramienta obligatoria, vuelva a modo normal (auto) en la siguiente iteraci\u00f3n.
+handoff_description (opcional): Descripci\u00f3n breve en lenguaje natural de lo que hace el agente, usada cuando este agente es referenciado dentro de herramientas o handoffs
+openai.github.io
+. Sirve para que, si otro agente puede delegar hacia \u00e9l, el modelo tenga contexto de cu\u00e1ndo usarlo. (Es buena pr\u00e1ctica proveer esta descripci\u00f3n a sub-agentes en flujos con handoff).
+Nota: De los campos anteriores, solo name es estrictamente requerido; los dem\u00e1s tienen valores por omisi\u00f3n razonables. Sin embargo, se recomienda siempre especificar instructions para orientar al modelo
+openai.github.io
+, y si no se indica model, el SDK usar\u00e1 un modelo por defecto (compatible con la API de Chat Completions de OpenAI) junto con par\u00e1metros model_settings por defecto apropiados para \u00e9l
+openai.github.io
+openai.github.io
+. A continuaci\u00f3n se muestra un ejemplo sencillo de definici\u00f3n de un agente y su ejecuci\u00f3n sin\u00f3crona. Se crea un agente llamado "Assistant" con una instrucci\u00f3n b\u00e1sica, y luego se utiliza Runner.run_sync para obtener la respuesta final del agente dado un prompt del usuario:
+from agents import Agent, Runner
+
+agent = Agent(name="Assistant", instructions="You are a helpful assistant")
+result = Runner.run_sync(agent, "Escribe un haiku sobre la recursi\u00f3n en programaci\u00f3n.")
+print(result.final_output)  # (Salida final del agente)
+github.com
+ (En el ejemplo anterior, result.final_output contendr\u00e1 el texto generado por el agente como respuesta al prompt.)
+Patrones multi-agente y tipos de agente soportados
+El SDK permite diseñar sistemas con m\u00faltiples agentes que interact\u00faan o se especializan en tareas concretas. Hay dos patrones principales ampliamente soportados
+openai.github.io
+:
+Patr\u00f3n Manager (agentes como herramientas): Un agente central (por ejemplo, de cara al cliente) retiene el control de la conversaci\u00f3n y puede invocar a otros agentes especializados como si fueran herramientas. Estos sub-agentes no toman control de la sesi\u00f3n, sino que devuelven resultados al agente central. Es una orquestaci\u00f3n centralizada: el agente principal decide cu\u00e1ndo y cu\u00e1l sub-agente usar, combinando sus respuestas en la conversaci\u00f3n
+openai.github.io
+openai.github.io
+.
+Patr\u00f3n Handoff (delegaci\u00f3n entre agentes): Aqu\u00ed los agentes son pares descentralizados. Un agente puede entregar el control de la conversaci\u00f3n a otro agente especializado cuando detecta que la pregunta o tarea corresponde a su dominio. El nuevo agente toma el control y continua la conversaci\u00f3n desde ese punto en adelante
+openai.github.io
+openai.github.io
+. Esto permite tener agentes m\u00e1s simples y especializados, colaborando mediante transferencias de contexto.
+En la pr\u00e1ctica, el patr\u00f3n de Manager se implementa utilizando la capacidad de tratar un agente como tool (herramienta) de otro. Cualquier agente Agent tiene el m\u00e9todo as_tool() que lo envuelve como una herramienta invocable. Por ejemplo, podr\u00edamos tener un agente principal que use dos sub-agentes de traducci\u00f3n (uno a espa\u00f1ol y otro a franc\u00e9s) como sus herramientas, en lugar de delegar la conversaci\u00f3n completa:
+spanish_agent = Agent(name="Spanish agent", instructions="You translate the user's message to Spanish")
+french_agent = Agent(name="French agent", instructions="You translate the user's message to French")
+
+orchestrator_agent = Agent(
+    name="Translator orchestrator",
+    instructions="Eres un agente de traducci\u00f3n. Usa las herramientas para traducir seg\u00fan el idioma solicitado.",
+    tools=[
+        spanish_agent.as_tool(tool_name="translate_to_spanish", tool_description="Traduce el mensaje del usuario al espa\u00f1ol"),
+        french_agent.as_tool(tool_name="translate_to_french", tool_description="Traduce el mensaje del usuario al franc\u00e9s"),
+    ],
+)
+raw.githubusercontent.com
+raw.githubusercontent.com
+ En contraste, el patr\u00f3n de Handoff se logra pasando agentes a la lista handoffs de otro agente. En este caso, el agente principal identificar\u00e1 cu\u00e1ndo delegar y ceder\u00e1 el control completamente a uno de sus sub-agentes. Por ejemplo, un agente "Triage" puede decidir delegar en booking_agent o refund_agent seg\u00fan detecte palabras clave "reservas" o "reembolsos" en la pregunta del usuario:
+booking_agent = Agent(...)\nrefund_agent = Agent(...)
+
+triage_agent = Agent(
+    name="Triage agent",
+    instructions=(
+        "Atiende la consulta del usuario. "
+        "Si pregunta sobre reservas, transf\u00e9rala al agente de reservas. "
+        "Si pregunta sobre reembolsos, transf\u00e9rala al agente de reembolsos."
+    ),
+    handoffs=[booking_agent, refund_agent],
+)
+openai.github.io
+openai.github.io
+ En este ejemplo, triage_agent analizar\u00e1 la entrada; si corresponde a reservas o a reembolsos, realizar\u00e1 un handoff al agente adecuado. El agente delegado recibe todo el historial de la conversaci\u00f3n hasta ese punto y toma control para responder en adelante
+openai.github.io
+. Otras variantes: Adem\u00e1s de los patrones anteriores, el SDK cuenta con clases especializadas para escenarios espec\u00edficos. Por ejemplo, existe RealtimeAgent (una subclase de Agent) para agentes que generan respuestas de manera streaming en tiempo real, y un conjunto de utilidades para agentes de voz (que integran reconocimiento de voz y s\u00edntesis TTS). Estas variantes extienden el modelo de datos base de Agent con capacidades adicionales, pero a nivel de configuraci\u00f3n comparten los mismos campos principales descritos arriba. En la mayor\u00eda de casos, cuando hablamos de un agente nos referimos a la clase Agent est\u00e1ndar, que se puede usar para construir tanto flujos simples como sistemas multi-agente complejos.
+Herramientas (Tools) del agente
+Las herramientas permiten que un agente tome acciones m\u00e1s all\u00e1 de generar texto: por ejemplo, buscar informaci\u00f3n en la web, consultar bases de datos vectoriales, ejecutar c\u00f3digo o llamadas a API, etc. El Agents SDK soporta principalmente tres clases de herramientas
+raw.githubusercontent.com
+:
+Herramientas hospedadas (hosted tools): Son funcionalidades predefinidas que se ejecutan del lado del servidor de OpenAI junto con el modelo, como por ejemplo WebSearchTool (b\u00fasqueda web), FileSearchTool (b\u00fasqueda en un almac\u00e9n vectorial de OpenAI) o ComputerTool (simular acciones en un ordenador)
+raw.githubusercontent.com
+. Estas herramientas vienen integradas cuando se usa el modelo de OpenAI adecuado (p. ej. OpenAIResponsesModel las soporta) y permiten extender las capacidades del agente sin implementar l\u00f3gica personalizada.
+Herramientas de funci\u00f3n (function calling tools): Cualquier funci\u00f3n Python puede convertirse f\u00e1cilmente en una herramienta del agente. Para ello, el SDK proporciona el decorador @function_tool, que envuelve la funci\u00f3n y autom\u00e1ticamente extrae su firma y documentaci\u00f3n para generar la descripci\u00f3n de la herramienta y el esquema de sus argumentos
+raw.githubusercontent.com
+. Por ejemplo, si definimos una funci\u00f3n def get_weather(city: str) -> str con un docstring, al decorarla el agente podr\u00e1 llamarla pasando un argumento "city" (el SDK infiere que la herramienta se llama "get_weather", su prop\u00f3sito a partir del docstring, y que espera un campo "city" de tipo string). Esta v\u00eda permite al agente realizar l\u00f3gica personalizada definida por el desarrollador.
+Agentes como herramientas: Como se describi\u00f3 en el patr\u00f3n Manager, un objeto Agent puede usarse como herramienta mediante agent.as_tool(). Esto conceptualmente permite anidar agentes: el agente principal usar\u00e1 el sub-agente como si fuera una API para una tarea espec\u00edfica. A diferencia de un handoff, el control regresa al agente principal despu\u00e9s de cada uso de un sub-agente herramienta
+raw.githubusercontent.com
+openai.github.io
+.
+A\u00f1adir herramientas a un agente es tan sencillo como pasarlas en la lista tools al instanciarlo. A continuaci\u00f3n se muestra un ejemplo de c\u00f3mo definir una herramienta a partir de una funci\u00f3n Python y asociarla a un agente:
+from agents import Agent, function_tool
+
+@function_tool
+def get_weather(city: str) -> str:
+    """Devuelve el clima de la ciudad especificada."""
+    # (Aqu\u00ed ir\u00eda la llamada real a una API meteorol\u00f3gica; simplificado:)
+    return f"The weather in {city} is sunny."
+
+agent = Agent(
+    name="Weather Assistant",
+    instructions="Eres un asistente meteorol\u00f3gico.",
+    tools=[get_weather],  # Adjuntamos la herramienta al agente
+)
+openai.github.io
+github.com
+ En este ejemplo, el agente Weather Assistant tiene una sola herramienta get_weather. Durante la conversaci\u00f3n, el modelo LLM podr\u00e1 decidir invocar get_weather cuando necesite obtener informaci\u00f3n del clima, en lugar de intentar responder solo con su conocimiento interno. El SDK se encarga de generar la llamada adecuada a la funci\u00f3n (formateando una solicitud seg\u00fan la convenci\u00f3n de function calling de OpenAI) y de insertar la respuesta de la herramienta de nuevo en el contexto para que el modelo pueda utilizarla. Forzar o restringir el uso de herramientas: Por defecto, el agente decide aut\u00f3nomamente cu\u00e1ndo usar una herramienta seg\u00fan su entrenamiento y el prompt. Sin embargo, el desarrollador puede influir en esto a trav\u00e9s de la configuraci\u00f3n del modelo y del agente. Por un lado, en ModelSettings existe el campo tool_choice que puede tomar valores como "auto" (comportamiento libre, por defecto), "required" (obliga al modelo a usar alguna herramienta), "none" (le proh\u00edbe usar herramientas) o incluso el nombre de una herramienta espec\u00edfica para obligarla
+openai.github.io
+. Por otro lado, a nivel del agente, el ya mencionado tool_use_behavior permite definir qu\u00e9 hacer despu\u00e9s de usar herramientas (continuar o detenerse con la primera, etc.), lo cual es \u00fatil para ajustar la l\u00f3gica seg\u00fan la naturaleza de la tarea.
+Guardrails (pol\u00edticas de validaci\u00f3n)
+Los Guardrails son validaciones o filtros que se pueden aplicar tanto a la entrada del usuario como a la salida generada por el agente. Se configuran mediante los campos input_guardrails y output_guardrails del agente, pasando listas de objetos de guardrail. Al iniciar la ejecuci\u00f3n, los guardrails de entrada se ejecutan en paralelo al flujo normal (por ejemplo, para detectar si la pregunta del usuario est\u00e1 fuera de un \u00e1mbito permitido, o contiene informaci\u00f3n sensible)
+openai.github.io
+. Si alguno falla o marca un problema, se puede decidir abortar o modificar la entrada antes de que llegue al modelo. De manera similar, tras obtener la respuesta final del agente, los guardrails de salida pueden validar que cumple ciertos criterios (formato JSON correcto, que no tenga contenido prohibido, etc.) antes de entregarla al usuario. El SDK provee algunas implementaciones b\u00e1sicas de guardrails (por ejemplo, para limitar longitud de respuesta, verificar estructura JSON con un esquema, etc.), y permite definir guardrails personalizados seg\u00fan las necesidades de la aplicaci\u00f3n. As\u00ed, los guardrails act\u00faan como pol\u00edticas de negocio o seguridad integradas en el ciclo de pregunta-respuesta del agente, ayudando a mantener las respuestas dentro de los l\u00edmites deseados.
+Hooks de ciclo de vida (eventos)
+Para escenarios en los que se requiere observar o intervenir en el ciclo de vida de la ejecuci\u00f3n de un agente, se utilizan los hooks. Los hooks permiten ejecutar l\u00f3gica custom en eventos clave de la ejecuci\u00f3n: por ejemplo, justo antes de llamar al modelo (para registrar la consulta), despu\u00e9s de obtener la respuesta (para inspeccionarla), despu\u00e9s de invocar una herramienta, al finalizar el run, etc. T\u00e9cnicamente, esto se logra creando una clase que herede de agents.lifecycle.AgentHooks y sobreescribiendo los m\u00e9todos correspondientes a los eventos deseados (p. ej. on_agent_start, on_agent_finish, on_tool_start, on_tool_finish, etc.). Luego, se instancia esa clase y se pasa al agente via el campo hooks
+openai.github.io
+. El SDK llamar\u00e1 autom\u00e1ticamente a esos m\u00e9todos durante la ejecuci\u00f3n. Esto resulta muy \u00fatil para registrar logs detallados, medir tiempos, implementar comprobaciones adicionales o incluso modificar el comportamiento en caliente si fuera necesario. Cabe destacar que los hooks no alteran el flujo principal a menos que uno decida arrojar excepciones desde ellos; su prop\u00f3sito principal es de observaci\u00f3n/extensi\u00f3n.
+Clonaci\u00f3n de agentes
+El SDK facilita la creaci\u00f3n de variantes de un agente mediante el m\u00e9todo clone(). Este m\u00e9todo genera una copia del objeto Agent existente, permitiendo sobreescribir cualquiera de sus propiedades en el proceso
+openai.github.io
+. Por ejemplo, podr\u00eda tener un agente base con cierta configuraci\u00f3n, y clonar versiones ligeramente modificadas cambiando solo las instrucciones o el modelo:
+base_agent = Agent(name="BaseAgent", instructions="Responde educadamente.", model="gpt-4.1")
+# Clonar cambiando s\u00f3lo algunas propiedades:
+fast_agent = base_agent.clone(name="FastAgent", model="gpt-3.5-turbo")        # misma config pero modelo m\u00e1s r\u00e1pido
+verbose_agent = base_agent.clone(name="VerboseAgent", instructions="Responde con muchos detalles.")  # mismo modelo pero diferente estilo
+openai.github.io
+ La clonaci\u00f3n realiza una copia shallow (superficial) del agente: los objetos mutables como listas de herramientas o handoffs se copiar\u00e1n solo si se proporcionan nuevos en los argumentos, de lo contrario la copia referenciar\u00e1 las mismas instancias de herramientas/sub-agentes que el original
+openai.github.io
+openai.github.io
+. Esto est\u00e1 dise\u00f1ado as\u00ed para eficiencia y porque suele ser lo deseado (las herramientas son usualmente funciones globales). Si se necesita una copia completamente independiente, se podr\u00edan clonar tambi\u00e9n las herramientas o simplemente instanciar un agente nuevo.
+Ejecuci\u00f3n de un agente (Runner y ciclo de conversaci\u00f3n)
+Definir un agente no produce resultados por s\u00ed solo; es necesario ejecutarlo contra una entrada (prompt) del usuario. Para ello el SDK proporciona la clase Runner con m\u00e9todos est\u00e1ticos que orquestan la conversaci\u00f3n. Las principales formas de invocar a un agente son:
+Runner.run(agent, input, ...): ejecuta el agente de forma as\u00edncrona (devuelve una corrutina awaitable).
+Runner.run_sync(agent, input, ...): versi\u00f3n sincr\u00f3nica que bloquea hasta obtener el resultado (conviene usarla en entornos no-async para simplicidad).
+Ambas reciben el agente a utilizar, la entrada del usuario (input puede ser una cadena de texto con la pregunta o mensaje), y par\u00e1metros opcionales como un session (para memoria conversacional, ver nota), un context (el contexto de dependencias si aplica), l\u00edmite de turnos, etc. Al llamarlas, el SDK inicia el loop de agente interno y retorna un objeto Result al finalizar. Ciclo interno del agente: Cuando se lanza un agente, el SDK sigue un bucle iterativo hasta obtener una respuesta final
+github.com
+:
+Se env\u00eda al LLM un prompt que consiste en las instrucciones del agente m\u00e1s el historial de mensajes (incluyendo la nueva pregunta del usuario). Se usan el modelo y par\u00e1metros (model_settings) configurados en el agente para esta invocaci\u00f3n
+github.com
+.
+El LLM devuelve un mensaje de respuesta. Esta respuesta puede ser ya una respuesta directa al usuario o contener indicaciones para realizar acciones: por ejemplo, puede indicar una llamada a herramienta (formato de function calling) o una solicitud de handoff a otro agente.
+El Runner eval\u00faa la respuesta:
+Si la respuesta incluye una salida final (seg\u00fan las reglas explicadas abajo), entonces se concluye la ejecuci\u00f3n y esa es la respuesta definitiva del agente
+github.com
+.
+Si la respuesta indica un handoff (delegaci\u00f3n) a otro agente, el Runner cambia el agente actual por el nuevo agente indicado y vuelve al paso 1 con la misma entrada o la continuaci\u00f3n correspondiente del historial
+github.com
+.
+Si la respuesta contiene una o m\u00e1s llamadas a herramientas, el Runner ejecuta esas herramientas secuencialmente. Por cada herramienta llamada, se obtiene su resultado (p.ej., la salida de la funci\u00f3n Python) y se agrega al historial de mensajes (como si el agente "viera" la respuesta de la herramienta)
+github.com
+. Luego se vuelve al paso 1, dando al modelo el contexto actualizado con los resultados de las herramientas para que genere el siguiente paso.
+Este ciclo se repite hasta que se alcance una respuesta final o se agote un l\u00edmite de iteraciones. Por defecto, no hay un l\u00edmite fijo, pero se puede establecer max_turns para prevenir bucles demasiado largos
+github.com
+ (por ejemplo, max_turns=5 forzar\u00eda a como m\u00e1ximo 5 llamadas de modelo, tras lo cual el Runner lanz\u00far\u00eda una excepci\u00f3n si no hubo resultado final).
+La condici\u00f3n de finalizaci\u00f3n del loop depende de si el agente espera una salida estructurada o libre. En general
+github.com
+:
+Si se especific\u00f3 un output_type, el Runner considerar\u00e1 que la conversaci\u00f3n termin\u00f3 con \u00e9xito solo cuando el modelo devuelva un contenido que pueda convertirse en ese tipo de objeto (es decir, un JSON v\u00e1lido que machee con el esquema esperado)
+github.com
+. Hasta entonces, seguir\u00e1 iterando incluso si el modelo respondi\u00f3 con texto (no estructurado) sin llamadas a herramientas.
+Si no hay output_type (el agente simplemente devuelve texto libre), entonces la primera vez que el modelo responda con un mensaje que no contenga ninguna acci\u00f3n (ni llamadas de funci\u00f3n ni handoff), esa respuesta se toma como final y se corta el bucle
+github.com
+. B\u00e1sicamente, si el agente responde directamente al usuario, es la respuesta final; solo si el agente opta por usar herramientas u otros agentes, el ciclo contin\u00faa hasta que finalmente produzca una respuesta directa.
+El objeto Result devuelto por Runner.run() contiene, entre otros datos, el campo final_output con la \u00faltima respuesta generada por el agente (ya en formato string o convertido al tipo estructurado seg\u00fan corresponda)
+github.com
+. Tambi\u00e9n incluye informaci\u00f3n sobre las interacciones ocurridas (mensajes intercambiados, llamadas a herramientas realizadas, tokens usados, etc.)
+github.com
+ que puede ser \u00fatil para depuraci\u00f3n o an\u00e1lisis. Ejemplo completo: Supongamos el agente Weather Assistant definido anteriormente con la herramienta get_weather. Si ejecutamos:
+response = Runner.run_sync(agent, "¿Qu\u00e9 clima hace hoy en Tokio?")
+print(response.final_output)
+El flujo posible ser\u00eda: el modelo reconoce que necesita usar la herramienta get_weather, el Runner invoca esa funci\u00f3n con city="Tokio", obtiene por ejemplo "The weather in Tokyo is sunny.", inserta esa informaci\u00f3n en el prompt, y luego el modelo genera la respuesta final al usuario (en este caso podr\u00eda simplemente devolver la misma frase). El response.final_output contendr\u00e1 "El clima en Tokio es soleado." (traducido seg\u00fan las instrucciones en espa\u00f1ol si las hubiese, etc.). Finalmente, cabe mencionar que el SDK soporta memoria de sesi\u00f3n mediante objetos Session (por ejemplo SQLiteSession, RedisSession, etc.). Esto permite que un mismo agente pueda mantener contexto de conversaci\u00f3n a lo largo de m\u00faltiples llamadas Runner.run, sin tener que gestionar manualmente el historial de mensajes entre turnos. Para usarlo, se instancia una sesi\u00f3n y se pasa en el argumento session en cada ejecuci\u00f3n
+github.com
+github.com
+, de forma que el agente recuerde lo dicho anteriormente. Si no se proporciona sesi\u00f3n, cada llamada a run() se considera independiente (sin memoria previa)
+github.com
+. En resumen, el modelo de datos de un agente en el OpenAI SDK incluye campos configurables que definen su identidad (name), comportamiento base (instructions, prompt din\u00e1mico), capacidades adicionales (tools, handoffs, output_type), y controles de flujo/pol\u00edtica (guardrails, tool_use_behavior, etc.). Con estos elementos, se pueden construir desde asistentes simples de pregunta-respuesta hasta flujos avanzados con m\u00faltiples agentes cooperando. La ejecuci\u00f3n de un agente se realiza mediante el Runner, que implementa un bucle inteligente para que el agente use sus herramientas y sub-agentes seg\u00fan sea necesario hasta producir la salida final deseada
+github.com
+github.com
+. Los ejemplos proporcionados ilustran distintas configuraciones y patrones de uso, demostrando la flexibilidad y poder del SDK para modelar variantes de agentes con distintos roles y funcionalidades de manera declarativa y concisa. 
+openai.github.io
+openai.github.io

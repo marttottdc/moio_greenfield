@@ -1,0 +1,47 @@
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anónimas) @ fffeeda7355a34ac.js:2Comprende esta advertencia
+fffeeda7355a34ac.js:2 [Coframe] Mutation callback infinite loop protection triggered, disconnecting mutation observer Object
+(anónimas) @ fffeeda7355a34ac.js:2Comprende este error
+injected.js:37 [vite] connecting...
+injected.js:37 [vite] connected.
+injected.js:37 [CRM Assistant] Fetching status from: https://moio.ngrok.dev/api/v1/desktop-agent/status/
+injected.js:37 [CRM Assistant] Status response: Object
+injected.js:37 Warning: Each child in a list should have a unique "key" prop.
+
+Check the render method of `CRMAssistantWidget`. See https://reactjs.org/link/warning-keys for more information.
+    at button
+    at CRMAssistantWidget (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/dashboard/widgets/crm-assistant-widget.tsx:53:55)
+    at WidgetRenderer (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/pages/dashboard.tsx:41:27)
+    at div
+    at div
+    at div
+    at div
+    at div
+    at PageLayout (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/layout/page-layout.tsx:22:3)
+    at Dashboard (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/pages/dashboard.tsx:112:55)
+    at ProtectedRoute (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=flHIC2PViDnxfbn7dDVLN:48:38)
+    at Route (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b379048e:191:16)
+    at Switch (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b379048e:247:17)
+    at AppRoutes (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=flHIC2PViDnxfbn7dDVLN:92:42)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at TooltipProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b379048e:64:5)
+    at SidebarProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at AppLayout (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=flHIC2PViDnxfbn7dDVLN:344:31)
+    at AppContent
+    at CacheBuster (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/cache-buster.tsx:49:31)
+    at AuthProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/contexts/AuthContext.tsx:31:32)
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at TooltipProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b379048e:64:5)
+    at ThemeProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/contexts/ThemeContext.tsx:20:33)
+    at QueryClientProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b379048e:2805:3)
+    at App
+(anónimas) @ injected.js:37Comprende este error
+injected.js:37 [CRM Assistant] Setting agent: cf42bb23-0f03-4d8b-83d3-212dea434277 URL: https://moio.ngrok.dev/api/v1/desktop-agent/set-agent/
+injected.js:37 [CRM Assistant] Set agent success: Objectagent_id: "cf42bb23-0f03-4d8b-83d3-212dea434277"message: "Agent preference updated successfully"success: true[[Prototype]]: Object
+injected.js:37 [CRM Assistant] Fetching status from: https://moio.ngrok.dev/api/v1/desktop-agent/status/
+injected.js:37 [CRM Assistant] Status response: Objectagent: {id: 'cf42bb23-0f03-4d8b-83d3-212dea434277', name: 'Personal Assistant', model: 'gpt-4o', source: 'user_preference'}enabled: true[[Prototype]]: Object

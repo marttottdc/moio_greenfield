@@ -1,0 +1,6 @@
+apiVersion: v2
+name: moio-frontend
+description: Deployment chart for the Moio frontend UI and API server
+version: 0.1.0
+appVersion: "1.0.0"
+type: application

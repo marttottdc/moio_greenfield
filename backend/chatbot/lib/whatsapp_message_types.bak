@@ -1,0 +1,283 @@
+
+
+def compose_message(number, type, **kwargs):
+    base_msg = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": type,
+    }
+
+    message_id = kwargs.get("message_id", None)
+
+    if message_id:
+        base_msg["context"] = {
+            "message_id": message_id
+        }
+
+    if type == "text":
+        preview_url = kwargs.get("preview_url", False)
+        text = kwargs.get("text", "")
+
+        base_msg["text"] = {
+            "preview_url": preview_url,
+            "body": text
+        }
+        return base_msg
+
+    elif type == "image":
+
+        base_msg["image"] = {
+            "link": kwargs.get("image_url", ""),
+            "caption": kwargs.get("caption", "")
+        }
+
+        return base_msg
+
+    elif type == "audio":
+
+        base_msg["audio"] = {
+            "link": kwargs.get("audio_url", "")
+        }
+
+        return base_msg
+
+    elif type == "video":
+
+        base_msg["video"] = {
+            "link": kwargs.get("video_url", "")
+        }
+
+        return base_msg
+
+    elif type == "document":
+
+        base_msg["document"] = {
+            "link": kwargs.get("document_url", "")
+        }
+
+        return base_msg
+
+    elif type == "location":
+
+        base_msg["location"] = {
+            "latitude": kwargs.get("latitude", ""),
+            "longitude": kwargs.get("longitude", ""),
+            "name": kwargs.get("name", ""),
+            "address": kwargs.get("address", "")
+        }
+
+        return base_msg
+
+    elif type == "interactive":
+
+        base_msg["interactive"] = kwargs.get("interactive", False)
+
+
+
+
+def compose_interaction(type, **kwargs):
+
+    if type == "product_list":
+        base_interaction = {
+            "type": "product_list",
+            "header": {
+                "type": "text",
+                "text": kwargs.get("header_text", "")
+            },
+            "body": {
+                "text": kwargs.get("text", "")
+            },
+            "footer": {
+                "text": kwargs.get("footer_text", "")
+            },
+            "action": {
+                "catalog_id": kwargs.get("catalog_id", ""),
+                "sections": kwargs.get("sections", []),
+            }
+        }
+        return base_interaction
+
+    elif type == "button":
+
+        base_interaction = {
+            "type": "button",
+            "body": {
+                "text": kwargs.get("text", "")
+            },
+            "action": {
+                    "buttons": kwargs.get("buttons", []),
+                }
+        }
+        return base_interaction
+
+
+def compose_reply_2button_message(text, number, caption_button1="si", caption_button2="no"):
+
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": "interactive",
+        "interactive": {
+                "type": "button",
+            "body": {
+                        "text": text
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "001",
+                                    "title": caption_button1
+                                }
+                    },
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "002",
+                                    "title": caption_button2
+                                }
+                    }
+                ]
+            }
+        }
+    }
+    return data
+
+
+def compose_reply_3button_message(text, number, caption_button1="si", caption_button2="no", caption_button3="no"):
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": "interactive",
+        "interactive": {
+                "type": "button",
+            "body": {
+                        "text": text
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "001",
+                                    "title": caption_button1
+                                }
+                    },
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "002",
+                                    "title": caption_button2
+                                }
+                    },
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "003",
+                                    "title": caption_button3
+                                }
+                    }
+                ]
+            }
+        }
+    }
+    return data
+
+
+def compose_require_location(text, number):
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "type": "interactive",
+        "to": number,
+        "interactive": {
+            "type": "location_request_message",
+            "body": {
+                "text": text
+            },
+            "action": {
+                "name": "send_location"
+            }
+        }
+    }
+    return data
+
+
+def compose_reply_1button_message(text, number, caption_button1="si"):
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": "interactive",
+        "interactive": {
+                "type": "button",
+            "body": {
+                        "text": text
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                                "reply": {
+                                    "id": "001",
+                                    "title": caption_button1
+                                }
+                    }
+                ]
+            }
+        }
+    }
+    return data
+
+
+def compose_list_message(number, titulo, body, pie, button_caption):
+    data = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": number,
+        "type": "interactive",
+        "interactive": {
+                "type": "list",
+                "header": {
+                    "type": "text",
+                    "text": titulo
+                },
+            "body": {
+                    "text": body
+                },
+            "footer": {
+                    "text": pie
+                },
+            "action": {
+                    "button": button_caption,
+                    "sections": [
+                        {
+                            "title": "Pagnifique",
+                            "rows": [
+                                {
+                                    "id": "1001",
+                                    "title": "Bagette Corto",
+                                    "description": "Caja de 12u - $160"
+                                },
+                                {
+                                    "id": "1002",
+                                    "title": "Baguette Largo",
+                                    "description": "Caja de 12u - $250"
+                                },
+                                {
+                                    "id": "1003",
+                                    "title": "Croissant Comun",
+                                    "description": "Caja de 24u - $160 "
+                                }
+                            ]
+                        }
+                    ]
+            }
+        }
+    }
+    return data
+

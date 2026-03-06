@@ -1,0 +1,3136 @@
+openapi: 3.0.3
+info:
+  title: Moio API
+  version: 1.0.0
+  description: AI-powered CRM & Automation backend
+paths:
+  /api/agent/chat:
+    post:
+      operationId: api_agent_chat_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/agent/conversations/{session_id}:
+    get:
+      operationId: api_agent_conversations_retrieve
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_agent_conversations_destroy
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/content/pages/{slug}:
+    get:
+      operationId: api_content_pages_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/content/sitemap:
+    get:
+      operationId: api_content_sitemap_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/email/send:
+    post:
+      operationId: api_email_send_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/likes:
+    post:
+      operationId: api_likes_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/meeting/schedule:
+    post:
+      operationId: api_meeting_schedule_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/session:
+    post:
+      operationId: api_session_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/session/{session_id}/analytics:
+    get:
+      operationId: api_session_analytics_retrieve
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/topics:
+    get:
+      operationId: api_topics_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/topics/{slug}:
+    get:
+      operationId: api_topics_retrieve_2
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/track/topic-visit:
+    post:
+      operationId: api_track_topic_visit_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/:
+    get:
+      operationId: api_v1_auth_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/login/:
+    post:
+      operationId: api_v1_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: api_v1_auth_logout_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: api_v1_auth_me_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/refresh/:
+    post:
+      operationId: api_v1_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/campaigns/:
+    get:
+      operationId: api_v1_campaigns_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_campaigns_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/campaigns/audiences/:
+    get:
+      operationId: api_v1_campaigns_audiences_list
+      description: Audience CRUD + rule management endpoints.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Audience'
+          description: ''
+    post:
+      operationId: api_v1_campaigns_audiences_create
+      description: Audience CRUD + rule management endpoints.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/:
+    get:
+      operationId: api_v1_campaigns_audiences_retrieve
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceDetail'
+          description: ''
+    put:
+      operationId: api_v1_campaigns_audiences_update
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudienceDetail'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AudienceDetail'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AudienceDetail'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceDetail'
+          description: ''
+    patch:
+      operationId: api_v1_campaigns_audiences_partial_update
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceDetail'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceDetail'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceDetail'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudienceDetail'
+          description: ''
+    delete:
+      operationId: api_v1_campaigns_audiences_destroy
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/campaigns/audiences/{id}/contacts/:
+    get:
+      operationId: api_v1_campaigns_audiences_contacts_retrieve
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/dynamic/autosave/:
+    post:
+      operationId: api_v1_campaigns_audiences_dynamic_autosave_create
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/dynamic/finalize/:
+    post:
+      operationId: api_v1_campaigns_audiences_dynamic_finalize_create
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/dynamic/preview/:
+    post:
+      operationId: api_v1_campaigns_audiences_dynamic_preview_create
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/static/contacts/:
+    post:
+      operationId: api_v1_campaigns_audiences_static_contacts_create
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/audiences/{id}/static/finalize/:
+    post:
+      operationId: api_v1_campaigns_audiences_static_finalize_create
+      description: Audience CRUD + rule management endpoints.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this audience.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Audience'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Audience'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/v1/campaigns/campaigns/:
+    get:
+      operationId: api_v1_campaigns_campaigns_list
+      description: CRUD + orchestration endpoints for campaigns.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Campaign'
+          description: ''
+    post:
+      operationId: api_v1_campaigns_campaigns_create
+      description: CRUD + orchestration endpoints for campaigns.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/:
+    get:
+      operationId: api_v1_campaigns_campaigns_retrieve
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+    put:
+      operationId: api_v1_campaigns_campaigns_update
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignDetail'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CampaignDetail'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CampaignDetail'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+    patch:
+      operationId: api_v1_campaigns_campaigns_partial_update
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignDetail'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignDetail'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignDetail'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+    delete:
+      operationId: api_v1_campaigns_campaigns_destroy
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/campaigns/campaigns/{id}/duplicate/:
+    post:
+      operationId: api_v1_campaigns_campaigns_duplicate_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/jobs/{job_id}/:
+    get:
+      operationId: api_v1_campaigns_campaigns_jobs_retrieve
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/launch/:
+    post:
+      operationId: api_v1_campaigns_campaigns_launch_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/logs/:
+    get:
+      operationId: api_v1_campaigns_campaigns_logs_retrieve
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/map-template/:
+    post:
+      operationId: api_v1_campaigns_campaigns_map_template_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/schedule/:
+    post:
+      operationId: api_v1_campaigns_campaigns_schedule_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/set-audience/:
+    post:
+      operationId: api_v1_campaigns_campaigns_set_audience_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/set-defaults/:
+    post:
+      operationId: api_v1_campaigns_campaigns_set_defaults_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/set-whatsapp-template/:
+    post:
+      operationId: api_v1_campaigns_campaigns_set_whatsapp_template_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/{id}/validate/:
+    post:
+      operationId: api_v1_campaigns_campaigns_validate_create
+      description: CRUD + orchestration endpoints for campaigns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this campaign.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/analytics/:
+    get:
+      operationId: api_v1_campaigns_campaigns_analytics_retrieve
+      description: CRUD + orchestration endpoints for campaigns.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/campaigns/dashboard/:
+    get:
+      operationId: api_v1_campaigns_campaigns_dashboard_retrieve
+      description: CRUD + orchestration endpoints for campaigns.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/communications/channels/:
+    get:
+      operationId: api_v1_communications_channels_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/communications/chats/:
+    get:
+      operationId: api_v1_communications_chats_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_communications_chats_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/communications/conversations/:
+    get:
+      operationId: api_v1_communications_conversations_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_communications_conversations_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/communications/conversations/{session_id}/:
+    get:
+      operationId: api_v1_communications_conversations_retrieve_2
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/communications/conversations/{session_id}/mark-read/:
+    patch:
+      operationId: api_v1_communications_conversations_mark_read_partial_update
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/communications/conversations/{session_id}/messages/:
+    post:
+      operationId: api_v1_communications_conversations_messages_create
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/contacts/:
+    get:
+      operationId: api_v1_contacts_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_contacts_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/contacts/{contact_id}/:
+    get:
+      operationId: api_v1_contacts_retrieve_2
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_v1_contacts_partial_update
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_v1_contacts_destroy
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/contacts/export/:
+    get:
+      operationId: api_v1_contacts_export_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/content/navigation/:
+    get:
+      operationId: api_v1_content_navigation_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/dashboard/summary/:
+    get:
+      operationId: api_v1_dashboard_summary_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/deals/:
+    get:
+      operationId: api_v1_deals_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_deals_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/engagement/topics/:
+    get:
+      operationId: api_v1_engagement_topics_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/:
+    get:
+      operationId: api_v1_flows_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_flows_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/:
+    get:
+      operationId: api_v1_flows_retrieve_2
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/manual-run/:
+    post:
+      operationId: api_v1_flows_manual_run_create
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/preview/:
+    post:
+      operationId: api_v1_flows_preview_create
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/preview/{run_id}/:
+    get:
+      operationId: api_v1_flows_preview_retrieve
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/publish/:
+    post:
+      operationId: api_v1_flows_publish_create
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/save/:
+    post:
+      operationId: api_v1_flows_save_create
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/{flow_id}/validate/:
+    post:
+      operationId: api_v1_flows_validate_create
+      parameters:
+      - in: path
+        name: flow_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/definitions/:
+    get:
+      operationId: api_v1_flows_definitions_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/runs/:
+    get:
+      operationId: api_v1_flows_runs_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/flows/scripts/validate/:
+    post:
+      operationId: api_v1_flows_scripts_validate_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/health/:
+    get:
+      operationId: api_v1_health_retrieve
+      description: Return a lightweight status report for the backend.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/resources/contacts/search/:
+    get:
+      operationId: api_v1_resources_contacts_search_retrieve
+      description: Tenant-scoped search for CRM contacts.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/resources/webhooks/:
+    get:
+      operationId: api_v1_resources_webhooks_list
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WebhookConfig'
+          description: ''
+    post:
+      operationId: api_v1_resources_webhooks_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
+          description: ''
+  /api/v1/resources/webhooks/{id}/:
+    get:
+      operationId: api_v1_resources_webhooks_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this webhook config.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
+          description: ''
+    put:
+      operationId: api_v1_resources_webhooks_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this webhook config.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WebhookConfig'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
+          description: ''
+    patch:
+      operationId: api_v1_resources_webhooks_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this webhook config.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookConfig'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookConfig'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWebhookConfig'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookConfig'
+          description: ''
+    delete:
+      operationId: api_v1_resources_webhooks_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this webhook config.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/resources/whatsapp-templates/:
+    get:
+      operationId: api_v1_resources_whatsapp_templates_retrieve
+      description: Expose WhatsApp message templates available to the tenant.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/resources/whatsapp-templates/{id}/:
+    get:
+      operationId: api_v1_resources_whatsapp_templates_retrieve_2
+      description: Expose WhatsApp message templates available to the tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/resources/whatsapp-templates/{id}/send-test/:
+    post:
+      operationId: api_v1_resources_whatsapp_templates_send_test_create
+      description: Expose WhatsApp message templates available to the tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/settings/{integration}/:
+    get:
+      operationId: api_v1_settings_retrieve
+      parameters:
+      - in: path
+        name: integration
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_v1_settings_partial_update
+      parameters:
+      - in: path
+        name: integration
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/settings/agents/:
+    get:
+      operationId: api_v1_settings_agents_list
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AgentConfiguration'
+          description: ''
+    post:
+      operationId: api_v1_settings_agents_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfiguration'
+          description: ''
+  /api/v1/settings/agents/{id}/:
+    get:
+      operationId: api_v1_settings_agents_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfiguration'
+          description: ''
+    put:
+      operationId: api_v1_settings_agents_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentConfiguration'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfiguration'
+          description: ''
+    patch:
+      operationId: api_v1_settings_agents_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAgentConfiguration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAgentConfiguration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAgentConfiguration'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfiguration'
+          description: ''
+    delete:
+      operationId: api_v1_settings_agents_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/settings/integrations/:
+    get:
+      operationId: api_v1_settings_integrations_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/settings/integrations/{id}/:
+    delete:
+      operationId: api_v1_settings_integrations_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/settings/integrations/{id}/connect/:
+    post:
+      operationId: api_v1_settings_integrations_connect_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/settings/preferences/:
+    get:
+      operationId: api_v1_settings_preferences_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenceUpdate'
+          description: ''
+    patch:
+      operationId: api_v1_settings_preferences_partial_update
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPreferenceUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPreferenceUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPreferenceUpdate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenceUpdate'
+          description: ''
+  /api/v1/templates/:
+    get:
+      operationId: api_v1_templates_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/test/:
+    get:
+      operationId: api_v1_test_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/tickets/:
+    get:
+      operationId: api_v1_tickets_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_tickets_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/tickets/{ticket_id}/:
+    get:
+      operationId: api_v1_tickets_retrieve_2
+      parameters:
+      - in: path
+        name: ticket_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/tickets/{ticket_id}/comments/:
+    get:
+      operationId: api_v1_tickets_comments_retrieve
+      parameters:
+      - in: path
+        name: ticket_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_v1_tickets_comments_create
+      parameters:
+      - in: path
+        name: ticket_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/tickets/{ticket_id}/status/:
+    post:
+      operationId: api_v1_tickets_status_create
+      parameters:
+      - in: path
+        name: ticket_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/tickets/summary/:
+    get:
+      operationId: api_v1_tickets_summary_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/whatsapp/send:
+    post:
+      operationId: api_whatsapp_send_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /es/calendar/api/events/:
+    get:
+      operationId: es_calendar_api_events_list
+      tags:
+      - es
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+          description: ''
+    post:
+      operationId: es_calendar_api_events_create
+      tags:
+      - es
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Event'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+  /es/calendar/api/events/{id}/:
+    get:
+      operationId: es_calendar_api_events_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this calendar event.
+        required: true
+      tags:
+      - es
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    put:
+      operationId: es_calendar_api_events_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this calendar event.
+        required: true
+      tags:
+      - es
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Event'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    patch:
+      operationId: es_calendar_api_events_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this calendar event.
+        required: true
+      tags:
+      - es
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    delete:
+      operationId: es_calendar_api_events_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this calendar event.
+        required: true
+      tags:
+      - es
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /mcp:
+    get:
+      operationId: mcp_retrieve
+      tags:
+      - mcp
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: mcp_create
+      tags:
+      - mcp
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: mcp_destroy
+      tags:
+      - mcp
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    AgentConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        enabled:
+          type: boolean
+        name:
+          type: string
+          nullable: true
+          maxLength: 255
+        model:
+          type: string
+          maxLength: 80
+        instructions:
+          type: string
+          nullable: true
+        channel:
+          nullable: true
+          description: |-
+            Select the integration channel for this agent
+
+            * `whatsapp` - WhatsApp
+            * `email` - Email
+            * `webhook` - Webhook
+          oneOf:
+          - $ref: '#/components/schemas/AgentConfigurationChannelEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        channel_id:
+          type: string
+          nullable: true
+          maxLength: 80
+        tools:
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - updated_at
+    AgentConfigurationChannelEnum:
+      enum:
+      - whatsapp
+      - email
+      - webhook
+      type: string
+      description: |-
+        * `whatsapp` - WhatsApp
+        * `email` - Email
+        * `webhook` - Webhook
+    Audience:
+      type: object
+      description: Lightweight audience representation for listings.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind193Enum'
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+        is_draft:
+          type: boolean
+          readOnly: true
+        materialized_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created
+      - description
+      - id
+      - is_draft
+      - kind
+      - materialized_at
+      - name
+      - size
+      - updated
+    AudienceDetail:
+      type: object
+      description: Full representation including rule definition.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind193Enum'
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+        is_draft:
+          type: boolean
+          readOnly: true
+        materialized_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+        rules:
+          nullable: true
+      required:
+      - created
+      - description
+      - id
+      - is_draft
+      - kind
+      - materialized_at
+      - name
+      - rules
+      - size
+      - updated
+    AuthTypeEnum:
+      enum:
+      - none
+      - bearer
+      - basic
+      - hmac
+      - header
+      - query
+      - jwt
+      type: string
+      description: |-
+        * `none` - No auth
+        * `bearer` - Bearer / header token
+        * `basic` - HTTP Basic user+pass
+        * `hmac` - HMAC-SHA256 signature
+        * `header` - Static value in named header
+        * `query` - Static value in ?token=…
+        * `jwt` - JWT signed with HS256 / RS256
+    Campaign:
+      type: object
+      description: Campaign list serializer with derived insights.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        channel:
+          $ref: '#/components/schemas/Channel0feEnum'
+        kind:
+          $ref: '#/components/schemas/Kind5cbEnum'
+        status:
+          $ref: '#/components/schemas/Status8a7Enum'
+        sent:
+          type: integer
+          readOnly: true
+        opened:
+          type: integer
+          readOnly: true
+        responded:
+          type: integer
+          readOnly: true
+        audience:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required before campaign can be activated
+        audience_name:
+          type: string
+          readOnly: true
+        audience_size:
+          type: integer
+          readOnly: true
+        open_rate:
+          type: number
+          format: double
+          readOnly: true
+        ready_to_launch:
+          type: boolean
+          readOnly: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - audience_name
+      - audience_size
+      - channel
+      - created
+      - id
+      - kind
+      - name
+      - open_rate
+      - opened
+      - ready_to_launch
+      - responded
+      - sent
+      - updated
+    CampaignDetail:
+      type: object
+      description: Full campaign payload for the configurator.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        channel:
+          $ref: '#/components/schemas/Channel0feEnum'
+        kind:
+          $ref: '#/components/schemas/Kind5cbEnum'
+        status:
+          $ref: '#/components/schemas/Status8a7Enum'
+        sent:
+          type: integer
+          readOnly: true
+        opened:
+          type: integer
+          readOnly: true
+        responded:
+          type: integer
+          readOnly: true
+        audience:
+          allOf:
+          - $ref: '#/components/schemas/Audience'
+          readOnly: true
+        audience_name:
+          type: string
+          readOnly: true
+        audience_size:
+          type: integer
+          readOnly: true
+        open_rate:
+          type: number
+          format: double
+          readOnly: true
+        ready_to_launch:
+          type: boolean
+          readOnly: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+        config: {}
+        configuration_state:
+          type: object
+          additionalProperties:
+            type: boolean
+          readOnly: true
+      required:
+      - audience
+      - audience_name
+      - audience_size
+      - channel
+      - config
+      - configuration_state
+      - created
+      - id
+      - kind
+      - name
+      - open_rate
+      - opened
+      - ready_to_launch
+      - responded
+      - sent
+      - updated
+    Channel0feEnum:
+      enum:
+      - email
+      - whatsapp
+      - telegram
+      - sms
+      type: string
+      description: |-
+        * `email` - Email
+        * `whatsapp` - WhatsApp
+        * `telegram` - Telegram
+        * `sms` - SMS
+    DashboardLayoutEnum:
+      enum:
+      - compact
+      - expanded
+      type: string
+      description: |-
+        * `compact` - compact
+        * `expanded` - expanded
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        event_type:
+          $ref: '#/components/schemas/EventTypeEnum'
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        external_attendee_name:
+          type: string
+          maxLength: 100
+        external_attendee_email:
+          type: string
+          format: email
+          maxLength: 254
+        external_attendee_phone:
+          type: string
+          maxLength: 20
+        location:
+          type: string
+          maxLength: 200
+        meeting_link:
+          type: string
+          format: uri
+          maxLength: 200
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_public:
+          type: boolean
+        booking_link:
+          type: string
+          maxLength: 100
+        organizer:
+          type: integer
+        tenant:
+          type: integer
+        attendees:
+          type: array
+          items:
+            type: integer
+          readOnly: true
+      required:
+      - attendees
+      - created_at
+      - end_time
+      - id
+      - organizer
+      - start_time
+      - tenant
+      - title
+      - updated_at
+    EventStatusEnum:
+      enum:
+      - scheduled
+      - confirmed
+      - cancelled
+      - completed
+      type: string
+      description: |-
+        * `scheduled` - Scheduled
+        * `confirmed` - Confirmed
+        * `cancelled` - Cancelled
+        * `completed` - Completed
+    EventTypeEnum:
+      enum:
+      - meeting
+      - appointment
+      - call
+      - consultation
+      - other
+      type: string
+      description: |-
+        * `meeting` - Meeting
+        * `appointment` - Appointment
+        * `call` - Call
+        * `consultation` - Consultation
+        * `other` - Other
+    Kind193Enum:
+      enum:
+      - static
+      - dynamic
+      type: string
+      description: |-
+        * `static` - Static list
+        * `dynamic` - Dynamic filter
+    Kind5cbEnum:
+      enum:
+      - express
+      - one_shot
+      - drip
+      - planned
+      type: string
+      description: |-
+        * `express` - Express
+        * `one_shot` - One Shot
+        * `drip` - Drip
+        * `planned` - Planned
+    LanguageEnum:
+      enum:
+      - en
+      - es
+      type: string
+      description: |-
+        * `en` - en
+        * `es` - es
+    NotificationPreference:
+      type: object
+      properties:
+        email:
+          type: boolean
+        push:
+          type: boolean
+        desktop:
+          type: boolean
+    NullEnum:
+      enum:
+      - null
+    PatchedAgentConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        enabled:
+          type: boolean
+        name:
+          type: string
+          nullable: true
+          maxLength: 255
+        model:
+          type: string
+          maxLength: 80
+        instructions:
+          type: string
+          nullable: true
+        channel:
+          nullable: true
+          description: |-
+            Select the integration channel for this agent
+
+            * `whatsapp` - WhatsApp
+            * `email` - Email
+            * `webhook` - Webhook
+          oneOf:
+          - $ref: '#/components/schemas/AgentConfigurationChannelEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        channel_id:
+          type: string
+          nullable: true
+          maxLength: 80
+        tools:
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedAudienceDetail:
+      type: object
+      description: Full representation including rule definition.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind193Enum'
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+        is_draft:
+          type: boolean
+          readOnly: true
+        materialized_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+        rules:
+          nullable: true
+    PatchedCampaignDetail:
+      type: object
+      description: Full campaign payload for the configurator.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        channel:
+          $ref: '#/components/schemas/Channel0feEnum'
+        kind:
+          $ref: '#/components/schemas/Kind5cbEnum'
+        status:
+          $ref: '#/components/schemas/Status8a7Enum'
+        sent:
+          type: integer
+          readOnly: true
+        opened:
+          type: integer
+          readOnly: true
+        responded:
+          type: integer
+          readOnly: true
+        audience:
+          allOf:
+          - $ref: '#/components/schemas/Audience'
+          readOnly: true
+        audience_name:
+          type: string
+          readOnly: true
+        audience_size:
+          type: integer
+          readOnly: true
+        open_rate:
+          type: number
+          format: double
+          readOnly: true
+        ready_to_launch:
+          type: boolean
+          readOnly: true
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+        config: {}
+        configuration_state:
+          type: object
+          additionalProperties:
+            type: boolean
+          readOnly: true
+    PatchedEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        event_type:
+          $ref: '#/components/schemas/EventTypeEnum'
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        external_attendee_name:
+          type: string
+          maxLength: 100
+        external_attendee_email:
+          type: string
+          format: email
+          maxLength: 254
+        external_attendee_phone:
+          type: string
+          maxLength: 20
+        location:
+          type: string
+          maxLength: 200
+        meeting_link:
+          type: string
+          format: uri
+          maxLength: 200
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_public:
+          type: boolean
+        booking_link:
+          type: string
+          maxLength: 100
+        organizer:
+          type: integer
+        tenant:
+          type: integer
+        attendees:
+          type: array
+          items:
+            type: integer
+          readOnly: true
+    PatchedPreferenceUpdate:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/ThemeEnum'
+        language:
+          $ref: '#/components/schemas/LanguageEnum'
+        timezone:
+          type: string
+        notifications:
+          $ref: '#/components/schemas/NotificationPreference'
+        dashboard_layout:
+          $ref: '#/components/schemas/DashboardLayoutEnum'
+    PatchedWebhookConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+        expected_schema:
+          type: string
+        expected_content_type:
+          type: string
+          nullable: true
+          maxLength: 60
+        expected_origin:
+          type: string
+          nullable: true
+          maxLength: 150
+        auth_type:
+          $ref: '#/components/schemas/AuthTypeEnum'
+        auth_config: {}
+        handler_path:
+          type: string
+          description: myapp.handlers.process_order or registry key
+          maxLength: 255
+        url:
+          type: string
+          format: uri
+          nullable: true
+          description: Exposed receive endpoint
+          maxLength: 200
+        locked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PreferenceUpdate:
+      type: object
+      properties:
+        theme:
+          $ref: '#/components/schemas/ThemeEnum'
+        language:
+          $ref: '#/components/schemas/LanguageEnum'
+        timezone:
+          type: string
+        notifications:
+          $ref: '#/components/schemas/NotificationPreference'
+        dashboard_layout:
+          $ref: '#/components/schemas/DashboardLayoutEnum'
+    Status8a7Enum:
+      enum:
+      - draft
+      - ready
+      - scheduled
+      - active
+      - ended
+      - archived
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `ready` - Ready
+        * `scheduled` - Scheduled
+        * `active` - Active
+        * `ended` - Ended
+        * `archived` - Archived
+    ThemeEnum:
+      enum:
+      - light
+      - dark
+      type: string
+      description: |-
+        * `light` - light
+        * `dark` - dark
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - email
+      - password
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
+    WebhookConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+        expected_schema:
+          type: string
+        expected_content_type:
+          type: string
+          nullable: true
+          maxLength: 60
+        expected_origin:
+          type: string
+          nullable: true
+          maxLength: 150
+        auth_type:
+          $ref: '#/components/schemas/AuthTypeEnum'
+        auth_config: {}
+        handler_path:
+          type: string
+          description: myapp.handlers.process_order or registry key
+          maxLength: 255
+        url:
+          type: string
+          format: uri
+          nullable: true
+          description: Exposed receive endpoint
+          maxLength: 200
+        locked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - updated_at
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

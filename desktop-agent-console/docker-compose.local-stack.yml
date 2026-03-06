@@ -1,0 +1,93 @@
+# DEV ONLY: local development stack.
+# Production remains Kubernetes/Helm (infra/charts/moio-stack).
+
+services:
+  moio-postgres:
+    image: postgres:16-alpine
+    container_name: moio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-moio}
+      POSTGRES_USER: ${POSTGRES_USER:-moio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-moio}
+    ports:
+      - "${POSTGRES_PORT:-54329}:5432"
+    volumes:
+      - moio_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-moio} -d ${POSTGRES_DB:-moio}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  moio-redis:
+    image: redis:7-alpine
+    container_name: moio-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6389}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - moio_redis_data:/data
+
+  moio-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: moio-backend
+    restart: unless-stopped
+    depends_on:
+      moio-postgres:
+        condition: service_healthy
+      moio-redis:
+        condition: service_started
+    env_file:
+      - .env.db
+    environment:
+      DJANGO_USE_POSTGRES: "1"
+      POSTGRES_HOST: moio-postgres
+      POSTGRES_PORT: "5432"
+      REDIS_HOST: moio-redis
+      REDIS_PORT: "6379"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DJANGO_CORS_ALLOW_ALL_ORIGINS: "1"
+      REPLICA_MODEL_API_KEY: ${REPLICA_MODEL_API_KEY:-local-dev-placeholder-key}
+    ports:
+      - "${BACKEND_PORT:-8093}:8088"
+    volumes:
+      - ./.data:/app/.data
+    command: >-
+      /bin/sh -lc
+      "python manage.py migrate_schemas --shared --noinput
+      && python manage.py migrate_schemas --tenant --noinput
+      && python -m uvicorn webchat_django.asgi:application --host 0.0.0.0 --port 8088 --log-level info"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8088/healthz', timeout=5); sys.exit(0)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  moio-frontend:
+    build:
+      context: ./frontend/react
+      dockerfile: Dockerfile
+      args:
+        VITE_API_ORIGIN: ${FRONTEND_API_ORIGIN:-http://localhost:8093}
+        VITE_WS_BASE_URL: ${FRONTEND_WS_BASE_URL:-ws://localhost:8093/ws}
+    container_name: moio-frontend
+    restart: unless-stopped
+    depends_on:
+      moio-backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5174}:8080"
+
+volumes:
+  moio_postgres_data:
+  moio_redis_data:

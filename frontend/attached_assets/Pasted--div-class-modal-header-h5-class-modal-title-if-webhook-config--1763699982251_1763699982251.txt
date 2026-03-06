@@ -1,0 +1,390 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {% if webhook_config %}
+            Edit Webhook Configuration
+        {% else %}
+            Add Webhook Configuration
+        {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form {% if webhook_config %}
+        hx-post="{% url 'crm:webhook_config_edit' webhook_config.id %}"
+        {% else %}
+        hx-post="{% url 'crm:webhook_config_add' %}"
+        {% endif %}
+        hx-target="#webhook-modal-content"
+        hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'>
+
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name *</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="name" 
+                           name="name" 
+                           value="{% if webhook_config %}{{ webhook_config.name }}{% endif %}" 
+                           required>
+                    <div class="form-text">A unique name for this webhook configuration.</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="expected_content_type" class="form-label">Expected Content Type</label>
+                    <input type="text"
+                           class="form-control"
+                           id="expected_content_type"
+                           name="expected_content_type"
+                           value="{% if webhook_config %}{{ webhook_config.expected_content_type }}{% endif %}"
+                           placeholder="application/json">
+                    <div class="form-text">Leave empty to accept any content type.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" 
+                              id="description" 
+                              name="description" 
+                              rows="2" 
+                              placeholder="Optional description for this webhook">{% if webhook_config %}{{ webhook_config.description }}{% elif default_description %}{{ default_description }}{% endif %}</textarea>
+                </div>
+            </div>
+        </div>
+
+         <div class="row">
+
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="webhook_handler" class="form-label">Handler</label>
+                    <select class="form-select" id="webhook_handler" name="webhook_handler">
+                        {% for op in available_handlers %}
+                            <option value="{{ op }}" {% if webhook_config.handler_path == op or default_handler == op %} selected {% endif %}>{{ op }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3 form-check">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           id="locked"
+                           name="locked"
+                           {% if webhook_config.locked %}checked{% endif %}>
+                    <label class="form-check-label" for="locked">
+                        Lock Configuration
+                    </label>
+                    <div class="form-text">Prevent automatic updates to this configuration.</div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="auth_type" class="form-label">Authentication Type</label>
+                    <select class="form-select" id="auth_type" name="auth_type">
+                        <option value="none" {% if webhook_config.auth_type == 'none' %}selected{% endif %}>No Authentication</option>
+                        <option value="bearer" {% if webhook_config.auth_type == 'bearer' %}selected{% endif %}>Bearer Token</option>
+                        <option value="basic" {% if webhook_config.auth_type == 'basic' %}selected{% endif %}>HTTP Basic</option>
+                        <option value="hmac" {% if webhook_config.auth_type == 'hmac' %}selected{% endif %}>HMAC-SHA256</option>
+                        <option value="header" {% if webhook_config.auth_type == 'header' %}selected{% endif %}>Custom Header</option>
+                        <option value="query" {% if webhook_config.auth_type == 'query' %}selected{% endif %}>Query Parameter</option>
+                        <option value="jwt" {% if webhook_config.auth_type == 'jwt' %}selected{% endif %}>JWT Token</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Authentication Configuration Fields -->
+        <div id="auth-config-section">
+            <!-- Bearer Token Fields -->
+            <div id="bearer-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">Bearer Token Configuration</h6>
+                <div class="mb-3">
+                    <label for="bearer_token" class="form-label">Bearer Token *</label>
+                    <input type="text"
+                           class="form-control" 
+                           id="bearer_token" 
+                           name="bearer_token" 
+                           value="{% if webhook_config.auth_config.token %}{{ webhook_config.auth_config.token }}{% endif %}"
+                           placeholder="Enter or generate a secure token">
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateToken('bearer_token')">
+                        Generate Token
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="copyValueToClipboard('bearer_token', this)">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Basic Auth Fields -->
+            <div id="basic-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">HTTP Basic Authentication</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="basic_username" class="form-label">Username *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="basic_username" 
+                                   name="basic_username" 
+                                   value="{% if webhook_config.auth_config.username %}{{ webhook_config.auth_config.username }}{% endif %}"
+                                   placeholder="Username">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="basic_password" class="form-label">Password *</label>
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="basic_password" 
+                                   name="basic_password" 
+                                   value="{% if webhook_config.auth_config.password %}{{ webhook_config.auth_config.password }}{% endif %}"
+                                   placeholder="Password">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HMAC Fields -->
+            <div id="hmac-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">HMAC-SHA256 Configuration</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="hmac_secret" class="form-label">Secret Key *</label>
+                            <input type="text"
+                                   class="form-control" 
+                                   id="hmac_secret" 
+                                   name="hmac_secret" 
+                                   value="{% if webhook_config.auth_config.secret %}{{ webhook_config.auth_config.secret }}{% endif %}"
+                                   placeholder="HMAC secret key">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateToken('hmac_secret')">
+                                Generate Secret
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="copyValueToClipboard('hmac_secret', this)">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="hmac_signature_header" class="form-label">Signature Header</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="hmac_signature_header" 
+                                   name="hmac_signature_header" 
+                                   value="{% if webhook_config.auth_config.signature_header %}{{ webhook_config.auth_config.signature_header }}{% else %}X-Signature{% endif %}"
+                                   placeholder="X-Signature">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Header Fields -->
+            <div id="header-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">Custom Header Authentication</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="header_name" class="form-label">Header Name *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="header_name" 
+                                   name="header_name" 
+                                   value="{% if webhook_config.auth_config.header %}{{ webhook_config.auth_config.header }}{% else %}X-Webhook-Key{% endif %}"
+                                   placeholder="X-Webhook-Key">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="header_value" class="form-label">Header Value *</label>
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="header_value" 
+                                   name="header_value" 
+                                   value="{% if webhook_config.auth_config.value %}{{ webhook_config.auth_config.value }}{% endif %}"
+                                   placeholder="Secret value">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateToken('header_value')">
+                                Generate Value
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Parameter Fields -->
+            <div id="query-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">Query Parameter Authentication</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="query_param" class="form-label">Parameter Name *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="query_param" 
+                                   name="query_param" 
+                                   value="{% if webhook_config.auth_config.param %}{{ webhook_config.auth_config.param }}{% else %}token{% endif %}"
+                                   placeholder="token">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="query_value" class="form-label">Parameter Value *</label>
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="query_value" 
+                                   name="query_value" 
+                                   value="{% if webhook_config.auth_config.value %}{{ webhook_config.auth_config.value }}{% endif %}"
+                                   placeholder="Secret token value">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateToken('query_value')">
+                                Generate Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JWT Fields -->
+            <div id="jwt-fields" class="auth-config-group" style="display: none;">
+                <h6 class="mb-3">JWT Token Configuration</h6>
+                <div class="mb-3">
+                    <label for="jwt_secret" class="form-label">JWT Secret *</label>
+                    <input type="text"
+                           class="form-control" 
+                           id="jwt_secret" 
+                           name="jwt_secret" 
+                           value="{% if webhook_config.auth_config.secret %}{{ webhook_config.auth_config.secret }}{% endif %}"
+                           placeholder="JWT signing secret">
+                    <div class="btn-group-justified">
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="generateToken('jwt_secret')">
+                        Generate Secret
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="copyValueToClipboard('jwt_secret', this)">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    </div>
+
+                    <div class="form-text">Secret key used to verify JWT tokens.</div>
+                </div>
+            </div>
+        </div>
+</div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            {% if webhook_config %}Update{% else %}Create{% endif %} Configuration
+        </button>
+    </div>
+</form>
+
+<script>
+// Make global functions available for onclick handlers
+window.generateToken = function(fieldId) {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const token = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    const field = document.getElementById(fieldId);
+    if (field) field.value = token;
+};
+
+window.copyValueToClipboard = function(fieldId, btn) {
+    const input = document.getElementById(fieldId);
+    if (!input) return;
+    
+    navigator.clipboard.writeText(input.value)
+        .then(() => {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+            setTimeout(() => btn.innerHTML = originalText, 1500);
+        })
+        .catch(err => {
+            console.error('Copy failed:', err);
+            btn.textContent = 'Error';
+        });
+};
+
+// Define the toggle function that will be called
+function initWebhookAuthToggle() {
+    const authTypeSelect = document.getElementById('auth_type');
+    if (!authTypeSelect) {
+        console.warn('auth_type select not found');
+        return;
+    }
+    
+    function toggleAuthFields() {
+        const authType = authTypeSelect.value;
+        const authGroups = document.querySelectorAll('.auth-config-group');
+
+        // Hide all auth config groups
+        authGroups.forEach(group => {
+            group.style.display = 'none';
+        });
+
+        // Show the relevant group
+        if (authType && authType !== 'none') {
+            const targetGroup = document.getElementById(`${authType}-fields`);
+            if (targetGroup) {
+                targetGroup.style.display = 'block';
+            }
+        }
+    }
+    
+    // Set initial state
+    toggleAuthFields();
+    
+    // Attach change event (remove old listeners first)
+    authTypeSelect.removeEventListener('change', toggleAuthFields);
+    authTypeSelect.addEventListener('change', toggleAuthFields);
+}
+
+// Execute when script loads (for normal page loads)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWebhookAuthToggle);
+} else {
+    // DOM already loaded, execute immediately
+    initWebhookAuthToggle();
+}
+
+// Also execute when loaded via HTMX
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Check if this swap contains our webhook form
+    if (event.target.querySelector('#auth_type') || event.target.id === 'webhook-modal-content' || event.target.id === 'webhook-builder-modal-content') {
+        setTimeout(initWebhookAuthToggle, 0);
+    }
+});
+
+// Handle form submission success
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    const form = event.target;
+    if (form.matches('form[hx-post*="webhook_config"]') && event.detail.successful && event.detail.xhr.status === 204) {
+        // Close the appropriate modal
+        const crm_modal = document.getElementById('webhookModal');
+        const builder_modal = document.getElementById('webhookBuilderModal');
+        
+        if (crm_modal) {
+            const modal = bootstrap.Modal.getInstance(crm_modal);
+            if (modal) modal.hide();
+        }
+        if (builder_modal) {
+            const modal = bootstrap.Modal.getInstance(builder_modal);
+            if (modal) modal.hide();
+        }
+        
+        // Trigger a page refresh or update the webhook list
+        if (!window.__FLOW_BUILDER_ACTIVE__) {
+            setTimeout(() => location.reload(), 100);
+        }
+    }
+});
+</script>

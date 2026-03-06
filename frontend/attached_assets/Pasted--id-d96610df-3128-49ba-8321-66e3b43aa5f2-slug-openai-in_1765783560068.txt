@@ -1,0 +1,472 @@
+[
+  {
+    "id": "d96610df-3128-49ba-8321-66e3b43aa5f2",
+    "slug": "openai",
+    "instance_id": "default",
+    "name": "OpenAI",
+    "enabled": true,
+    "config": {
+      "api_key": "sk-p****zu0z",
+      "max_retries": 5,
+      "default_model": "gpt-4o-mini",
+      "embedding_model": "text-embedding-3-small"
+    },
+    "metadata": {},
+    "integration_name": "OpenAI",
+    "integration_category": "ai",
+    "is_configured": true,
+    "supports_multi_instance": true,
+    "available_models": [
+      {
+        "id": "gpt-4-0613",
+        "created": 1686588896
+      },
+      {
+        "id": "gpt-4",
+        "created": 1687882411
+      },
+      {
+        "id": "gpt-3.5-turbo",
+        "created": 1677610602
+      },
+      {
+        "id": "gpt-5.2-chat-latest",
+        "created": 1765344352
+      },
+      {
+        "id": "gpt-5.2-2025-12-11",
+        "created": 1765313028
+      },
+      {
+        "id": "gpt-5.2",
+        "created": 1765313051
+      },
+      {
+        "id": "gpt-5.2-pro-2025-12-11",
+        "created": 1765343959
+      },
+      {
+        "id": "gpt-5.2-pro",
+        "created": 1765343983
+      },
+      {
+        "id": "davinci-002",
+        "created": 1692634301
+      },
+      {
+        "id": "babbage-002",
+        "created": 1692634615
+      },
+      {
+        "id": "gpt-3.5-turbo-instruct",
+        "created": 1692901427
+      },
+      {
+        "id": "gpt-3.5-turbo-instruct-0914",
+        "created": 1694122472
+      },
+      {
+        "id": "dall-e-3",
+        "created": 1698785189
+      },
+      {
+        "id": "dall-e-2",
+        "created": 1698798177
+      },
+      {
+        "id": "gpt-4-1106-preview",
+        "created": 1698957206
+      },
+      {
+        "id": "gpt-3.5-turbo-1106",
+        "created": 1698959748
+      },
+      {
+        "id": "tts-1-hd",
+        "created": 1699046015
+      },
+      {
+        "id": "tts-1-1106",
+        "created": 1699053241
+      },
+      {
+        "id": "tts-1-hd-1106",
+        "created": 1699053533
+      },
+      {
+        "id": "text-embedding-3-small",
+        "created": 1705948997
+      },
+      {
+        "id": "text-embedding-3-large",
+        "created": 1705953180
+      },
+      {
+        "id": "gpt-4-0125-preview",
+        "created": 1706037612
+      },
+      {
+        "id": "gpt-4-turbo-preview",
+        "created": 1706037777
+      },
+      {
+        "id": "gpt-3.5-turbo-0125",
+        "created": 1706048358
+      },
+      {
+        "id": "gpt-4-turbo",
+        "created": 1712361441
+      },
+      {
+        "id": "gpt-4-turbo-2024-04-09",
+        "created": 1712601677
+      },
+      {
+        "id": "gpt-4o",
+        "created": 1715367049
+      },
+      {
+        "id": "gpt-4o-2024-05-13",
+        "created": 1715368132
+      },
+      {
+        "id": "gpt-4o-mini-2024-07-18",
+        "created": 1721172717
+      },
+      {
+        "id": "gpt-4o-mini",
+        "created": 1721172741
+      },
+      {
+        "id": "gpt-4o-2024-08-06",
+        "created": 1722814719
+      },
+      {
+        "id": "chatgpt-4o-latest",
+        "created": 1723515131
+      },
+      {
+        "id": "gpt-4o-audio-preview",
+        "created": 1727460443
+      },
+      {
+        "id": "gpt-4o-realtime-preview",
+        "created": 1727659998
+      },
+      {
+        "id": "omni-moderation-latest",
+        "created": 1731689265
+      },
+      {
+        "id": "omni-moderation-2024-09-26",
+        "created": 1732734466
+      },
+      {
+        "id": "gpt-4o-realtime-preview-2024-12-17",
+        "created": 1733945430
+      },
+      {
+        "id": "gpt-4o-audio-preview-2024-12-17",
+        "created": 1734034239
+      },
+      {
+        "id": "gpt-4o-mini-realtime-preview-2024-12-17",
+        "created": 1734112601
+      },
+      {
+        "id": "gpt-4o-mini-audio-preview-2024-12-17",
+        "created": 1734115920
+      },
+      {
+        "id": "o1-2024-12-17",
+        "created": 1734326976
+      },
+      {
+        "id": "o1",
+        "created": 1734375816
+      },
+      {
+        "id": "gpt-4o-mini-realtime-preview",
+        "created": 1734387380
+      },
+      {
+        "id": "gpt-4o-mini-audio-preview",
+        "created": 1734387424
+      },
+      {
+        "id": "computer-use-preview",
+        "created": 1734655677
+      },
+      {
+        "id": "o3-mini",
+        "created": 1737146383
+      },
+      {
+        "id": "o3-mini-2025-01-31",
+        "created": 1738010200
+      },
+      {
+        "id": "gpt-4o-2024-11-20",
+        "created": 1739331543
+      },
+      {
+        "id": "computer-use-preview-2025-03-11",
+        "created": 1741377021
+      },
+      {
+        "id": "gpt-4o-search-preview-2025-03-11",
+        "created": 1741388170
+      },
+      {
+        "id": "gpt-4o-search-preview",
+        "created": 1741388720
+      },
+      {
+        "id": "gpt-4o-mini-search-preview-2025-03-11",
+        "created": 1741390858
+      },
+      {
+        "id": "gpt-4o-mini-search-preview",
+        "created": 1741391161
+      },
+      {
+        "id": "gpt-4o-transcribe",
+        "created": 1742068463
+      },
+      {
+        "id": "gpt-4o-mini-transcribe",
+        "created": 1742068596
+      },
+      {
+        "id": "o1-pro-2025-03-19",
+        "created": 1742251504
+      },
+      {
+        "id": "o1-pro",
+        "created": 1742251791
+      },
+      {
+        "id": "gpt-4o-mini-tts",
+        "created": 1742403959
+      },
+      {
+        "id": "o3-2025-04-16",
+        "created": 1744133301
+      },
+      {
+        "id": "o4-mini-2025-04-16",
+        "created": 1744133506
+      },
+      {
+        "id": "o3",
+        "created": 1744225308
+      },
+      {
+        "id": "o4-mini",
+        "created": 1744225351
+      },
+      {
+        "id": "gpt-4.1-2025-04-14",
+        "created": 1744315746
+      },
+      {
+        "id": "gpt-4.1",
+        "created": 1744316542
+      },
+      {
+        "id": "gpt-4.1-mini-2025-04-14",
+        "created": 1744317547
+      },
+      {
+        "id": "gpt-4.1-mini",
+        "created": 1744318173
+      },
+      {
+        "id": "gpt-4.1-nano-2025-04-14",
+        "created": 1744321025
+      },
+      {
+        "id": "gpt-4.1-nano",
+        "created": 1744321707
+      },
+      {
+        "id": "gpt-image-1",
+        "created": 1745517030
+      },
+      {
+        "id": "codex-mini-latest",
+        "created": 1746673257
+      },
+      {
+        "id": "o3-pro",
+        "created": 1748475349
+      },
+      {
+        "id": "gpt-4o-realtime-preview-2025-06-03",
+        "created": 1748907838
+      },
+      {
+        "id": "gpt-4o-audio-preview-2025-06-03",
+        "created": 1748908498
+      },
+      {
+        "id": "o3-pro-2025-06-10",
+        "created": 1749166761
+      },
+      {
+        "id": "o4-mini-deep-research",
+        "created": 1749685485
+      },
+      {
+        "id": "o3-deep-research",
+        "created": 1749840121
+      },
+      {
+        "id": "gpt-4o-transcribe-diarize",
+        "created": 1750798887
+      },
+      {
+        "id": "o3-deep-research-2025-06-26",
+        "created": 1750865219
+      },
+      {
+        "id": "o4-mini-deep-research-2025-06-26",
+        "created": 1750866121
+      },
+      {
+        "id": "gpt-5-chat-latest",
+        "created": 1754073306
+      },
+      {
+        "id": "gpt-5-2025-08-07",
+        "created": 1754075360
+      },
+      {
+        "id": "gpt-5",
+        "created": 1754425777
+      },
+      {
+        "id": "gpt-5-mini-2025-08-07",
+        "created": 1754425867
+      },
+      {
+        "id": "gpt-5-mini",
+        "created": 1754425928
+      },
+      {
+        "id": "gpt-5-nano-2025-08-07",
+        "created": 1754426303
+      },
+      {
+        "id": "gpt-5-nano",
+        "created": 1754426384
+      },
+      {
+        "id": "gpt-audio-2025-08-28",
+        "created": 1756256146
+      },
+      {
+        "id": "gpt-realtime",
+        "created": 1756271701
+      },
+      {
+        "id": "gpt-realtime-2025-08-28",
+        "created": 1756271773
+      },
+      {
+        "id": "gpt-audio",
+        "created": 1756339249
+      },
+      {
+        "id": "gpt-5-codex",
+        "created": 1757527818
+      },
+      {
+        "id": "gpt-image-1-mini",
+        "created": 1758845821
+      },
+      {
+        "id": "gpt-5-pro-2025-10-06",
+        "created": 1759469707
+      },
+      {
+        "id": "gpt-5-pro",
+        "created": 1759469822
+      },
+      {
+        "id": "gpt-audio-mini",
+        "created": 1759512027
+      },
+      {
+        "id": "gpt-audio-mini-2025-10-06",
+        "created": 1759512137
+      },
+      {
+        "id": "gpt-5-search-api",
+        "created": 1759514629
+      },
+      {
+        "id": "gpt-realtime-mini",
+        "created": 1759517133
+      },
+      {
+        "id": "gpt-realtime-mini-2025-10-06",
+        "created": 1759517175
+      },
+      {
+        "id": "sora-2",
+        "created": 1759708615
+      },
+      {
+        "id": "sora-2-pro",
+        "created": 1759708663
+      },
+      {
+        "id": "gpt-5-search-api-2025-10-14",
+        "created": 1760043960
+      },
+      {
+        "id": "gpt-5.1-chat-latest",
+        "created": 1762547951
+      },
+      {
+        "id": "gpt-5.1-2025-11-13",
+        "created": 1762800353
+      },
+      {
+        "id": "gpt-5.1",
+        "created": 1762800673
+      },
+      {
+        "id": "gpt-5.1-codex",
+        "created": 1762988221
+      },
+      {
+        "id": "gpt-5.1-codex-mini",
+        "created": 1763007109
+      },
+      {
+        "id": "gpt-5.1-codex-max",
+        "created": 1763671532
+      },
+      {
+        "id": "gpt-3.5-turbo-16k",
+        "created": 1683758102
+      },
+      {
+        "id": "tts-1",
+        "created": 1681940951
+      },
+      {
+        "id": "whisper-1",
+        "created": 1677532384
+      },
+      {
+        "id": "text-embedding-ada-002",
+        "created": 1671217299
+      }
+    ],
+    "created_at": "2025-12-02T18:35:48.299976-03:00",
+    "updated_at": "2025-12-02T18:35:48.300219-03:00"
+  }
+]

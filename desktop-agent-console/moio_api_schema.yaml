@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: Moio Platform API
+  version: 1.0.0
+  description: |2
+
+    ## AI-powered CRM, Automation & Data Platform
+
+    Moio Platform provides a comprehensive API for:
+
+    - **CRM** - Contacts, tickets, deals, products, knowledge base
+    - **Campaigns** - Marketing campaigns with audience targeting
+    - **Flows** - Visual workflow automation engine
+    - **Chatbot** - AI conversational agents (WhatsApp, Email, Instagram)
+    - **DataLab** - Data import, transformation, and analytics
+    - **Recruiter** - Applicant tracking and candidate matching
+    - **FluidCMS** - Content management for marketing pages
+    - **FluidCommerce** - E-commerce product catalog
+
+    ### Authentication
+
+    All endpoints require JWT Bearer authentication unless marked as public.
+
+    ```
+    Authorization: Bearer <access>
+    ```
+
+    Obtain tokens via `POST /api/v1/auth/login/` with email and password.
+
+    ### Rate Limiting
+
+    API requests are rate-limited per tenant. Contact support for limit increases.
+
+    ### Errors
+
+    All errors return a consistent JSON structure:
+    ```json
+    {
+      "error": "error_code",
+      "message": "Human readable message",
+      "details": {}
+    }
+    ```
+  contact:
+    name: Moio Support
+    url: https://moio.io
+    email: support@moio.io
+  license:
+    name: Proprietary
+    url: https://moio.io/terms
+paths:
+  /api/v1/activities/:
+    get:
+      operationId: activities_retrieve
+      description: |-
+        Base API view for authenticated endpoints.
+        Uses CsrfExemptSessionAuthentication to allow POST/PUT/PATCH/DELETE
+        without CSRF tokens - appropriate for token-authenticated REST APIs.
+      tags:
+      - activities
+      security:
+      - tokenAuth: []
+      - jwtAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: activities_create
+      description: |-
+        Base API view for authenticated endpoints.
+        Uses CsrfExemptSess

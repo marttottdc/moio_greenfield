@@ -1,0 +1,97 @@
+@login_required
+def audience_assisted_preview(request, pk):
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    tenant = current_tenant.get()
+    aud = get_object_or_404(Audience, pk=pk, tenant=tenant)
+
+    prompt = (request.POST.get("prompt") or "").strip()
+    if not prompt:
+        html = '<div class="text-muted small">Write a prompt to preview.</div>'
+        # Reset preview count
+        oob = '<span id="preview-count" hx-swap-oob="true">—</span>'
+        return HttpResponse(html + oob)
+
+    # 1) Ask LLM for structured rules
+    #rules = ai_rules_from_prompt(prompt, field_map=FIELD_MAP, tenant=tenant, domain_models=[Contact], parser_model=AudienceRules, relation_depth=3)
+    rules = ai_rules_from_prompt(prompt, field_map=FIELD_MAP, tenant=tenant)
+
+    # 2) Validate / sanitize (allowlisted fields & ops, limits)
+    # ok, err = validate_rules(rules, allowed_fields=set(FIELD_MAP.keys()))
+    #if not ok:
+    #    html = f'<div class="alert alert-warning mb-2">{err}</div>'
+    #    oob  = '<span id="preview-count" hx-swap-oob="true">—</span>'
+    #    return HttpResponse(html + oob)
+
+    # 3) Persist rules as draft + compute preview (tenant-scoped)
+    and_rules = rules.get("and", []) or []
+    or_rules = rules.get("or", [])  or []
+    base_qs = Contact.objects.filter(tenant=tenant)
+
+    with transaction.atomic():
+        aud.rules = {"and": and_rules, "or": or_rules, "prompt": prompt}
+        aud.is_draft = True
+        aud.save(update_fields=["rules", "is_draft"])
+
+        count = compute_audience_preview(and_rules, or_rules, base_qs)
+
+    # 4) Render a readable summary + OOB preview count
+    rules_html = render(request, "campaigns/partials/_rules_table.html",
+                        {"and_rules": and_rules, "or_rules": or_rules}).content.decode("utf-8")
+    oob = f'<span id="preview-count" hx-swap-oob="true">{count}</span>'
+    return HttpResponse(rules_html + oob)
+
+
+@login_required
+def audience_assisted_save(request, pk):
+    """Finalize: activate, rebuild membership, store size; tenant-scoped."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    tenant = current_tenant.get()
+    aud = get_object_or_404(Audience, pk=pk, tenant=tenant)
+
+    # Ensure we have rules (from prior preview/autosave). Optionally regen from prompt:
+    prompt = (request.POST.get("prompt") or "").strip()
+    rules = (aud.rules or {})
+    if prompt and not rules:
+        # (rare) build from prompt if user never previewed
+        rules = ai_rules_from_prompt(prompt, field_map=FIELD_MAP, tenant=tenant)
+
+    #ok, err = validate_rules(rules, allowed_fields=set(FIELD_MAP.keys()))
+    #if not ok:
+    #    return render(request, "campaigns/modals/audience_config_dynamic_assisted.html",
+    #                  {"aud": aud, "errors": [err]})
+
+    and_rules = rules.get("and", []) or []
+    or_rules = rules.get("or", []) or []
+    base_qs = Contact.objects.filter(tenant=tenant)
+
+    with transaction.atomic():
+        # Persist final rules/metadata
+        aud.rules = {"and": and_rules, "or": or_rules, "prompt": prompt or rules.get("prompt")}
+        aud.is_draft = False
+        if hasattr(aud, "is_active"):
+            aud.is_active = True
+        if hasattr(aud, "activated_at"):
+            aud.activated_at = timezone.now()
+        aud.save(update_fields=[f for f in ["rules", "is_draft" ,"is_active", "activated_at"] if hasattr(aud, f) or f in ("rules","is_draft")])
+
+        # Build membership (NOT NULL tenant on through)
+        matched = compute_audience(and_rules, or_rules, base_qs,
+                                   audience=aud, m2m_attr="contacts",
+                                   replace=True, m2m_through_defaults={"tenant": tenant})
+
+        count = matched.count()
+        # Store size if field exists
+        changed = []
+        if hasattr(aud, "size"): aud.size = count; changed.append("size")
+        if hasattr(aud, "members_count"): aud.members_count = count; changed.append("members_count")
+        if changed: aud.save(update_fields=changed)
+
+    # Refresh tenant list
+    audiences = Audience.objects.filter(tenant=tenant).order_by("-id")
+    resp = render(request, "campaigns/partials/audience_list.html", {"audiences": audiences})
+    resp["HX-Trigger"] = json.dumps({"closeModal": True, "showMessage": f"Audience activated — {count} members"})
+    return resp

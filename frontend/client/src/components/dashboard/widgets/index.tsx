@@ -1,0 +1,11 @@
+export { KPIRibbonWidget } from "./kpi-ribbon-widget";
+export { RecentCampaignsWidget } from "./recent-campaigns-widget";
+export { RecentAudiencesWidget } from "./recent-audiences-widget";
+export { CRMAssistantWidget } from "./crm-assistant-widget";
+export { FavoritesWidget } from "./favorites-widget";
+export { FrequentlyUsedWidget } from "./frequently-used-widget";
+export { ActivityChartWidget } from "./activity-chart-widget";
+export { QuickActionsWidget } from "./quick-actions-widget";
+export { PerformanceMetricsWidget } from "./performance-metrics-widget";
+export { MyTasksWidget } from "./my-tasks-widget";
+export { GlobalTimelineWidget } from "./global-timeline-widget";

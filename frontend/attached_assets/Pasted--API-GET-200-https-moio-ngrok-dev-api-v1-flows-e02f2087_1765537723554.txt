@@ -1,0 +1,136 @@
+[API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/settings/preferences/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/settings/preferences/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/resources/webhooks/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/resources/webhooks/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/resources/whatsapp-templates/?channel=WhatsApp  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/events/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/events/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/definitions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/definitions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+useWebSocket.ts:134 [WS] Intentionally closing connection
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/?page=1&page_size=20
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/?page=1&page_size=20  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/definitions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/definitions/ {ok: true, stage: 'dev', definitions: {…}}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/settings/preferences/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/settings/preferences/ {user_preferences: {…}, system_settings: {…}}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/events/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/events/ {events: Array(16), count: 16, categories: Array(3), entity_types: Array(6)}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/whatsapp-templates/?channel=WhatsApp
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/webhooks/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/webhooks/ (11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/?page=1&page_size=20
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/?page=1&page_size=20 {ok: true, flows: Array(7), stats: {…}}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/resources/webhooks/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/resources/webhooks/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+useWebSocket.ts:45 [WS] Building WebSocket URL - apiBase: https://moio.ngrok.dev path: /ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/
+useWebSocket.ts:78 [WS] Final WebSocket URL: wss://moio.ngrok.dev/ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/?token=***
+useWebSocket.ts:171 [WS] Connecting to: wss://moio.ngrok.dev/ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/?token=***
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/definitions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/definitions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/resources/whatsapp-templates/?channel=WhatsApp  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/events/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/events/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/definitions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/definitions/ {ok: true, stage: 'dev', definitions: {…}}
+NodePalette.tsx:97 [NodePalette] Backend paletteData: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]
+NodePalette.tsx:98 [NodePalette] Backend nodeDefinitions: {trigger_manual: {…}, trigger_webhook: {…}, trigger_event: {…}, trigger_scheduled: {…}, trigger_process: {…}, …}
+NodePalette.tsx:148 [NodePalette] Transformed node trigger_manual: {label: 'Manual', iconString: 'play', iconComponent: undefined, inputs: Array(0), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node trigger_webhook: {label: 'Webhook', iconString: 'webhook', iconComponent: undefined, inputs: Array(0), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node trigger_event: {label: 'Event', iconString: 'zap', iconComponent: undefined, inputs: Array(0), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node trigger_scheduled: {label: 'Scheduled', iconString: 'calendarclock', iconComponent: undefined, inputs: Array(0), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node trigger_process: {label: 'Process', iconString: 'cog', iconComponent: undefined, inputs: Array(0), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node agent: {label: 'AI Agent', iconString: 'braincircuit', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_create_contact: {label: 'Create Contact', iconString: 'userplus', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_create_ticket: {label: 'Create Ticket', iconString: 'ticket', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_send_whatsapp: {label: 'Send WhatsApp', iconString: 'messagecirclemore', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_send_whatsapp_template: {label: 'WhatsApp Template', iconString: 'layouttemplate', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_send_email: {label: 'Send Email', iconString: 'send', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_http_request: {label: 'HTTP Request', iconString: 'cable', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node tool_update_candidate: {label: 'Update Candidate', iconString: 'userpen', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node logic_branch: {label: 'Branch', iconString: 'split', iconComponent: undefined, inputs: Array(1), outputs: Array(2), …}
+NodePalette.tsx:148 [NodePalette] Transformed node logic_condition: {label: 'Condition', iconString: 'circlehelp', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node logic_while: {label: 'While', iconString: 'repeat', iconComponent: undefined, inputs: Array(1), outputs: Array(2), …}
+NodePalette.tsx:148 [NodePalette] Transformed node transform: {label: 'Transform', iconString: 'wand2', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node data_set_values: {label: 'Set Values', iconString: 'fileinput', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node data_formula: {label: 'Formula', iconString: 'calculator', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+NodePalette.tsx:148 [NodePalette] Transformed node output_function: {label: 'Function', iconString: 'code', iconComponent: undefined, inputs: Array(1), outputs: Array(0), …}
+NodePalette.tsx:148 [NodePalette] Transformed node output_task: {label: 'Celery Task', iconString: 'listtodo', iconComponent: undefined, inputs: Array(1), outputs: Array(0), …}
+NodePalette.tsx:148 [NodePalette] Transformed node output_event: {label: 'Emit Event', iconString: 'megaphone', iconComponent: undefined, inputs: Array(1), outputs: Array(0), …}
+NodePalette.tsx:148 [NodePalette] Transformed node output_webhook_reply: {label: 'Webhook Reply', iconString: 'reply', iconComponent: undefined, inputs: Array(1), outputs: Array(0), …}
+NodePalette.tsx:148 [NodePalette] Transformed node output_agent: {label: 'Agent Output', iconString: 'messagesquarereply', iconComponent: undefined, inputs: Array(1), outputs: Array(0), …}
+NodePalette.tsx:148 [NodePalette] Transformed node debug_logger: {label: 'Log Message', iconString: 'scrolltext', iconComponent: undefined, inputs: Array(1), outputs: Array(1), …}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+useWebSocket.ts:179 [WS] Connected successfully
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+useWebSocket.ts:189 [WS] Message received: connected
+useWebSocket.ts:550 [FlowPreviewStream] Event: connected {flow_id: 'e02f2087-cc80-4bad-b6c0-a7cbd977c169'}
+useWebSocket.ts:556 [FlowPreviewStream] Connected to preview stream
+2PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/events/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/events/ {events: Array(16), count: 16, categories: Array(3), entity_types: Array(6)}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/whatsapp-templates/?channel=WhatsApp
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/webhooks/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/resources/webhooks/ (11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+flow-builder.tsx:829 [RESTORE] Backend node node_1 config: {webhook_id: '1b8a3167-3903-4c21-ba66-58af19b90963', webhook_url: 'https://devcrm.moio.ai/webhooks/1b8a3167-3903-4c21-ba66-58af19b90963/', handler_path: 'flows.handlers.execute_flow_webhook', webhook_name: 'pepepe', webhook_description: '', …}
+flow-builder.tsx:838 [RESTORE] Node node_1 after NodeData creation - config: {webhook_id: '1b8a3167-3903-4c21-ba66-58af19b90963', webhook_url: 'https://devcrm.moio.ai/webhooks/1b8a3167-3903-4c21-ba66-58af19b90963/', handler_path: 'flows.handlers.execute_flow_webhook', webhook_name: 'pepepe', webhook_description: '', …}
+flow-builder.tsx:844 [RESTORE] Node node_1 after merge - config: {webhook_id: '1b8a3167-3903-4c21-ba66-58af19b90963', webhook_url: 'https://devcrm.moio.ai/webhooks/1b8a3167-3903-4c21-ba66-58af19b90963/', handler_path: 'flows.handlers.execute_flow_webhook', webhook_name: 'pepepe', webhook_description: '', …}
+flow-builder.tsx:829 [RESTORE] Backend node node_4 config: {mapping: {…}, language: 'es', template: null, template_id: '868800948809711', template_name: 'test_simple', …}
+flow-builder.tsx:838 [RESTORE] Node node_4 after NodeData creation - config: {mapping: {…}, language: 'es', template: null, template_id: '868800948809711', template_name: 'test_simple', …}
+flow-builder.tsx:844 [RESTORE] Node node_4 after merge - config: {mapping: {…}, language: 'es', template: null, template_id: '868800948809711', template_name: 'test_simple', …}
+flow-builder.tsx:829 [RESTORE] Backend node node_5 config: {else: true, rules: Array(1)}
+flow-builder.tsx:838 [RESTORE] Node node_5 after NodeData creation - config: {else: true, rules: Array(1)}
+flow-builder.tsx:844 [RESTORE] Node node_5 after merge - config: {else: true, rules: Array(1)}
+flow-builder.tsx:860 [RESTORE] All restored nodes: (3) [{…}, {…}, {…}]
+3PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined

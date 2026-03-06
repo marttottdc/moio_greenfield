@@ -1,0 +1,35 @@
+Uncaught (in promise) FrameDoesNotExistError: Frame 5259 does not exist in tab 516516996
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 5476 does not exist in tab 516517038
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) TypeError: Error in invocation of webNavigation.getAllFrames(object details, function callback): Error at parameter 'details': Error at property 'tabId': Value must be at least 0.
+    at get allFrames (background.js:1:51419)
+    at Tab.<anonymous> (background.js:1:53246)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 6271 does not exist in tab 516517102
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 6272 does not exist in tab 516517102
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 6273 does not exist in tab 516517102
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 6293 does not exist in tab 516517105
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 6547 does not exist in tab 516517122
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8875 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8878 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8877 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8876 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8881 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8893 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) FrameDoesNotExistError: Frame 8900 does not exist in tab 516517232
+    at DelayedMessageSender.<anonymous> (background.js:1:49079)Comprende este error
+background.js:1 Uncaught (in promise) TypeError: Error in invocation of webNavigation.getAllFrames(object details, function callback): Error at parameter 'details': Error at property 'tabId': Value must be at least 0.
+    at get allFrames (background.js:1:51419)
+    at Tab.<anonymous> (background.js:1:53246)

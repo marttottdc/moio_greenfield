@@ -1,0 +1,1447 @@
+/* crm.css  ------------------------------------------------------------ */
+/* colour palette ------------------------------------------------------*/
+:root{
+
+  --moio-white: #ffffff;            /* pure white */
+  --moio-warning: #ffba08;          /* accent-yellow */
+  --moio-primary: #58a6ff;          /* moio-primary */
+  --moio-dark: #2f3542;             /* charcoal */
+  --moio-danger: #ff6b6b;           /* bittersweet */
+  --moio-success: #2ecc71;          /* emerald green */
+  /* Override Bootstrap CSS variables with our custom palette */
+
+  --bs-primary: #58a6ff;
+  --bs-success: #74c365;
+  --bs-warning: #ffba08;
+  --bs-danger: #ff6b6b;
+
+  --bs-primary-bg-light: #add4ff;
+  --bs-success-bg-light: #b0dca2;
+  --bs-warning-bg-light: #ffd46a;
+  --bs-danger-bg-light: #ffa8a8;
+
+  --bs-primary-rgb: 88, 166, 255;
+  --bs-secondary: #2f3542;
+  --bs-secondary-rgb: 47, 53, 66;
+
+  --bs-success-rgb: 116, 195, 101;
+  --bs-warning-rgb: 255, 186, 8;
+
+  --bs-danger-rgb: 255, 107, 107;
+  --bs-dark: #2f3542;
+  --bs-dark-rgb: 47, 53, 66;
+  --bs-light: #ffffff;
+  --bs-light-rgb: 255, 255, 255;
+
+  --list-group-color:              #212529;          /* $gray-900 */
+  --list-group-bg:                 #ffffff;          /* $white */
+  --list-group-border-color:       rgba(0, 0, 0, .125); /* rgba($black,.125) */
+  --list-group-border-width:       1px;              /* $border-width */
+  --list-group-border-radius:      .375rem;          /* $border-radius */
+
+  --list-group-item-padding-y:     0.5rem;           /* $spacer * .5 */
+  --list-group-item-padding-x:     1rem;             /* $spacer */
+  --list-group-item-bg-scale:      -80%;
+  --list-group-item-color-scale:   40%;
+
+  --list-group-hover-bg:           #f8f9fa;          /* $gray-100 */
+  --list-group-active-color:       #6c757d;          /* $component-active-color */
+  --list-group-active-bg:          var(--moio-primary);          /* $component-active-bg */
+  --list-group-active-border-color:var(--moio-primary);
+
+  --list-group-disabled-color:     #6c757d;          /* $gray-600 */
+  --list-group-disabled-bg:        var(--list-group-bg);
+
+  --list-group-action-color:       #495057;          /* $gray-700 */
+  --list-group-action-hover-color: var(--list-group-action-color);
+
+  --list-group-action-active-color: #212529;         /* $body-color */
+  --list-group-action-active-bg:   #e9ecef;          /* $gray-200 */
+
+}
+
+/* Dashboard and UI Components */
+.card {
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.progress {
+  background-color: #e9ecef;
+  border-radius: 10px;
+}
+
+.progress-bar {
+  border-radius: 10px;
+}
+
+.draggable-panel .card {
+  cursor: move;
+}
+
+.gu-mirror {
+  position: fixed !important;
+  margin: 0 !important;
+  z-index: 9999 !important;
+  opacity: 0.8;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.gu-hide {
+  display: none !important;
+}
+
+.gu-unselectable {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+.gu-transit {
+  opacity: 0.2;
+  box-shadow: none !important;
+}
+
+/* Contact screen styling */
+#contact-screen-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: white;
+}
+
+/* Task status progress bars */
+.task-status .progress {
+  height: 6px;
+}
+
+
+/* layout --------------------------------------------------------------*/
+html,body{height:100%;margin:0;background:var(--moio-white);overflow: hidden;}
+.layout-wrapper{display:flex;height:100vh;overflow:hidden;}
+
+.layout-wrapper{ padding-left: 280px; }   /* Updated to match new sidebar width */
+@media (max-width: 768px){
+  .layout-wrapper{ padding-left: 0; }
+}
+/* 2. Optional sticky strip INSIDE the wrapper        */
+/*    (progress bar, header, etc.) */
+.page-header{flex:0 0 auto;position:sticky; top:0; z-index:100;background:#fff;}
+
+/* 3. Main area that can split into columns            */
+.main-content{            /* ← you already use this   */
+  flex:1 1 auto;          /* take remaining space     */
+  min-height:0;           /* ✱ allow shrinking        */
+  display:flex;           /* side-by-side columns etc */
+  overflow:hidden;        /* itself never scrolls     */
+  padding:1.5rem;         /* keep your padding rule   */
+  background:var(--moio-white);
+}
+
+/* 4. Anything that SHOULD scroll gets .scroll-y       */
+.scroll-y{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+/* If you only want one axis:  .scroll-x { overflow-x:auto; } */
+
+
+
+/* sidebar -------------------------------------------------------------*/
+/* User dock base styling - ensure it's always visible */
+.sidebar .user-dock {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  margin: 0 0.75rem !important;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.sidebar .user-dock:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sidebar .user-dock img {
+  margin-right: 0.5rem !important;
+  flex-shrink: 0;
+}
+
+/* User dock specific styling when sidebar is collapsed */
+.sidebar.is-min .user-dock {
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 0.5rem !important;
+  padding: 0.5rem !important;
+  text-align: center !important;
+}
+
+.sidebar.is-min .user-dock div:last-child {
+  display: none !important; /* Hide user name text when collapsed */
+}
+
+.sidebar.is-min .user-dock img {
+  margin: 0 !important;
+}
+
+/* Settings link hover - match nav-link styles */
+.sidebar-bottom .nav-link {
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease;
+  padding: 0.5rem 0.75rem !important;
+  margin: 0 0.75rem !important;
+}
+
+.sidebar-bottom .nav-link:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Campaign Module Styles - Consolidated */
+.campaign-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.campaign-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--bs-primary);
+}
+
+.campaign-status-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.campaign-metrics {
+  font-size: 0.875rem;
+}
+
+.campaign-metrics .metric-value {
+  font-weight: 600;
+  color: var(--bs-primary);
+}
+
+.audience-card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: border-color 0.2s ease;
+}
+
+.audience-card:hover {
+  border-color: var(--bs-primary);
+}
+
+.audience-size-badge {
+  background: var(--bs-primary-bg-light);
+  color: var(--bs-primary);
+  border: none;
+}
+
+.status-approved {
+  background-color: #28a745 !important;
+  color: white;
+}
+
+.status-pending {
+  background-color: #ffc107 !important;
+  color: black;
+}
+
+.status-rejected {
+  background-color: #dc3545 !important;
+  color: white;
+}
+
+.template-item {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #dee2e6;
+}
+
+.template-item:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.template-item.selected {
+  background-color: #e3f2fd;
+  border-color: #2196f3 !important;
+  box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+}
+
+/* Standardize all nav-link hover areas */
+.sidebar .nav-link {
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease;
+  margin: 0 0.75rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.sidebar .nav-link:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sidebar{
+  --w:280px;                 /* Increased from 240px */
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--w);
+  height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--moio-dark); color: var(--moio-white);
+  transition: width .3s, left .3s;
+  z-index: 90;
+  overflow-x: hidden;        /* Prevent horizontal overflow */
+  overflow-y: auto;          /* Allow vertical scrolling if needed */
+}
+
+.sidebar.is-min{--w:90px;}
+.sidebar .sidebar-label{display:inline;}
+.sidebar.is-min .sidebar-label{display:none;}
+
+/* Logo responsive sizing */
+.sidebar-logo {
+  max-width: 75%;
+  height: auto;
+  transition: all 0.3s ease;
+}
+
+/* Collapsed sidebar - center content and hide labels */
+.sidebar.is-min .nav-link {
+  padding: 0.5rem 0.75rem !important;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar.is-min .nav-link i {
+  margin-right: 0 !important;
+  font-size: 1.1rem;
+}
+
+.sidebar.is-min .accordion-button {
+  padding: 0.5rem 0.75rem;
+  justify-content: center;
+}
+
+.sidebar.is-min .accordion-button i {
+  margin-right: 0 !important;
+}
+
+.sidebar.is-min .sidebar-logo {
+  max-width: 80% !important;
+  margin: 0 auto !important;
+  display: block !important;
+}
+
+.sidebar.is-min .tenant-title {
+  justify-content: center !important;
+  padding: 1rem 0.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.sidebar.is-min .tenant-title .sidebar-logo {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+.hamburger-btn {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.hamburger-btn:hover {
+  transform: scale(1.1);
+}
+
+.sidebar.is-min .hamburger-btn {
+  margin-left: 0;
+}
+
+/* Responsive sidebar adjustments */
+@media (max-width: 1200px){
+  .sidebar{
+    --w: 260px;              /* Slightly smaller on medium screens */
+  }
+  .layout-wrapper{ padding-left: 260px; }
+}
+
+@media (max-width: 992px){
+  .sidebar{
+    --w: 240px;              /* Even smaller on smaller screens */
+  }
+  .layout-wrapper{ padding-left: 240px; }
+}
+
+@media (max-width: 768px){
+  .sidebar{
+    position: fixed;
+    left: -280px;            /* Updated to match new width */
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    transition: left .3s;
+    --w: 280px;              /* Full width on mobile when shown */
+  }
+  .sidebar.show{left: 0;}
+  .layout-wrapper{ padding-left: 0; }
+}
+
+/* Ensure tenant title is properly sized */
+.tenant-title {
+  font-weight: 700;
+  font-size: 1.3rem;
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  background: var(--moio-dark);
+  min-height: 80px;          /* Ensure consistent height */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 1200px) {
+  .tenant-title {
+    padding: 1.25rem 0.75rem;
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .tenant-title {
+    padding: 1rem 0.5rem;
+    font-size: 1.1rem;
+  }
+}
+
+/* colours + utilities -------------------------------------------------*/
+.sidebar .nav-link{color:var(--moio-white);}
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active{background:rgba(255,255,255,.1);}
+.tenant-title{font-weight:700;font-size:1.3rem;padding:1rem;
+              border-bottom:1px solid rgba(255,255,255,.1);
+              background:var(--moio-dark);}
+.sidebar-bottom{margin-top:auto;border-top:1px solid rgba(255,255,255,.1);}
+.hamburger-btn{border:none;background:none;font-size:1.5rem;color:var(--moio-white);}
+.btn-primary{background:var(--moio-primary);border-color:var(--moio-primary);}
+.btn-primary:hover{background:#3c93e6;border-color:#3c93e6;}
+.badge.bg-primary{background:var(--moio-primary)!important;}
+.text-primary{color:var(--moio-primary)!important;}
+.text-success{color:#74c365!important;}
+
+/* kanban-column tints */
+.bg-light-blue   { background-color:#F0F4FF!important; }
+.bg-light-purple { background-color:#F7F0FF!important; }
+.bg-light-yellow { background-color:#FFFBF0!important; }
+.bg-light-green  { background-color:#F0FFF4!important; }
+
+@keyframes blink-full {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.blink-full {
+  animation: blink-full 1s step-start infinite;
+}
+
+@keyframes blink-half {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0.5; }
+}
+.blink-half {
+  animation: blink-half 1s infinite;
+}
+
+/* deal cards */
+.deal-container { min-height:50px; }
+
+.deal-card {
+  cursor:move;
+  user-select:none;
+  transition:transform .2s, box-shadow .2s;
+}
+
+.deal-card:hover {
+  transform:translateY(-2px);
+  box-shadow:0 4px 8px rgba(0,0,0,.1)!important;
+}
+
+/* dragula mirror */
+.gu-mirror {
+  background:#fff;
+  border-radius:.375rem;
+  padding:1rem;
+  box-shadow:0 .5rem 1rem rgba(0,0,0,.15);
+}
+
+/* Landing Page Styles ------------------------------------------------*/
+.hero-section {
+  padding: 100px 0;
+  background: linear-gradient(135deg, #2f3542 0%, #58a6ff 100%);
+}
+
+.card-pricing {
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  transition: transform 0.3s ease-in-out;
+}
+
+.card-pricing:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.card-pricing-recommended {
+  border: 2px solid #58a6ff;
+  position: relative;
+}
+
+.card-pricing-plan-tag {
+  position: absolute;
+  top: -10px;
+  right: 20px;
+  background: #58a6ff;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.card-pricing-price {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #58a6ff;
+}
+
+.card-pricing-price span {
+  font-size: 1rem;
+  color: #6c757d;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.avatar-sm {
+  width: 3rem;
+  height: 3rem;
+}
+
+.avatar-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.bg-secondary-lighten {
+  background-color: #f8f9fa !important;
+}
+
+.social-list-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid;
+  border-radius: 50%;
+  text-decoration: none;
+  margin: 0 5px;
+}
+
+.font-24 {
+  font-size: 24px;
+}
+
+.font-16 {
+  font-size: 16px;
+}
+
+/* Footer Styles */
+footer .text-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+footer a.text-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+  transition: color 0.15s ease;
+}
+
+footer a.text-muted:hover {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Navigation Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure navbar doesn't cover content when scrolling to anchors */
+section[id] {
+  scroll-margin-top: 80px;
+}
+
+.ticket-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.ticket-item:hover {
+  background-color: var(--bs-light);
+}
+.ticket-details-panel {
+  width: 65%;
+  flex-shrink: 0;
+}
+.bg-open-subtle {
+  background-color: var(--bs-primary-bg-light);
+}
+.bg-progress-subtle {
+  background-color: var(--bs-warning-bg-light);
+}
+.text-open {
+  color: var(--bs-primary);
+}
+.text-progress {
+  color: var(--bs-warning);
+}
+
+.progress-loader {
+  position: relative;
+  height: 4px;
+  background-color: var(--moio-white);
+  overflow: hidden;
+}
+
+.sweep-loader {
+  position: absolute;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background-color: var(--bs-warning);
+  animation: loader-sweep 0.5s infinite ease-in-out;
+}
+
+@keyframes loader-sweep {
+  0%   { left: -40%; }
+  50%  { left: 100%; }
+  100% { left: 100%; }
+}
+
+.conversation-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.conversation-item:hover {
+  background-color: var(--bs-light);
+}
+.chat-details-panel {
+  min-height: calc(100vh - 400px);
+}
+
+
+.nav-pills .nav-link {
+  color: #6c757d;
+  padding: 0.5rem 1rem;
+  margin-right: 0.5rem;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #e7f1ff;
+  color: #0d6efd;
+}
+
+.nav-pills .nav-link i {
+  margin-right: 0.5rem;
+}
+
+
+/*Communications LAYOUT CLASSES */
+/* two rows: sticky header | flexible body */
+.comm-layout {
+  display:grid;
+  grid-template-rows:auto 1fr;
+  height:100vh;
+}
+
+/* ---------- FLEX BODY: inbox + details ---------------------------- */
+.flex-body { display:flex; min-height:0;flex:1 1 auto;}   /* min-height:0 is critical */
+
+/* === Inbox column ================================================== */
+.inbox-col  { width:40%; display:flex; flex-direction:column; min-height:0; height:100%; }
+.inbox-bar  { position:sticky; top:0; z-index:9; background:#fff; }
+.inbox-list { flex:1 1 auto; overflow-y:auto; overflow-x:hidden; min-height:0; }
+
+/* === Details column =============================================== */
+.details-col    { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+.details-scroll { flex:1 1 auto; overflow-y:auto; min-height:0; }
+
+/* Optional: hide native scrollbar on WebKit (pure cosmetics)        */
+/* .inbox-list::-webkit-scrollbar, .details-scroll::-webkit-scrollbar { width:6px; } */
+
+
+/*conversation - bubbles */
+
+.conversation-list {
+  list-style: none;
+  padding: 0 15px; }
+  .conversation-list li {
+    margin-bottom: 20px; }
+    .conversation-list li .conversation-actions {
+      float: right;
+      display: none; }
+    .conversation-list li:hover .conversation-actions {
+      display: block; }
+  .conversation-list .chat-avatar {
+    float: left;
+    text-align: center;
+    width: 42px; }
+    .conversation-list .chat-avatar img {
+      border-radius: 100%;
+      width: 100%; }
+    .conversation-list .chat-avatar i {
+      font-size: 12px;
+      font-style: normal; }
+  .conversation-list .ctext-wrap {
+    background: var(--ct-chat-secondary-user-bg);
+    border-radius: 3px;
+    display: inline-block;
+    padding: 12px;
+    position: relative; }
+    .conversation-list .ctext-wrap i {
+      display: block;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: bold;
+      position: relative; }
+    .conversation-list .ctext-wrap p {
+      margin: 0;
+      padding-top: 3px; }
+    .conversation-list .ctext-wrap:after {
+      left: -11px;
+      top: 0;
+      border: solid transparent;
+      content: " ";
+      height: 0;
+      width: 0;
+      position: absolute;
+      pointer-events: none;
+      border-top-color: var(--ct-chat-secondary-user-bg);
+      border-width: 6px;
+      margin-right: -1px;
+      border-right-color: var(--ct-chat-secondary-user-bg); }
+  .conversation-list .conversation-text {
+    float: left;
+    font-size: 13px;
+    margin-left: 12px;
+    width: 70%; }
+  .conversation-list .odd .chat-avatar {
+    float: right !important; }
+  .conversation-list .odd .conversation-text {
+    float: right !important;
+    margin-right: 12px;
+    text-align: right;
+    width: 70% !important; }
+  .conversation-list .odd .ctext-wrap {
+    background-color: var(--ct-chat-primary-user-bg); }
+    .conversation-list .odd .ctext-wrap:after {
+      border-color: transparent;
+      border-left-color: var(--ct-chat-primary-user-bg);
+      border-top-color: var(--ct-chat-primary-user-bg);
+      right: -10px;
+      left: auto; }
+  .conversation-list .odd .conversation-actions {
+    float: left; }
+
+
+/* RESPONSIVE TICKET LAYOUT STYLES */
+/* Base styles for the container */
+.container-fluid {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Sticky header and KPIs */
+#tickets-screen-header,
+#tickets-screen-kpis {
+  position: sticky;
+  z-index: 1000;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure KPIs stick below header */
+#tickets-screen-kpis {
+  top: 0; /* JavaScript will adjust this dynamically */
+}
+
+/* Flex container for inbox and details panel */
+.d-flex {
+  flex: 1;
+  overflow: hidden;
+  gap: 1rem;
+}
+
+/* Scrollable inbox */
+#tickets-screen-inbox {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Ticket list inside inbox */
+.ticket-list {
+  max-height: 100%;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Fixed details panel */
+#tickets-screen-details-panel {
+  flex: 1;
+  height: 100%;
+}
+
+/* Ensure card inside details panel takes full height */
+.ticket-details-panel .card-body {
+  height: 100%;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Mini Card Body Class for compact KPIs */
+.card-body-mini {
+  padding: 0.5rem !important;
+}
+
+/* KPI Cards inheriting standard card hover effects */
+#tickets-screen-kpis .card {
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+#tickets-screen-kpis .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-color: rgba(0,0,0,0.12);
+}
+
+.kpi-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* Responsive adjustments using Bootstrap grid */
+@media (max-width: 767.98px) {
+  /* Stack inbox and details panel vertically */
+  .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  #tickets-screen-inbox {
+    width: 100%;
+    height: 50%; /* Split height on mobile */
+  }
+
+  #tickets-screen-details-panel {
+    width: 100%;
+    height: 50%; /* Split height on mobile */
+  }
+
+  /* Reduce padding for mobile */
+  .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Restore side-by-side layout */
+  #tickets-screen-inbox {
+    width: 35%;
+  }
+
+  #tickets-screen-details-panel {
+    flex: 1;
+  }
+
+  /* Restore full height for inbox and details */
+  #tickets-screen-inbox,
+  #tickets-screen-details-panel {
+    height: 100%;
+  }
+}
+
+@media (max-width: 1200px) {
+  #tickets-screen-kpis {
+    max-width: 65% !important;
+  }
+
+  #tickets-screen-kpis .card {
+    min-width: 110px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #tickets-screen-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  #tickets-screen-kpis {
+    max-width: 100% !important;
+    margin-top: 0.75rem;
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+  }
+
+  #tickets-screen-kpis .col-6,
+  #tickets-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #tickets-screen-kpis .card {
+    min-width: 100px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #tickets-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+    max-width: 300px !important;
+  }
+
+  #tickets-screen-kpis .col-6,
+  #tickets-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #tickets-screen-kpis .card {
+    min-width: 90px !important;
+  }
+
+  #tickets-screen-kpis .card-body-mini {
+    padding: 0.4rem !important;
+  }
+
+  #tickets-screen-kpis .fw-bold {
+    font-size: 1.3rem !important;
+  }
+
+  #tickets-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.8rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  #tickets-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.4rem;
+    width: auto;
+    max-width: 280px !important;
+  }
+
+  #tickets-screen-kpis .col-6,
+  #tickets-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #tickets-screen-kpis .card {
+    min-width: 80px !important;
+  }
+
+  #tickets-screen-kpis .card-body-mini {
+    padding: 0.3rem !important;
+  }
+
+  #tickets-screen-kpis .fw-bold {
+    font-size: 1.1rem !important;
+  }
+
+  #tickets-screen-kpis .text-muted {
+    font-size: 0.7rem !important;
+  }
+
+  #tickets-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.6rem !important;
+  }
+}
+
+/* Contacts KPI Styles */
+#contacts-screen-kpis {
+  max-width: 60%;
+}
+
+#contacts-screen-kpis .card {
+  border: 1px solid #e3e6f0;
+  border-radius: 0.35rem;
+  min-width: 120px;
+}
+
+#contacts-screen-kpis .card-body-mini {
+  padding: 0.75rem 0.5rem;
+}
+
+#contacts-screen-kpis .kpi-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* Deals KPI Styles */
+#deals-screen-kpis {
+  max-width: 60%;
+}
+
+#deals-screen-kpis .card {
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+#deals-screen-kpis .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-color: rgba(0,0,0,0.12);
+}
+
+#deals-screen-kpis .kpi-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* Responsive adjustments for contacts */
+@media (max-width: 1200px) {
+  #contacts-screen-kpis {
+    max-width: 65% !important;
+  }
+
+  #contacts-screen-kpis .card {
+    min-width: 110px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #contacts-screen-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  #contacts-screen-kpis {
+    max-width: 100% !important;
+    margin-top: 0.75rem;
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+  }
+
+  #contacts-screen-kpis .col-6,
+  #contacts-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #contacts-screen-kpis .card {
+    min-width: 100px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #contacts-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+    max-width: 300px !important;
+  }
+
+  #contacts-screen-kpis .col-6,
+  #contacts-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #contacts-screen-kpis .card {
+    min-width: 90px !important;
+  }
+
+  #contacts-screen-kpis .card-body-mini {
+    padding: 0.4rem !important;
+  }
+
+  #contacts-screen-kpis .fw-bold {
+    font-size: 1.3rem !important;
+  }
+
+  #contacts-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.8rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  #contacts-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.4rem;
+    width: auto;
+    max-width: 280px !important;
+  }  #contacts-screen-kpis .col-6,
+  #contacts-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #contacts-screen-kpis .card {
+    min-width: 80px !important;
+  }
+
+  #contacts-screen-kpis .card-body-mini {
+    padding: 0.3rem !important;
+  }
+
+  #contacts-screen-kpis .fw-bold {
+    font-size: 1.1rem !important;
+  }
+
+  #contacts-screen-kpis .text-muted {
+    font-size: 0.7rem !important;
+  }
+
+  #tickets-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.6rem !important;
+  }
+}
+
+/* Responsive adjustments for deals */
+@media (max-width: 1200px) {
+  #deals-screen-kpis {
+    max-width: 65% !important;
+  }
+
+  #deals-screen-kpis .card {
+    min-width: 110px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #deals-screen-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  #deals-screen-kpis {
+    max-width: 100% !important;
+    margin-top: 0.75rem;
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+  }
+
+  #deals-screen-kpis .col-6,
+  #deals-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #deals-screen-kpis .card {
+    min-width: 100px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #deals-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
+    width: auto;
+    max-width: 300px !important;
+  }
+
+  #deals-screen-kpis .col-6,
+  #deals-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #deals-screen-kpis .card {
+    min-width: 90px !important;
+  }
+
+  #deals-screen-kpis .card-body-mini {
+    padding: 0.4rem !important;
+  }
+
+  #deals-screen-kpis .fw-bold {
+    font-size: 1.3rem !important;
+  }
+
+  #deals-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.8rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  #deals-screen-kpis {
+    justify-content: flex-end !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.4rem;
+    width: auto;
+    max-width: 280px !important;
+  }
+
+  #deals-screen-kpis .col-6,
+  #deals-screen-kpis .col-md-3 {
+    width: 100%;
+  }
+
+  #deals-screen-kpis .card {
+    min-width: 80px !important;
+  }
+
+  #deals-screen-kpis .card-body-mini {
+    padding: 0.3rem !important;
+  }
+
+  #deals-screen-kpis .fw-bold {
+    font-size: 1.1rem !important;
+  }
+
+  #deals-screen-kpis .text-muted {
+    font-size: 0.7rem !important;
+  }
+
+  #deals-screen-kpis .text-center[style*="height: 2rem"] {
+    height: 1.6rem !important;
+  }
+}
+
+/* HTMX CUSTOMIZATIONS */
+/* ① fade-out the element that's about to go */
+.htmx-swapping {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+/* ② fade-in the new element just inserted   */
+.htmx-added {
+  opacity: 0;              /* start invisible */
+  animation: fadeIn 200ms forwards;
+}
+@keyframes fadeIn { to { opacity: 1; } }
+
+.htmx-indicator{
+    display:none;
+}
+.htmx-request .htmx-indicator{
+    display:inline;
+}
+.htmx-request.htmx-indicator{
+    display:inline;
+}
+.htmx-hide{
+    display: inline;
+}
+.htmx-request .htmx-hide {
+    display: none;
+}
+
+.glow-card{
+  width:260px;
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:1rem;
+  transition:box-shadow .3s;
+  margin:2rem auto;
+  cursor:pointer;
+}
+.glow-card.htmx-request{position:relative;}
+.glow-card.htmx-request::after{
+  content:"";
+  position:absolute;inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  animation:glow 1s infinite alternate;
+}
+@keyframes glow{
+  0%  {box-shadow:0 0 0 0 rgba(88,166,255,0);}
+  100%{box-shadow:0 0 8px 4px rgba(88,166,255,0.6);}
+}
+
+/* Keep accordion content visible and centered when collapsed */
+.sidebar.is-min .accordion-collapse {
+  display: block !important;
+}
+
+.sidebar.is-min .accordion-body {
+  padding: 0.25rem 0 !important;
+}
+
+.sidebar.is-min .accordion-body .nav-link {
+  padding: 0.5rem 0.25rem !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.sidebar.is-min .accordion-body .nav-link i {
+  margin-right: 0 !important;
+  font-size: 1rem;
+}
+
+/* Corrected CSS to ensure the user dock is visible in both expanded and collapsed states of the sidebar. */
+.pulsating-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      animation: fade 1s ease-in-out infinite;
+    }
+
+    @keyframes fade {
+      0%, 100% { opacity: 0.2; }
+      50%      { opacity: 1; }
+    }
+
+#palette button {
+  width: 50px;
+  height: 50px;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+#designCanvas {
+  width: 50vw;  /* 50% of viewport width */
+  height: auto;
+  max-height: 50vh; /* also constrained vertically */
+  background-size: 20px 20px; /* grid */
+  background-image:
+    linear-gradient(to right, #eee 1px, transparent 1px),
+    linear-gradient(to bottom, #eee 1px, transparent 1px);
+}
+
+
+/* =========================================
+   Bootstrap List Group Overrides (CSS vars)
+   ========================================= */
+.list-group-item {
+  color: var(--list-group-color);
+  background-color: var(--list-group-bg);
+  border: var(--list-group-border-width) solid var(--list-group-border-color);
+  border-radius: var(--list-group-border-radius);
+  padding: var(--list-group-item-padding-y) var(--list-group-item-padding-x);
+}
+
+/* Hover */
+.list-group-item:hover {
+  color: var(--list-group-color);
+  background-color: var(--list-group-hover-bg);
+}
+
+/* Active */
+.list-group-item.active,
+.list-group-item.active:hover {
+  color: var(--list-group-active-color);
+  background-color: var(--list-group-active-bg);
+  border-color: var(--list-group-active-border-color);
+}
+
+/* Disabled */
+.list-group-item.disabled,
+.list-group-item:disabled {
+  color: var(--list-group-disabled-color);
+  background-color: var(--list-group-disabled-bg);
+}
+
+/* Actionable items (links/buttons) */
+.list-group-item-action {
+  color: var(--list-group-action-color);
+}
+
+.list-group-item-action:hover,
+.list-group-item-action:focus {
+  color: var(--list-group-action-hover-color);
+  background-color: var(--list-group-hover-bg);
+}
+
+.list-group-item-action:active {
+  color: var(--list-group-action-active-color);
+  background-color: var(--list-group-action-active-bg);
+}
+
+/* Backgrounds */
+.bg-moio-white   { background-color: var(--moio-white) !important; }
+.bg-moio-warning { background-color: var(--moio-warning) !important; }
+.bg-moio-primary { background-color: var(--moio-primary) !important; }
+.bg-moio-dark    { background-color: var(--moio-dark) !important; }
+.bg-moio-danger  { background-color: var(--moio-danger) !important; }
+.bg-moio-success { background-color: var(--moio-success) !important; }
+
+/* Text */
+.text-moio-white   { color: var(--moio-white) !important; }
+.text-moio-warning { color: var(--moio-warning) !important; }
+.text-moio-primary { color: var(--moio-primary) !important; }
+.text-moio-dark    { color: var(--moio-dark) !important; }
+.text-moio-danger  { color: var(--moio-danger) !important; }
+.text-moio-success { color: var(--moio-success) !important; }
+
+/* Borders */
+.border-moio-white   { border-color: var(--moio-white) !important; }
+.border-moio-warning { border-color: var(--moio-warning) !important; }
+.border-moio-primary { border-color: var(--moio-primary) !important; }
+.border-moio-dark    { border-color: var(--moio-dark) !important; }
+.border-moio-danger  { border-color: var(--moio-danger) !important; }
+.border-moio-success { border-color: var(--moio-success) !important; }

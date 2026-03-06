@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moio"
+version = "0.2.0"
+description = "Moio runtime with tools and skills"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "uvicorn>=0.30.0,<1.0.0",
+  "websockets>=13.1,<16.0.0",
+  "django>=5.1.0,<6.0.0",
+  "channels>=4.1.0,<5.0.0",
+  "djangorestframework>=3.16.0,<4.0.0",
+  "djangorestframework-simplejwt>=5.5.0,<6.0.0",
+  "django_tenants>=3.7.0,<4.0.0",
+  "psycopg[binary]>=3.2.0,<4.0.0",
+  "openai>=1.50.0,<2.0.0",
+  "beautifulsoup4>=4.12.3,<5.0.0",
+  "pypdf>=5.0.0,<6.0.0",
+  "python-docx>=1.1.2,<2.0.0",
+  "openpyxl>=3.1.5,<4.0.0",
+  "pillow>=10.4.0,<12.0.0",
+  "mutagen>=1.47.0,<2.0.0",
+  "cryptography>=44.0.0,<46.0.0",
+  "boto3>=1.36.0,<2.0.0",
+  "celery[redis]>=5.4.0,<6.0.0",
+  "pywebpush>=2.0.3,<3.0.0",
+]
+
+[project.scripts]
+moio = "webchat_django.runserver:main"
+moio-django = "webchat_django.runserver:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

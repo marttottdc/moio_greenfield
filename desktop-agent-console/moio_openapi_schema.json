@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Moio API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/contacts": {
+      "get": {
+        "summary": "List contacts",
+        "operationId": "listContacts",
+        "responses": {
+          "200": {
+            "description": "A list of contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Contact"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a contact",
+        "operationId": "createContact",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Contact"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contact created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contact"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Contact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "email"]
+      }
+    }
+  }
+}

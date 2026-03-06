@@ -1,0 +1,34 @@
+[gateway]
+url = "ws://127.0.0.1:18789"
+token = "replace-with-your-gateway-token"
+# password = "replace-with-your-gateway-password"
+identity_path = "~/.moio/identity/moio-device.json"
+
+# Use a dedicated identity so operator shared-auth can skip pairing while keeping scopes.
+client_id = "gateway-client"
+client_mode = "backend"
+client_version = "moio/0.2.0"
+client_platform = "python"
+
+# operator.admin includes read/write/approvals/pairing.
+scopes = ["operator.admin", "operator.read", "operator.write", "operator.approvals", "operator.pairing"]
+
+# Needed for live tool stream events.
+caps = ["tool-events"]
+
+request_timeout_seconds = 45
+reconnect_delay_seconds = 1.5
+
+[agent]
+session_key = "main"
+# Optional; used for tools.catalog/skills.status agent-targeted queries.
+# agent_id = "default"
+
+# Optional per-message defaults for chat.send.
+# thinking = "high"
+# timeout_ms = 120000
+
+[app]
+host = "127.0.0.1"
+port = 8088
+log_level = "info"

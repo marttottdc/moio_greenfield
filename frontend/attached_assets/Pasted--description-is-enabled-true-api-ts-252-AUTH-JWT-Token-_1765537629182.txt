@@ -1,0 +1,184 @@
+  "description": "",
+  "is_enabled": true
+}
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API PATCH] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ Object Headers: Object
+3PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API PATCH] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+flow-builder.tsx:1352 [FLOW SAVE] Nodes before normalization: Array(4)
+flow-builder.tsx:1354 [FLOW SAVE] Normalized nodes: Array(4)
+flow-builder.tsx:1370 [FLOW SAVE] Saving graph: {
+  "graph": {
+    "nodes": [
+      {
+        "id": "node_1",
+        "kind": "trigger_webhook",
+        "name": "Webhook",
+        "x": 86,
+        "y": -196,
+        "config": {
+          "webhook_id": "1b8a3167-3903-4c21-ba66-58af19b90963",
+          "webhook_url": "https://devcrm.moio.ai/webhooks/1b8a3167-3903-4c21-ba66-58af19b90963/",
+          "handler_path": "flows.handlers.execute_flow_webhook",
+          "webhook_name": "pepepe",
+          "webhook_description": "",
+          "expected_content_type": ""
+        }
+      },
+      {
+        "id": "node_4",
+        "kind": "tool_send_whatsapp_template",
+        "name": "WhatsApp Template",
+        "x": 727,
+        "y": -46,
+        "config": {
+          "mapping": {
+            "name": "PEPE",
+            "phone_number": "{{input.whatsapp_phone}}"
+          },
+          "language": "es",
+          "template": null,
+          "template_id": "868800948809711",
+          "template_name": "test_simple",
+          "atomic_options": {
+            "flow_context": null,
+            "notify_agent": false,
+            "save_contact": false,
+            "contact_type_id": null,
+            "contact_fullname": null
+          }
+        }
+      },
+      {
+        "id": "node_5",
+        "kind": "logic_branch",
+        "name": "Branch",
+        "x": 110,
+        "y": -18,
+        "config": {
+          "else": true,
+          "rules": [
+            {
+              "name": "true",
+              "expr": "input.template_id == '868800948809711'"
+            }
+          ]
+        }
+      },
+      {
+        "id": "node_6",
+        "kind": "data_set_values",
+        "name": "Set Values",
+        "x": 382,
+        "y": 14,
+        "config": {
+          "values": {
+            "animal": "perro",
+            "color": "rojo"
+          },
+          "merge_with_input": false
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "reactflow__edge-node_1out-node_5in",
+        "source": "node_1",
+        "target": "node_5",
+        "source_port": "out",
+        "target_port": "in"
+      },
+      {
+        "id": "reactflow__edge-node_5true-node_6in",
+        "source": "node_5",
+        "target": "node_6",
+        "source_port": "true",
+        "target_port": "in"
+      },
+      {
+        "id": "reactflow__edge-node_6out-node_4in",
+        "source": "node_6",
+        "target": "node_4",
+        "source_port": "out",
+        "target_port": "in"
+      }
+    ]
+  }
+}
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API POST] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/save/ Object Headers: Object
+queryClient.ts:217 [API POST] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/save/
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API POST] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/3ee710c3-20e5-42fb-9a4a-84a42ebb1bad/arm/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API POST] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/3ee710c3-20e5-42fb-9a4a-84a42ebb1bad/arm/
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+queryClient.ts:264 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+api.ts:252 [AUTH] JWT Token - exp: 1765540804 iat: 1765537204 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/  Headers: {X-Moio-Client-Version: '1.0.0', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2…IxIn0.FSrwPRLgLNVzQQoeb1Llkdtu4yzJ16KOFBx2D_tx9NU'}
+2PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+useWebSocket.ts:206 [WS] Connection closed: 1006 
+useWebSocket.ts:232 [WS] Reconnecting in 3000ms (attempt 1/5)
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/ {ok: true, flow: {…}, graph: {…}, node_definitions: {…}, palette: Array(7), …}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+queryClient.ts:217 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/
+queryClient.ts:267 [API GET] 200 https://moio.ngrok.dev/api/v1/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/versions/ {ok: true, versions: Array(12)}
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+useWebSocket.ts:45 [WS] Building WebSocket URL - apiBase: https://moio.ngrok.dev path: /ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/
+useWebSocket.ts:78 [WS] Final WebSocket URL: wss://moio.ngrok.dev/ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/?token=***
+useWebSocket.ts:171 [WS] Connecting to: wss://moio.ngrok.dev/ws/flows/e02f2087-cc80-4bad-b6c0-a7cbd977c169/preview/stream/?token=***
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+useWebSocket.ts:179 [WS] Connected successfully
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+useWebSocket.ts:189 [WS] Message received: connected
+useWebSocket.ts:550 [FlowPreviewStream] Event: connected {flow_id: 'e02f2087-cc80-4bad-b6c0-a7cbd977c169'}
+useWebSocket.ts:556 [FlowPreviewStream] Connected to preview stream
+2PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+3PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+2PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined

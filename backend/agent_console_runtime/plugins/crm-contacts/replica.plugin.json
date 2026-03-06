@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "crm.contacts",
+  "name": "CRM Contacts",
+  "version": "1.0.0",
+  "description": "Search and update CRM contacts through indexed API resources.",
+  "entrypoint": "plugin.py",
+  "icon": "icon.svg",
+  "readme": "README.md",
+  "capabilities": [
+    "resources",
+    "tools"
+  ],
+  "tools": [
+    "files.read",
+    "web.request"
+  ],
+  "permissions": [
+    "filesystem_read",
+    "network_outbound"
+  ],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "base_url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "default_audience": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "base_url"
+    ]
+  },
+  "requirements": {
+    "tenant_config": [
+      "base_url"
+    ],
+    "user_config": [
+      "default_audience"
+    ],
+    "tenant_credentials": [
+      "crm_api_key"
+    ],
+    "user_credentials": [
+      "crm_login"
+    ],
+    "assets": [
+      "openapi.json"
+    ]
+  }
+}

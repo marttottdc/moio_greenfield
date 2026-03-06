@@ -1,0 +1,59 @@
+martinotero@192 chart % curl -X OPTIONS https://moio.ngrok.dev/api/v1/auth/login \
+  -H "Origin: https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: content-type,x-moio-client-version" \
+  -v
+
+
+* Host moio.ngrok.dev:443 was resolved.
+* IPv6: (none)
+* IPv4: 54.207.167.168, 18.230.86.64, 54.232.91.7, 18.229.129.196, 56.126.14.154
+*   Trying 54.207.167.168:443...
+* Connected to moio.ngrok.dev (54.207.167.168) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+*  CAfile: /etc/ssl/cert.pem
+*  CApath: none
+* (304) (IN), TLS handshake, Server hello (2):
+* (304) (IN), TLS handshake, Unknown (8):
+* (304) (IN), TLS handshake, Certificate (11):
+* (304) (IN), TLS handshake, CERT verify (15):
+* (304) (IN), TLS handshake, Finished (20):
+* (304) (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=*.ngrok.dev
+*  start date: Sep 30 19:02:09 2025 GMT
+*  expire date: Dec 29 19:02:08 2025 GMT
+*  subjectAltName: host "moio.ngrok.dev" matched cert's "*.ngrok.dev"
+*  issuer: C=US; O=Let's Encrypt; CN=E8
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://moio.ngrok.dev/api/v1/auth/login
+* [HTTP/2] [1] [:method: OPTIONS]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: moio.ngrok.dev]
+* [HTTP/2] [1] [:path: /api/v1/auth/login]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+* [HTTP/2] [1] [origin: https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev]
+* [HTTP/2] [1] [access-control-request-method: POST]
+* [HTTP/2] [1] [access-control-request-headers: content-type,x-moio-client-version]
+> OPTIONS /api/v1/auth/login HTTP/2
+> Host: moio.ngrok.dev
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Origin: https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev
+> Access-Control-Request-Method: POST
+> Access-Control-Request-Headers: content-type,x-moio-client-version
+> 
+* Request completely sent off
+< HTTP/2 200 
+< content-type: text/html; charset=utf-8
+< date: Mon, 17 Nov 2025 16:26:29 GMT
+< server: hypercorn-h11
+< vary: origin
+< content-length: 0
+< 
+* Connection #0 to host moio.ngrok.dev left intact

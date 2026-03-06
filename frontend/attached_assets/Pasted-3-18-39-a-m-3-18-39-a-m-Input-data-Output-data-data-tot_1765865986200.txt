@@ -1,0 +1,76 @@
+3:18:39 a.m. → 3:18:39 a.m.
+Input data
+Output data
+{
+  "data": {
+    "total": 1,
+    "results": [
+      {
+        "error": "[100] (#100) Invalid parameter",
+        "index": 0,
+        "phone": "input.whatsapp_phone",
+        "success": false,
+        "wa_log_id": 11455,
+        "api_response": {
+          "error": {
+            "code": 100,
+            "type": "OAuthException",
+            "message": "(#100) Invalid parameter",
+            "error_data": {
+              "details": "Parameter Invalid",
+              "messaging_product": "whatsapp"
+            },
+            "fbtrace_id": "ABb5cWMwDcvzUUny06E0Uje"
+          }
+        }
+      }
+    ],
+    "sent_count": 0,
+    "template_id": "992109406097190",
+    "failed_count": 1
+  },
+  "logs": [
+    {
+      "level": "INFO",
+      "message": "Starting executor: send_whatsapp_template",
+      "timestamp": "2025-12-16T06:18:39.253223Z"
+    },
+    {
+      "level": "INFO",
+      "message": "WhatsApp client initialized",
+      "timestamp": "2025-12-16T06:18:39.289960Z"
+    },
+    {
+      "data": {
+        "requirements": "[{'type': 'header', 'parameters': []}, {'type': 'body', 'parameters': [{'type': 'text', 'text': '{{nombre}}', 'parameter_name': 'nombre'}]}, {'type': 'button', 'sub_type': 'flow', 'index': '0', 'parameters': [{'type': 'action', 'action': {'flow_token': 'unused'}}]}]"
+      },
+      "level": "INFO",
+      "message": "Template '992109406097190' loaded",
+      "timestamp": "2025-12-16T06:18:39.651523Z"
+    },
+    {
+      "level": "WARNING",
+      "message": "Message send failed for input.whatsapp_phone: [100] (#100) Invalid parameter",
+      "timestamp": "2025-12-16T06:18:39.874089Z"
+    },
+    {
+      "level": "INFO",
+      "message": "Batch complete: 0 sent, 1 failed",
+      "timestamp": "2025-12-16T06:18:39.874270Z"
+    },
+    {
+      "level": "INFO",
+      "message": "Executor completed in 621ms",
+      "timestamp": "2025-12-16T06:18:39.874326Z"
+    }
+  ],
+  "error": "All 1 messages failed to send",
+  "success": false,
+  "metadata": {
+    "sandbox": false,
+    "executor": "send_whatsapp_template",
+    "started_at": "2025-12-16T06:18:39.253199Z",
+    "duration_ms": 621,
+    "finished_at": "2025-12-16T06:18:39.874316Z"
+  }
+}

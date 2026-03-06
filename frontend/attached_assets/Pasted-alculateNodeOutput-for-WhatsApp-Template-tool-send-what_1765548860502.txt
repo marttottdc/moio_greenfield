@@ -1,0 +1,14 @@
+alculateNodeOutput for "WhatsApp Template" (tool_send_whatsapp_template): inputs=[trigger, data, color, comida] config={"template":null,"mapping":{},"atomic_options":{"save_contact":false,"contact_fullname":null,"contact_type_id":null,"notify_agent":false,"flow_context":null}}
+dataFlowAnalyzer.ts:517 [DataFlow] "WhatsApp Template" output: [trigger, data, color, comida]
+3PreviewDrawer.tsx:53 [PreviewDrawer] Rendering - open: false execution: undefined
+dataFlowAnalyzer.ts:583 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:612 [DataFlow] Topological order: Array(3)
+dataFlowAnalyzer.ts:303 [DataFlow] calculateNodeOutput for "Webhook" (trigger_webhook): inputs=[] config={"webhook_id":"df15090b-9c2d-4e7e-a87b-799053f3879a","webhook_name":"nuevo_pruebas-flows","webhook_description":"Nuevo Webhook para pruebas","webhook_url":"https://moio.ngrok.dev/webhooks/df15090b-9c2d-4e7e-a87b-799053f3879a/","handler_path":"flows.handlers.execute_flow_webhook","expected_content_type":"application/json"}
+dataFlowAnalyzer.ts:338 [DataFlow] Webhook "Webhook" schema lookup: Object
+dataFlowAnalyzer.ts:517 [DataFlow] "Webhook" output: [trigger, data]
+dataFlowAnalyzer.ts:303 [DataFlow] calculateNodeOutput for "Set Values" (data_set_values): inputs=[trigger, data] config={"values":[{"key":"color","value":"rojo"},{"key":"comida","value":"manzana"}],"merge_with_input":true}
+dataFlowAnalyzer.ts:384 [DataFlow] Processing set_values node "Set Values": Object
+dataFlowAnalyzer.ts:517 [DataFlow] "Set Values" output: [trigger, data, color, comida]
+dataFlowAnalyzer.ts:303 [DataFlow] calculateNodeOutput for "WhatsApp Template" (tool_send_whatsapp_template): inputs=[trigger, data, color, comida] config={"template":null,"mapping":{},"atomic_options":{"save_contact":false,"contact_fullname":null,"contact_type_id":null,"notify_agent":false,"flow_context":null}}
+dataFlowAnalyzer.ts:517 [DataFlow] "WhatsApp Template" output: [trigger, data, color, comida]
+3PreviewDrawer.tsx:53 [PreviewDrawer] Rendering 

@@ -1,0 +1,51 @@
+
+index-BN9p9qhk.js:48 [API GET] https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/  Headers: 
+Object
+index-BN9p9qhk.js:48 [API GET] https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/versions/
+index-BN9p9qhk.js:48 [AUTH] JWT Token - exp: 1765563512 iat: 1765559912 type: access user_id: 1
+index-BN9p9qhk.js:48 [AUTH] Including Bearer token in request
+index-BN9p9qhk.js:48 [API GET] https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/versions/  Headers: 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/versions/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/definitions/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/versions/ 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/events/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/definitions/ 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/events/ 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/settings/preferences/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/settings/preferences/ 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/ 
+Object
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/resources/webhooks/
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/resources/webhooks/ 
+Array(11)
+index-BN9p9qhk.js:48 [API GET] 200 https://devcrm.moio.ai/api/v1/resources/whatsapp-templates/?channel=WhatsApp
+index-BN9p9qhk.js:7808 [DataFlow] analyzeDataFlow called: 
+{nodeCount: 2, edgeCount: 1, nodes: Array(2)}
+index-BN9p9qhk.js:7808 [DataFlow] Topological order: 
+(2) ['Event (trigger_event)', 'Send Email (tool_send_email)']
+0
+: 
+"Event (trigger_event)"
+1
+: 
+"Send Email (tool_send_email)"
+length
+: 
+2
+[[Prototype]]
+: 
+Array(0)
+index-BN9p9qhk.js:7808 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[]}
+index-BN9p9qhk.js:7808 [DataFlow] "Event" output: [trigger, data]
+index-BN9p9qhk.js:7808 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[trigger, data] config={}
+index-BN9p9qhk.js:7808 [DataFlow] "Send Email" output: [trigger, data]
+index-BN9p9qhk.js:7799 [WS] Connection closed: 1006 
+index-BN9p9qhk.js:7799 [WS] Reconnecting in 3000ms (attempt 1/5)
+index-BN9p9qhk.js:7799 [WS] Building WebSocket URL - apiBase: https://devcrm.moio.ai path: /ws/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/preview/stream/
+index-BN9p9qhk.js:7799 [WS] Final WebSocket URL: 

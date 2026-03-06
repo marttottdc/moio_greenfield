@@ -1,0 +1,116 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/marttottdc/moio-frontend
+  tag: "" # defaults to .Chart.AppVersion when not provided
+  pullPolicy: IfNotPresent
+
+containerPort: 5000
+
+imagePullSecrets:
+  - name: registry-4
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-http
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: ui.moio.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ui-moio-ai-tls
+      hosts:
+        - ui.moio.ai
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  config:
+    NODE_ENV: production
+    PORT: "5000"
+  secrets: []
+secretEnv: []
+
+configFiles: {}
+
+secretEnv: {}
+
+serviceAccountName: ""
+
+livenessProbe:
+  path: /healthz
+  port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  path: /readyz
+  port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  enabled: false
+  path: /healthz
+  port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 12
+  successThreshold: 1
+

@@ -1,0 +1,222 @@
+Flows App - Frontend Integration Memo
+Date: December 10, 2025
+From: Backend Team
+To: Frontend Team
+Subject: Flows App Architecture Changes, Policies & API Reference
+
+Executive Summary
+The Flows app has undergone significant architectural changes to support a robust Draft → Published lifecycle with live preview capabilities. This memo documents all policy changes, new features, and API integration guidelines for frontend implementation.
+
+1. Flow Lifecycle Changes
+Previous Architecture (Deprecated)
+Signal-based triggers (Django signals)
+Single version per flow
+No preview/testing capabilities
+New Architecture
+┌─────────────────────────────────────────────────────────────────┐
+│                        FLOW LIFECYCLE                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   DRAFT (editable)                                               │
+│      │                                                           │
+│      ├── [save] ──► Auto-increments minor version (v1.1, v1.2)  │
+│      │                                                           │
+│      ├── [arm] ──► Temporarily receives live events for testing │
+│      │                                                           │
+│      └── [publish] ──► Locks version, increments major (v2.0)   │
+│                              │                                   │
+│                              ▼                                   │
+│   PUBLISHED + ACTIVE (is_enabled=true)                          │
+│      │  └── Receives production events                          │
+│      │                                                           │
+│      ├── [toggle-active] ──► PUBLISHED + INACTIVE               │
+│      │                         └── Stops receiving events       │
+│      │                                                           │
+│      └── [new-version] ──► Creates new DRAFT (clone)            │
+│                              └── Multiple drafts supported      │
+└─────────────────────────────────────────────────────────────────┘
+
+2. Version States & Rules
+State Definitions
+State	is_published	is_editable	preview_armed	Receives Events
+Draft	false	true	false	No
+Draft (Armed)	false	true	true	Yes (for testing)
+Published Active	true	false	N/A	Yes (production)
+Published Inactive	true	false	N/A	No
+Business Rules
+Drafts are always editable - Use POST /save/ to persist changes
+Published versions are immutable - Cannot be edited, must create new version
+Only one published version can be active - Publishing deactivates previous
+Multiple drafts are allowed - Work on different features simultaneously
+Armed drafts receive real events - Use for integration testing before publishing
+3. Preview Arming System
+What is Arming?
+Arming allows a draft version to temporarily receive real system events (like ticket.created, deal.stage_changed) for live testing without affecting production flows.
+
+Arming Flow
+1. Open draft in editor
+2. Call POST /api/flows/{flow_id}/versions/{version_id}/arm/
+3. Draft now receives matching events
+4. Connect to WebSocket for real-time step updates
+5. When done, call POST .../disarm/
+
+Important Notes
+Armed drafts and active published flows BOTH receive matching events
+Arming does NOT affect production traffic
+Preview executions are marked with trigger_source: "preview"
+Arm state persists until explicitly disarmed
+4. Event-Driven Architecture
+Deprecated: Signal-Based Triggers
+Django signal triggers have been completely removed. Do not reference or use them.
+
+Current: Event-Based Triggers
+All flow triggers now use the event system with standardized naming:
+
+Event Type	Description	Payload Example
+ticket.created	New ticket created	{ticket_id, subject, priority, contact_id}
+ticket.updated	Ticket modified	{ticket_id, changed_fields, previous_values}
+ticket.closed	Ticket resolved	{ticket_id, resolution, closed_by}
+deal.created	New deal/opportunity	{deal_id, stage, value, contact_id}
+deal.stage_changed	Deal moved to new stage	{deal_id, from_stage, to_stage}
+contact.created	New contact added	{contact_id, email, phone}
+Getting Available Events
+GET /api/flows/events/
+
+Returns all registered event types with their schemas.
+
+5. API Endpoints Reference
+Base URL: /api/flows/
+Flow CRUD
+Method	Endpoint	Description
+GET	/	List all flows
+GET	/{flow_id}/	Get flow detail with graph
+POST	/{flow_id}/save/	Save graph (draft only)
+POST	/{flow_id}/validate/	Validate before publish
+POST	/{flow_id}/publish/	Publish version
+POST	/{flow_id}/toggle-active/	Activate/deactivate flow
+Version Management
+Method	Endpoint	Description
+GET	/{flow_id}/versions/	List all versions
+GET	/{flow_id}/versions/{id}/	Get version with graph
+POST	/{flow_id}/new-version/	Clone published → new draft
+POST	/{flow_id}/versions/{id}/arm/	Arm draft for testing
+POST	/{flow_id}/versions/{id}/disarm/	Stop receiving events
+Execution & Preview
+Method	Endpoint	Description
+POST	/{flow_id}/preview/	Start preview run
+GET	/{flow_id}/preview/{run_id}/	Get preview status
+POST	/{flow_id}/manual-run/	Trigger manual execution
+GET	/{flow_id}/executions/	List execution history
+GET	/{flow_id}/executions/{id}/	Get execution detail
+Supporting Endpoints
+Method	Endpoint	Description
+GET	/definitions/	List available node types
+GET	/events/	List available event types
+GET	/{flow_id}/schedules/	List schedules
+POST	/{flow_id}/schedules/	Create schedule
+6. Response Format
+Standard Success Response
+{
+  "ok": true,
+  "flow": { ... },
+  "version": { ... },
+  "message": "Human-readable status message"
+}
+
+Standard Error Response
+{
+  "ok": false,
+  "error": "Human-readable error message",
+  "code": "OPTIONAL_ERROR_CODE"
+}
+
+Version Object Structure
+{
+  "id": "uuid",
+  "flow_id": "uuid",
+  "major": 2,
+  "minor": 0,
+  "label": "v2.0 • published",
+  "is_published": true,
+  "is_active": true,
+  "is_editable": false,
+  "preview_armed": false,
+  "preview_armed_at": null,
+  "notes": "Release notes here",
+  "created_at": "2025-12-10T12:00:00Z",
+  "graph": { ... }  // Only when include_graph=true
+}
+
+7. WebSocket Integration
+Preview Stream Endpoint
+ws://{host}/ws/flows/{flow_id}/preview/stream/
+
+Message Types
+Step Update (during execution):
+
+{
+  "type": "step_update",
+  "step": {
+    "node_id": "node-abc123",
+    "kind": "action_send_message",
+    "name": "Send Welcome Email",
+    "status": "running|success|error",
+    "output": { ... }
+  }
+}
+
+Run Complete:
+
+{
+  "type": "run_complete",
+  "execution": {
+    "id": "uuid",
+    "status": "success|failed",
+    "duration_ms": 1234,
+    "timeline": [ ... ]
+  }
+}
+
+8. UI Implementation Guidelines
+Flow Editor States
+Draft Mode: Enable all editing controls, show "Publish" and "Preview" buttons
+Published Mode: Disable editing, show "Create New Version" button
+Armed Mode: Show visual indicator (e.g., pulsing badge), enable real-time log panel
+Recommended User Flows
+Creating a New Flow:
+
+Create flow → Opens in draft mode
+Build graph with nodes/edges
+Save periodically (auto-save recommended)
+Validate → Fix any errors
+Preview with test payload
+Publish when ready
+Testing Before Publish:
+
+Arm the draft version
+Open WebSocket connection to preview stream
+Trigger real event in system (e.g., create a ticket)
+Watch execution in real-time
+Disarm when satisfied
+Publish
+Rolling Back:
+
+Toggle current published version to inactive
+Find previous version in versions list
+Create new version from that old snapshot
+Modify if needed
+Publish
+9. Breaking Changes Summary
+Change	Impact	Migration Path
+Signal triggers removed	Old flows using signals won't work	Reconfigure with event triggers
+preview_armed field added	Version object structure changed	Update type definitions
+New version endpoints	URL structure for versions changed	Update API client paths
+is_active field added	Version state representation changed	Use new field for UI states
+10. Full API Documentation
+For complete endpoint documentation with request/response examples, see:
+
+📄 docs/flows_api_reference.md
+
+Questions & Support
+For backend clarifications or issues, please open a ticket tagged flows-api.
+

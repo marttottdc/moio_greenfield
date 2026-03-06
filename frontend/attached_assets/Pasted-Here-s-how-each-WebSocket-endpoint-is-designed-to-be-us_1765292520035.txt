@@ -1,0 +1,78 @@
+Here's how each WebSocket endpoint is designed to be used:
+
+1. /ws/tickets/ - Ticket Updates
+Connection:
+
+const ws = new WebSocket('wss://your-domain/ws/tickets/?token=YOUR_JWT_TOKEN');
+
+On Connect: You automatically receive all ticket events for your tenant.
+
+Subscribe to a specific ticket:
+
+ws.send(JSON.stringify({
+  action: 'subscribe_ticket',
+  data: { ticket_id: 'ticket-uuid-here' }
+}));
+
+Events you'll receive:
+
+ticket_created - New ticket created
+ticket_updated - Ticket modified
+ticket_status_changed - Status changed (includes old/new status)
+ticket_assigned - Ticket assigned to someone
+ticket_comment_added - New comment added
+2. /ws/whatsapp/ - WhatsApp Messages
+Connection:
+
+const ws = new WebSocket('wss://your-domain/ws/whatsapp/?token=YOUR_JWT_TOKEN');
+
+On Connect: You receive all WhatsApp events for your tenant.
+
+Subscribe to a specific conversation:
+
+ws.send(JSON.stringify({
+  action: 'subscribe_conversation',
+  data: { conversation_id: 'conversation-uuid-here' }
+}));
+
+Events you'll receive:
+
+message_received - Incoming message
+message_sent - Outgoing message sent
+message_delivered - Message was delivered
+message_read - Message was read
+message_failed - Message failed to send
+conversation_started - New conversation began
+3. /ws/campaigns/{campaign_id}/ - Campaign Stats
+Connection:
+
+const ws = new WebSocket('wss://your-domain/ws/campaigns/campaign-uuid-here/?token=YOUR_JWT_TOKEN');
+
+On Connect: You automatically receive events for that specific campaign (ownership verified).
+
+Events you'll receive:
+
+stats_updated - Campaign statistics updated
+status_changed - Campaign status changed
+message_sent - Campaign message sent to recipient
+message_delivered - Message delivered
+message_failed - Message failed
+campaign_completed - Campaign finished
+Authentication
+All endpoints require a JWT token passed either as:
+
+Query parameter: ?token=YOUR_JWT_TOKEN
+Header: Authorization: Bearer YOUR_JWT_TOKEN
+The token must contain user_id and tenant_id claims.
+
+Server-Side Publishing
+To push events from your backend code, use the WebSocketEventPublisher:
+
+from websockets_app.services.publisher import WebSocketEventPublisher
+# Example: notify about a new ticket
+WebSocketEventPublisher.ticket_created(tenant_id, ticket_data)
+# Example: notify about WhatsApp message
+WebSocketEventPublisher.whatsapp_message_received(tenant_id, message_data, conversation_id)
+# Example: update campaign stats
+WebSocketEventPublisher.campaign_stats_updated(tenant_id, campaign_id, stats)
+

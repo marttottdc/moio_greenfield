@@ -1,0 +1,61 @@
+{% load static %}
+{% if webhook_configs %}
+            <div class="list-group js-fill-remaining scroll-y">
+              {% for config in webhook_configs %}
+              <div class="list-group-item list-group-item-action">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">{{ config.name }}</h6>
+                    <small class="text-muted">
+                      {{ config.get_auth_type_display }} ·
+                      {% if config.description %}{{ config.description }}{% else %}No description{% endif %}
+                    </small>
+
+                    <div class="mt-1">
+                      <code class="small">{{ request.scheme }}://{{ request.get_host }}/webhooks/{{ config.id }}/</code>
+                      <button class="btn btn-sm btn-link p-0 ms-1" onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}/webhooks/{{ config.id }}/')" title="Copy URL">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+
+                    <div class="mt-1">
+                      {% if config.locked %}
+                        <span class="badge bg-warning text-dark">Locked</span>
+                      {% else %}
+                        <span class="badge bg-success">Active</span>
+                      {% endif %}
+                      {% if config.expected_content_type %}
+                        <span class="badge bg-secondary ms-1">{{ config.expected_content_type }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-light"
+                            hx-get="{% url 'crm:webhook_config_edit' config.id %}"
+                            hx-target="#webhook-modal-content"
+                            data-bs-toggle="modal"
+                            data-bs-target="#webhookModal"
+                            title="Edit">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-light text-danger"
+                            hx-get="{% url 'crm:webhook_config_delete' config.id %}"
+                            hx-target="#webhook-modal-content"
+                            data-bs-toggle="modal"
+                            data-bs-target="#webhookModal"
+                            title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center py-4">
+              <i class="bi bi-arrow-repeat text-muted" style="font-size: 3rem;"></i>
+              <h5 class="text-muted mt-2">No webhook configurations found</h5>
+              <p class="text-muted">Create your first webhook configuration to start receiving external data from third-party services.</p>
+
+            </div>
+          {% endif %}

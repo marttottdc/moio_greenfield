@@ -1,0 +1,28 @@
+# Documentation Content Folder
+
+Place your markdown documentation files here.
+They will be validated and ingested into the documentation system.
+
+## File Format
+
+Each file must have YAML frontmatter:
+
+```markdown
+---
+title: "Your Title"
+slug: "your-slug"
+category: "getting-started"
+status: draft | review | published
+---
+
+## Overview
+
+Your content here...
+```
+
+## Commands
+
+- Validate: `python manage.py ingest_docs docs/content --validate-only`
+- Import: `python manage.py ingest_docs docs/content`
+- Publish: `python manage.py ingest_docs docs/content --publish`
+- Template: `python manage.py ingest_docs --template guide`

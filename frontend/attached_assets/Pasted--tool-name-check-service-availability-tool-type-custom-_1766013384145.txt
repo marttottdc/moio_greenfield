@@ -1,0 +1,1472 @@
+[
+  {
+    "tool_name": "check_service_availability",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "",
+    "custom_display_name": "Check Service Availability",
+    "default_params": {
+      "type": "object",
+      "title": "check_service_availability_args",
+      "required": [
+        "address",
+        "latitude",
+        "longitude",
+        "results"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "title": "Address",
+          "default": ""
+        },
+        "results": {
+          "type": "integer",
+          "title": "Results",
+          "default": 10
+        },
+        "latitude": {
+          "type": "number",
+          "title": "Latitude",
+          "default": 0
+        },
+        "longitude": {
+          "type": "number",
+          "title": "Longitude",
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "check_service_availability",
+      "display_name": "Check Service Availability",
+      "description": "",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:48.827392-03:00",
+    "updated_at": "2025-12-17T12:18:48.827407-03:00"
+  },
+  {
+    "tool_name": "code_interpreter",
+    "tool_type": "builtin",
+    "enabled": true,
+    "custom_description": "Execute Python code to perform calculations, data analysis, and generate visualizations.",
+    "custom_display_name": "Code Interpreter",
+    "default_params": {},
+    "defaults": {
+      "name": "",
+      "display_name": "",
+      "description": "",
+      "category": "",
+      "type": ""
+    },
+    "created_at": "2025-12-17T12:18:53.406259-03:00",
+    "updated_at": "2025-12-17T12:18:53.406277-03:00"
+  },
+  {
+    "tool_name": "contact_update",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "when data from user is acquired, update the contact.",
+    "custom_display_name": "Contact Update",
+    "default_params": {
+      "type": "object",
+      "title": "contact_update_args",
+      "required": [
+        "email",
+        "fullname",
+        "contact_type",
+        "company"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "title": "Email",
+          "default": "",
+          "description": "\"contact email\""
+        },
+        "company": {
+          "type": "string",
+          "title": "Company",
+          "default": "",
+          "description": ""
+        },
+        "fullname": {
+          "type": "string",
+          "title": "Fullname",
+          "default": "",
+          "description": "\"contact fullname\""
+        },
+        "contact_type": {
+          "type": "string",
+          "title": "Contact Type",
+          "default": "",
+          "description": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "contact_update",
+      "display_name": "Contact Update",
+      "description": "when data from user is acquired, update the contact.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:48.996661-03:00",
+    "updated_at": "2025-12-17T12:18:48.996677-03:00"
+  },
+  {
+    "tool_name": "create_deal",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a sales deal/opportunity when the contact expresses clear buying intent or interest in a product/service.\n\nUSE THIS TOOL WHEN:\n- The contact asks for a quote, pricing, or proposal\n- The contact expresses intent to purchase (\"I want to buy\", \"I need X units\", \"send me a quote\")\n- The contact is comparing options and needs follow-up from sales\n- A business opportunity is identified that requires sales team attention\n- The contact requests a meeting or call to discuss a purchase\n\nDO NOT USE THIS TOOL WHEN:\n- The contact is just asking general questions or seeking information\n- The contact has a complaint or support issue (use create_ticket instead)\n- There is no clear commercial intent in the conversation\n\nEXTRACTING DEAL INFORMATION:\n- title: Create a descriptive title from the conversation context (e.g., \"Interest in Product X - 50 units\")\n- value: If the contact mentions quantities or budget, calculate approximate deal value. Use \"0\" if unknown.\n- priority: Set based on urgency signals:\n    * \"high\" - Contact needs immediate response, mentions deadline, or is ready to buy now\n    * \"medium\" - Standard buying interest, exploring options (default)\n    * \"low\" - Early-stage interest, just gathering information\n- description: Summarize key details from the conversation that sales should know",
+    "custom_display_name": "Create Deal",
+    "default_params": {
+      "type": "object",
+      "title": "create_deal_args",
+      "required": [
+        "title",
+        "value",
+        "currency",
+        "priority",
+        "description",
+        "pipeline_name",
+        "stage_name"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Descriptive title for the deal, summarizing the opportunity (required)"
+        },
+        "value": {
+          "type": "string",
+          "title": "Value",
+          "default": "0",
+          "description": "Estimated deal value as a number string (e.g., \"5000\"). Use \"0\" if unknown."
+        },
+        "currency": {
+          "type": "string",
+          "title": "Currency",
+          "default": "USD",
+          "description": "Currency code (USD, EUR, MXN, etc.). Default is USD."
+        },
+        "priority": {
+          "type": "string",
+          "title": "Priority",
+          "default": "medium",
+          "description": "One of \"low\", \"medium\", \"high\". Reflects urgency of the opportunity."
+        },
+        "stage_name": {
+          "type": "string",
+          "title": "Stage Name",
+          "default": "",
+          "description": "Optional starting stage name. Defaults to first stage of pipeline.  Returns JSON with deal_created status, deal_id, and recommended follow-up message type."
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "default": "",
+          "description": "Summary of the opportunity with relevant context from the conversation."
+        },
+        "pipeline_name": {
+          "type": "string",
+          "title": "Pipeline Name",
+          "default": "",
+          "description": "Optional pipeline name if tenant has multiple sales pipelines."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_deal",
+      "display_name": "Create Deal",
+      "description": "Create a sales deal/opportunity when the contact expresses clear buying intent or interest in a product/service.\n\nUSE THIS TOOL WHEN:\n- The contact asks for a quote, pricing, or proposal\n- The contact expresses intent to purchase (\"I want to buy\", \"I need X units\", \"send me a quote\")\n- The contact is comparing options and needs follow-up from sales\n- A business opportunity is identified that requires sales team attention\n- The contact requests a meeting or call to discuss a purchase\n\nDO NOT USE THIS TOOL WHEN:\n- The contact is just asking general questions or seeking information\n- The contact has a complaint or support issue (use create_ticket instead)\n- There is no clear commercial intent in the conversation\n\nEXTRACTING DEAL INFORMATION:\n- title: Create a descriptive title from the conversation context (e.g., \"Interest in Product X - 50 units\")\n- value: If the contact mentions quantities or budget, calculate approximate deal value. Use \"0\" if unknown.\n- priority: Set based on urgency signals:\n    * \"high\" - Contact needs immediate response, mentions deadline, or is ready to buy now\n    * \"medium\" - Standard buying interest, exploring options (default)\n    * \"low\" - Early-stage interest, just gathering information\n- description: Summarize key details from the conversation that sales should know",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:49.166521-03:00",
+    "updated_at": "2025-12-17T12:18:49.166541-03:00"
+  },
+  {
+    "tool_name": "create_event",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create an **event**.",
+    "custom_display_name": "Create Event",
+    "default_params": {
+      "type": "object",
+      "title": "create_event_args",
+      "required": [
+        "title",
+        "start",
+        "end",
+        "location",
+        "participants",
+        "user_id"
+      ],
+      "properties": {
+        "end": {
+          "type": "string",
+          "title": "End",
+          "description": "End datetime."
+        },
+        "start": {
+          "type": "string",
+          "title": "Start",
+          "description": "Start datetime."
+        },
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Event name."
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "User Id",
+          "description": "Organizer."
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Location",
+          "description": "Place / link."
+        },
+        "participants": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Participants",
+          "description": "People IDs or names."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_event",
+      "display_name": "Create Event",
+      "description": "Create an **event**.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:49.336335-03:00",
+    "updated_at": "2025-12-17T12:18:49.336355-03:00"
+  },
+  {
+    "tool_name": "create_idea",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Log an **idea**.",
+    "custom_display_name": "Create Idea",
+    "default_params": {
+      "type": "object",
+      "title": "create_idea_args",
+      "required": [
+        "title",
+        "body",
+        "impact",
+        "tags",
+        "user_id"
+      ],
+      "properties": {
+        "body": {
+          "type": "string",
+          "title": "Body",
+          "description": "Description."
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tags",
+          "description": "Keywords."
+        },
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Idea headline."
+        },
+        "impact": {
+          "type": "integer",
+          "title": "Impact",
+          "description": "Perceived impact score."
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "User Id",
+          "description": "Submitter."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_idea",
+      "display_name": "Create Idea",
+      "description": "Log an **idea**.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:49.504523-03:00",
+    "updated_at": "2025-12-17T12:18:49.504541-03:00"
+  },
+  {
+    "tool_name": "create_note",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a **note**.",
+    "custom_display_name": "Create Note",
+    "default_params": {
+      "type": "object",
+      "title": "create_note_args",
+      "required": [
+        "title",
+        "body",
+        "tags",
+        "user_id"
+      ],
+      "properties": {
+        "body": {
+          "type": "string",
+          "title": "Body",
+          "description": "Free-text content."
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tags",
+          "description": "Tags for searching."
+        },
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Short headline."
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "User Id",
+          "description": "Author."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_note",
+      "display_name": "Create Note",
+      "description": "Create a **note**.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:49.672080-03:00",
+    "updated_at": "2025-12-17T12:18:49.672095-03:00"
+  },
+  {
+    "tool_name": "create_or_update_contact",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a new contact or update an existing one. Use this when managing contact information across a conversation.\n\nThis tool is designed for conversations where contact details may evolve:\n- First call: Create a contact (leave contact_id empty) - returns the contact_id for future updates\n- Subsequent calls: Pass the contact_id to update the existing contact instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- A new person needs to be registered in the system\n- You need to update contact information during an ongoing conversation\n- The user provides additional details (email, phone, company) after initial contact creation\n- You need to change a contact's type or preferred communication channel\n\nIMPORTANT: \n- Always store and reuse the contact_id returned from the first call to avoid creating duplicate contacts.\n- For updates, only provide the fields you want to change - empty fields are preserved.\n- The phone number should be unique - searching for existing contacts before creating is recommended.",
+    "custom_display_name": "Create Or Update Contact",
+    "default_params": {
+      "type": "object",
+      "title": "create_or_update_contact_args",
+      "required": [
+        "fullname",
+        "contact_id",
+        "email",
+        "phone",
+        "company",
+        "contact_type",
+        "first_name",
+        "last_name",
+        "preferred_channel",
+        "source"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "title": "Email",
+          "default": "",
+          "description": "Email address of the contact"
+        },
+        "phone": {
+          "type": "string",
+          "title": "Phone",
+          "default": "",
+          "description": "Phone number of the contact"
+        },
+        "source": {
+          "type": "string",
+          "title": "Source",
+          "default": "agent",
+          "description": "Source of the contact creation (default: \"agent\")  Returns JSON with action performed (created/updated), contact_id, and contact details."
+        },
+        "company": {
+          "type": "string",
+          "title": "Company",
+          "default": "",
+          "description": "Company or organization the contact belongs to"
+        },
+        "fullname": {
+          "type": "string",
+          "title": "Fullname",
+          "default": "",
+          "description": "Full name of the contact (required for create)"
+        },
+        "last_name": {
+          "type": "string",
+          "title": "Last Name",
+          "default": "",
+          "description": "Last name (if you prefer to set first/last separately)"
+        },
+        "contact_id": {
+          "type": "string",
+          "title": "Contact Id",
+          "default": "",
+          "description": "If provided, updates the existing contact. If empty, creates a new contact."
+        },
+        "first_name": {
+          "type": "string",
+          "title": "First Name",
+          "default": "",
+          "description": "First name (if you prefer to set first/last separately)"
+        },
+        "contact_type": {
+          "type": "string",
+          "title": "Contact Type",
+          "default": "",
+          "description": "Type of contact (e.g., \"Lead\", \"Customer\", \"VIP\", \"Partner\")"
+        },
+        "preferred_channel": {
+          "type": "string",
+          "title": "Preferred Channel",
+          "default": "",
+          "description": "Preferred communication channel (\"email\", \"whatsapp\", \"sms\", \"call\")"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_or_update_contact",
+      "display_name": "Create Or Update Contact",
+      "description": "Create a new contact or update an existing one. Use this when managing contact information across a conversation.\n\nThis tool is designed for conversations where contact details may evolve:\n- First call: Create a contact (leave contact_id empty) - returns the contact_id for future updates\n- Subsequent calls: Pass the contact_id to update the existing contact instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- A new person needs to be registered in the system\n- You need to update contact information during an ongoing conversation\n- The user provides additional details (email, phone, company) after initial contact creation\n- You need to change a contact's type or preferred communication channel\n\nIMPORTANT: \n- Always store and reuse the contact_id returned from the first call to avoid creating duplicate contacts.\n- For updates, only provide the fields you want to change - empty fields are preserved.\n- The phone number should be unique - searching for existing contacts before creating is recommended.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:49.841661-03:00",
+    "updated_at": "2025-12-17T12:18:49.841677-03:00"
+  },
+  {
+    "tool_name": "create_or_update_deal",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a new deal or update an existing one. Use this when managing sales opportunities across a conversation.\n\nThis tool is designed for conversations where deal details may evolve:\n- First call: Create a deal (leave deal_id empty) - returns the deal_id for future updates\n- Subsequent calls: Pass the deal_id to update the existing deal instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- The contact asks for a quote, pricing, or proposal\n- The contact expresses intent to purchase (\"I want to buy\", \"I need X units\")\n- You need to update deal information during an ongoing conversation\n- The contact changes requirements (quantity, budget, priority) after initial deal creation\n\nIMPORTANT: Always store and reuse the deal_id returned from the first call to avoid creating duplicate deals.",
+    "custom_display_name": "Create Or Update Deal",
+    "default_params": {
+      "type": "object",
+      "title": "create_or_update_deal_args",
+      "required": [
+        "title",
+        "deal_id",
+        "value",
+        "currency",
+        "priority",
+        "description",
+        "pipeline_name",
+        "stage_name"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Descriptive title for the deal (required for create, optional for update)"
+        },
+        "value": {
+          "type": "string",
+          "title": "Value",
+          "default": "",
+          "description": "Estimated deal value as a number string (e.g., \"5000\"). Leave empty to preserve existing value on update."
+        },
+        "deal_id": {
+          "type": "string",
+          "title": "Deal Id",
+          "default": "",
+          "description": "If provided, updates the existing deal. If empty, creates a new deal."
+        },
+        "currency": {
+          "type": "string",
+          "title": "Currency",
+          "default": "",
+          "description": "Currency code (USD, EUR, MXN, etc.). Leave empty to preserve existing value on update."
+        },
+        "priority": {
+          "type": "string",
+          "title": "Priority",
+          "default": "",
+          "description": "One of \"low\", \"medium\", \"high\". Leave empty to preserve existing value on update."
+        },
+        "stage_name": {
+          "type": "string",
+          "title": "Stage Name",
+          "default": "",
+          "description": "Stage name within the pipeline. Leave empty to preserve existing value on update.  Returns JSON with action performed (created/updated), deal_id, and deal details."
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "default": "",
+          "description": "Summary of the opportunity. Leave empty to preserve existing value on update."
+        },
+        "pipeline_name": {
+          "type": "string",
+          "title": "Pipeline Name",
+          "default": "",
+          "description": "Pipeline name. Leave empty to preserve existing value on update."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_or_update_deal",
+      "display_name": "Create Or Update Deal",
+      "description": "Create a new deal or update an existing one. Use this when managing sales opportunities across a conversation.\n\nThis tool is designed for conversations where deal details may evolve:\n- First call: Create a deal (leave deal_id empty) - returns the deal_id for future updates\n- Subsequent calls: Pass the deal_id to update the existing deal instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- The contact asks for a quote, pricing, or proposal\n- The contact expresses intent to purchase (\"I want to buy\", \"I need X units\")\n- You need to update deal information during an ongoing conversation\n- The contact changes requirements (quantity, budget, priority) after initial deal creation\n\nIMPORTANT: Always store and reuse the deal_id returned from the first call to avoid creating duplicate deals.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.011699-03:00",
+    "updated_at": "2025-12-17T12:18:50.011716-03:00"
+  },
+  {
+    "tool_name": "create_or_update_ticket",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a new support ticket or update an existing one. Use this when managing customer requests across a conversation.\n\nThis tool is designed for conversations where ticket details may evolve:\n- First call: Create a ticket (leave ticket_id empty) - returns the ticket_id for future updates\n- Subsequent calls: Pass the ticket_id to update the existing ticket instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- The user has a requirement that cannot be solved with available information\n- You need to update ticket details during an ongoing conversation\n- The user provides additional context or changes their request after initial ticket creation\n\nIMPORTANT: Always store and reuse the ticket_id returned from the first call to avoid creating duplicate tickets.",
+    "custom_display_name": "Create Or Update Ticket",
+    "default_params": {
+      "type": "object",
+      "title": "create_or_update_ticket_args",
+      "required": [
+        "description",
+        "ticket_id",
+        "service",
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "title": "Status",
+          "default": "",
+          "description": "Optional status update (e.g., \"open\", \"pending\", \"resolved\")  Returns JSON with action performed (created/updated), ticket_id, and ticket details."
+        },
+        "service": {
+          "type": "string",
+          "title": "Service",
+          "default": "default",
+          "description": "One of \"Customer Service\", \"Sales\", \"Tech Support\""
+        },
+        "ticket_id": {
+          "type": "string",
+          "title": "Ticket Id",
+          "default": "",
+          "description": "If provided, updates the existing ticket. If empty, creates a new ticket."
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Description of the issue or request (required)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_or_update_ticket",
+      "display_name": "Create Or Update Ticket",
+      "description": "Create a new support ticket or update an existing one. Use this when managing customer requests across a conversation.\n\nThis tool is designed for conversations where ticket details may evolve:\n- First call: Create a ticket (leave ticket_id empty) - returns the ticket_id for future updates\n- Subsequent calls: Pass the ticket_id to update the existing ticket instead of creating duplicates\n\nUSE THIS TOOL WHEN:\n- The user has a requirement that cannot be solved with available information\n- You need to update ticket details during an ongoing conversation\n- The user provides additional context or changes their request after initial ticket creation\n\nIMPORTANT: Always store and reuse the ticket_id returned from the first call to avoid creating duplicate tickets.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.183137-03:00",
+    "updated_at": "2025-12-17T12:18:50.183156-03:00"
+  },
+  {
+    "tool_name": "create_task",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Create a **task**.",
+    "custom_display_name": "Create Task",
+    "default_params": {
+      "type": "object",
+      "title": "create_task_args",
+      "required": [
+        "title",
+        "description",
+        "due_date",
+        "priority",
+        "status"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "title": "Title",
+          "description": "Short summary."
+        },
+        "status": {
+          "type": "string",
+          "title": "Status",
+          "default": "open",
+          "description": "“open” | “in_progress” | “done”."
+        },
+        "due_date": {
+          "type": "string",
+          "title": "Due Date",
+          "description": "Deadline."
+        },
+        "priority": {
+          "type": "integer",
+          "title": "Priority",
+          "default": 3,
+          "description": "Lower = less important."
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Detailed body."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_task",
+      "display_name": "Create Task",
+      "description": "Create a **task**.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.352329-03:00",
+    "updated_at": "2025-12-17T12:18:50.352345-03:00"
+  },
+  {
+    "tool_name": "create_ticket",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Any requirement from the user that cannot be solved by delivering available information, or by acquiring data form the available tools will create a ticket\nIn the same language of the conversation.",
+    "custom_display_name": "Create Ticket",
+    "default_params": {
+      "type": "object",
+      "title": "create_ticket_args",
+      "required": [
+        "description",
+        "service"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "title": "Service",
+          "default": "default",
+          "description": "one of \"Customer Service\", \"Sales\", \"Tech Support\""
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "create_ticket",
+      "display_name": "Create Ticket",
+      "description": "Any requirement from the user that cannot be solved by delivering available information, or by acquiring data form the available tools will create a ticket\nIn the same language of the conversation.",
+      "category": "crm",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.521980-03:00",
+    "updated_at": "2025-12-17T12:18:50.521997-03:00"
+  },
+  {
+    "tool_name": "end_conversation",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "function required every time the user ends the conversation or assistant understands conversation has ended\n:conversation_summary: A summary of the conversation, include important details like, search terms, recommendations provided, user mood. In the same language of the conversation",
+    "custom_display_name": "End Conversation",
+    "default_params": {
+      "type": "object",
+      "title": "end_conversation_args",
+      "required": [
+        "conversation_summary"
+      ],
+      "properties": {
+        "conversation_summary": {
+          "type": "string",
+          "title": "Conversation Summary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "end_conversation",
+      "display_name": "End Conversation",
+      "description": "function required every time the user ends the conversation or assistant understands conversation has ended\n:conversation_summary: A summary of the conversation, include important details like, search terms, recommendations provided, user mood. In the same language of the conversation",
+      "category": "communication",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.692316-03:00",
+    "updated_at": "2025-12-17T12:18:50.692332-03:00"
+  },
+  {
+    "tool_name": "file_search",
+    "tool_type": "builtin",
+    "enabled": true,
+    "custom_description": "Search through uploaded files and documents for relevant information.",
+    "custom_display_name": "File Search",
+    "default_params": {},
+    "defaults": {
+      "name": "",
+      "display_name": "",
+      "description": "",
+      "category": "",
+      "type": ""
+    },
+    "created_at": "2025-12-17T12:18:53.236702-03:00",
+    "updated_at": "2025-12-17T12:18:53.236718-03:00"
+  },
+  {
+    "tool_name": "get_full_product_catalog",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Get a full catalog data, use the results to deliver the best possible result",
+    "custom_display_name": "Get Full Product Catalog",
+    "default_params": {
+      "type": "object",
+      "title": "get_full_product_catalog_args",
+      "required": [
+        "search_attr",
+        "search_term"
+      ],
+      "properties": {
+        "search_attr": {
+          "type": "string",
+          "title": "Search Attr",
+          "description": "one of the attrs mentioned by the user or provided in the prompt"
+        },
+        "search_term": {
+          "type": "string",
+          "title": "Search Term",
+          "description": "search term to look for will be converted to embedding for semantic search"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "get_full_product_catalog",
+      "display_name": "Get Full Product Catalog",
+      "description": "Get a full catalog data, use the results to deliver the best possible result",
+      "category": "ecommerce",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:50.861184-03:00",
+    "updated_at": "2025-12-17T12:18:50.861198-03:00"
+  },
+  {
+    "tool_name": "get_tips",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Buscar la base de conocimiento para ofrecer soluciones y consejos",
+    "custom_display_name": "Get Tips",
+    "default_params": {
+      "type": "object",
+      "title": "get_tips_args",
+      "required": [
+        "search_term"
+      ],
+      "properties": {
+        "search_term": {
+          "type": "string",
+          "title": "Search Term",
+          "description": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "get_tips",
+      "display_name": "Get Tips",
+      "description": "Buscar la base de conocimiento para ofrecer soluciones y consejos",
+      "category": "knowledge",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.030322-03:00",
+    "updated_at": "2025-12-17T12:18:51.030341-03:00"
+  },
+  {
+    "tool_name": "image_generation",
+    "tool_type": "builtin",
+    "enabled": true,
+    "custom_description": "Generate images based on text descriptions using DALL-E.",
+    "custom_display_name": "Image Generation",
+    "default_params": {},
+    "defaults": {
+      "name": "",
+      "display_name": "",
+      "description": "",
+      "category": "",
+      "type": ""
+    },
+    "created_at": "2025-12-17T12:18:53.575973-03:00",
+    "updated_at": "2025-12-17T12:18:53.575992-03:00"
+  },
+  {
+    "tool_name": "list_ideas",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "List **ideas**, highest impact first.",
+    "custom_display_name": "List Ideas",
+    "default_params": {
+      "type": "object",
+      "title": "list_ideas_args",
+      "required": [
+        "min_impact",
+        "tag",
+        "search",
+        "limit"
+      ],
+      "properties": {
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tag",
+          "description": "Must contain tag."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limit",
+          "default": 50,
+          "description": "Max results."
+        },
+        "search": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Search",
+          "description": "Text search."
+        },
+        "min_impact": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Min Impact",
+          "description": "Impact ≥ value."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "list_ideas",
+      "display_name": "List Ideas",
+      "description": "List **ideas**, highest impact first.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.198857-03:00",
+    "updated_at": "2025-12-17T12:18:51.198875-03:00"
+  },
+  {
+    "tool_name": "list_tasks",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Fetch **tasks** with optional filters.",
+    "custom_display_name": "List Tasks",
+    "default_params": {
+      "type": "object",
+      "title": "list_tasks_args",
+      "required": [
+        "status",
+        "due_before",
+        "due_after",
+        "priority_min",
+        "priority_max",
+        "search",
+        "limit"
+      ],
+      "properties": {
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limit",
+          "default": 50,
+          "description": "Max results."
+        },
+        "search": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Search",
+          "description": "ILIKE on title / body."
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status",
+          "description": "Filter by status."
+        },
+        "due_after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Due After"
+        },
+        "due_before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Due Before",
+          "description": "Due-date range."
+        },
+        "priority_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Priority Max"
+        },
+        "priority_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Priority Min",
+          "description": "Priority range."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "list_tasks",
+      "display_name": "List Tasks",
+      "description": "Fetch **tasks** with optional filters.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.369174-03:00",
+    "updated_at": "2025-12-17T12:18:51.369193-03:00"
+  },
+  {
+    "tool_name": "search_contact",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Search for contacts by name, email, or phone number.\n\nUse this to find existing contacts in the system to get their information or to verify if a contact exists.",
+    "custom_display_name": "Search Contact",
+    "default_params": {
+      "type": "object",
+      "title": "search_contact_args",
+      "required": [
+        "search_term",
+        "search_by"
+      ],
+      "properties": {
+        "search_by": {
+          "type": "string",
+          "title": "Search By",
+          "default": "name",
+          "description": "Type of search - \"name\", \"email\", \"phone\", or \"all\" (searches all fields)"
+        },
+        "search_term": {
+          "type": "string",
+          "title": "Search Term",
+          "description": "The search query (name, email, or phone number)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_contact",
+      "display_name": "Search Contact",
+      "description": "Search for contacts by name, email, or phone number.\n\nUse this to find existing contacts in the system to get their information or to verify if a contact exists.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.539615-03:00",
+    "updated_at": "2025-12-17T12:18:51.539633-03:00"
+  },
+  {
+    "tool_name": "search_knowledge",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Buscar la base de conocimientos para responder a cualquier consulta\nEsta es la fuente oficial de información.",
+    "custom_display_name": "Search Knowledge",
+    "default_params": {
+      "type": "object",
+      "title": "search_knowledge_args",
+      "required": [
+        "search_term"
+      ],
+      "properties": {
+        "search_term": {
+          "type": "string",
+          "title": "Search Term",
+          "description": "Search term to look for verbatim user input"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_knowledge",
+      "display_name": "Search Knowledge",
+      "description": "Buscar la base de conocimientos para responder a cualquier consulta\nEsta es la fuente oficial de información.",
+      "category": "knowledge",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.711499-03:00",
+    "updated_at": "2025-12-17T12:18:51.711513-03:00"
+  },
+  {
+    "tool_name": "search_nearby_pos",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Buscar puntos de venta o de servicio cercanos a la ubicación del usuario",
+    "custom_display_name": "Search Nearby Pos",
+    "default_params": {
+      "type": "object",
+      "title": "search_nearby_pos_args",
+      "required": [
+        "address",
+        "latitude",
+        "longitude",
+        "results"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "title": "Address",
+          "default": "",
+          "description": "if user sent an address, city or place of reference, do not use for coordinates."
+        },
+        "results": {
+          "type": "integer",
+          "title": "Results",
+          "default": 3,
+          "description": "quantity of results to return"
+        },
+        "latitude": {
+          "type": "number",
+          "title": "Latitude",
+          "default": 0,
+          "description": "latitude of the user location"
+        },
+        "longitude": {
+          "type": "number",
+          "title": "Longitude",
+          "default": 0,
+          "description": "longitude of the user location"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_nearby_pos",
+      "display_name": "Search Nearby Pos",
+      "description": "Buscar puntos de venta o de servicio cercanos a la ubicación del usuario",
+      "category": "location",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:51.879072-03:00",
+    "updated_at": "2025-12-17T12:18:51.879091-03:00"
+  },
+  {
+    "tool_name": "search_nearby_pos_v2",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Optimized version of search_nearby_pos with bounding box pre-filter and heap-based top-N.\n\nIMPROVEMENTS OVER V1:\n- Bounding box pre-filter: Eliminates stores outside radius before haversine calculation\n- Heap-based selection: O(n log k) instead of O(n log n) for top-k results\n- Configurable radius: radius_km parameter instead of hardcoded 15km\n- Type hints: Full type annotations for better IDE support\n- Extracted helpers: _get_user_location and _approx_bounding_box for reusability",
+    "custom_display_name": "Search Nearby Pos V2",
+    "default_params": {
+      "type": "object",
+      "title": "search_nearby_pos_v2_args",
+      "required": [
+        "address",
+        "latitude",
+        "longitude",
+        "results",
+        "radius_km"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "title": "Address",
+          "default": "",
+          "description": "Address, city or place of reference (will be geocoded)"
+        },
+        "results": {
+          "type": "integer",
+          "title": "Results",
+          "default": 3,
+          "description": "Maximum number of results to return (default: 3)"
+        },
+        "latitude": {
+          "type": "number",
+          "title": "Latitude",
+          "default": 0,
+          "description": "Latitude of user location"
+        },
+        "longitude": {
+          "type": "number",
+          "title": "Longitude",
+          "default": 0,
+          "description": "Longitude of user location"
+        },
+        "radius_km": {
+          "type": "number",
+          "title": "Radius Km",
+          "default": 15,
+          "description": "Search radius in kilometers (default: 15.0)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_nearby_pos_v2",
+      "display_name": "Search Nearby Pos V2",
+      "description": "Optimized version of search_nearby_pos with bounding box pre-filter and heap-based top-N.\n\nIMPROVEMENTS OVER V1:\n- Bounding box pre-filter: Eliminates stores outside radius before haversine calculation\n- Heap-based selection: O(n log k) instead of O(n log n) for top-k results\n- Configurable radius: radius_km parameter instead of hardcoded 15km\n- Type hints: Full type annotations for better IDE support\n- Extracted helpers: _get_user_location and _approx_bounding_box for reusability",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.049051-03:00",
+    "updated_at": "2025-12-17T12:18:52.049066-03:00"
+  },
+  {
+    "tool_name": "search_notes",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Free-text search inside **notes**.",
+    "custom_display_name": "Search Notes",
+    "default_params": {
+      "type": "object",
+      "title": "search_notes_args",
+      "required": [
+        "tag",
+        "search",
+        "limit"
+      ],
+      "properties": {
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tag",
+          "description": "Must have tag."
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limit",
+          "default": 50,
+          "description": "Max results."
+        },
+        "search": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Search",
+          "description": "Text search."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_notes",
+      "display_name": "Search Notes",
+      "description": "Free-text search inside **notes**.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.217332-03:00",
+    "updated_at": "2025-12-17T12:18:52.217350-03:00"
+  },
+  {
+    "tool_name": "search_product",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Look up products matching `search_term`.\n\n• First run a simple OR search (JSON blob, name, description).\n• If it yields zero rows, split the term into words and require EACH\n  word to appear somewhere (AND of per-word ORs).\n• Return a WhatsApp-ready catalog list.",
+    "custom_display_name": "Search Product",
+    "default_params": {
+      "type": "object",
+      "title": "search_product_args",
+      "required": [
+        "search_term"
+      ],
+      "properties": {
+        "search_term": {
+          "type": "string",
+          "title": "Search Term"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_product",
+      "display_name": "Search Product",
+      "description": "Look up products matching `search_term`.\n\n• First run a simple OR search (JSON blob, name, description).\n• If it yields zero rows, split the term into words and require EACH\n  word to appear somewhere (AND of per-word ORs).\n• Return a WhatsApp-ready catalog list.",
+      "category": "ecommerce",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.388842-03:00",
+    "updated_at": "2025-12-17T12:18:52.388861-03:00"
+  },
+  {
+    "tool_name": "search_product_by_tag",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Search products that match the user intent, if there are several matches it is convenient to ask the user to disambiguate before presenting the results",
+    "custom_display_name": "Search Product By Tag",
+    "default_params": {
+      "type": "object",
+      "title": "search_product_by_tag_args",
+      "required": [
+        "search_term"
+      ],
+      "properties": {
+        "search_term": {
+          "type": "string",
+          "title": "Search Term",
+          "description": "in the context of the conversation, what is the user searching for ?"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "search_product_by_tag",
+      "display_name": "Search Product By Tag",
+      "description": "Search products that match the user intent, if there are several matches it is convenient to ask the user to disambiguate before presenting the results",
+      "category": "ecommerce",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.559263-03:00",
+    "updated_at": "2025-12-17T12:18:52.559282-03:00"
+  },
+  {
+    "tool_name": "send_comfort_message",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Send a comfort message to the user to inform that you are performing something that may take time\nThis message will be sent as a reassurance to the user that you are working on the request.",
+    "custom_display_name": "Send Comfort Message",
+    "default_params": {
+      "type": "object",
+      "title": "send_comfort_message_args",
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "title": "Message",
+          "description": "a nice, short message."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "send_comfort_message",
+      "display_name": "Send Comfort Message",
+      "description": "Send a comfort message to the user to inform that you are performing something that may take time\nThis message will be sent as a reassurance to the user that you are working on the request.",
+      "category": "communication",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.729627-03:00",
+    "updated_at": "2025-12-17T12:18:52.729651-03:00"
+  },
+  {
+    "tool_name": "upcoming_events",
+    "tool_type": "custom",
+    "enabled": true,
+    "custom_description": "Return **events** that haven’t ended yet.",
+    "custom_display_name": "Upcoming Events",
+    "default_params": {
+      "type": "object",
+      "title": "upcoming_events_args",
+      "required": [
+        "start_after",
+        "limit"
+      ],
+      "properties": {
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limit",
+          "default": 50,
+          "description": "Max results."
+        },
+        "start_after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Start After",
+          "description": "Default = now()."
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "name": "upcoming_events",
+      "display_name": "Upcoming Events",
+      "description": "Return **events** that haven’t ended yet.",
+      "category": "custom",
+      "type": "custom"
+    },
+    "created_at": "2025-12-17T12:18:52.898467-03:00",
+    "updated_at": "2025-12-17T12:18:52.898483-03:00"
+  },
+  {
+    "tool_name": "web_search",
+    "tool_type": "builtin",
+    "enabled": true,
+    "custom_description": "Search the web for real-time information using a search engine.",
+    "custom_display_name": "Web Search",
+    "default_params": {},
+    "defaults": {
+      "name": "",
+      "display_name": "",
+      "description": "",
+      "category": "",
+      "type": ""
+    },
+    "created_at": "2025-12-17T12:18:53.067529-03:00",
+    "updated_at": "2025-12-17T12:18:53.067545-03:00"
+  }
+]

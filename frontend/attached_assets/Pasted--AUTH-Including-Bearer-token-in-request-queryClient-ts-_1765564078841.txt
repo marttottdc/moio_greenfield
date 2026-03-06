@@ -1,0 +1,124 @@
+[AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/  Headers: Object
+queryClient.ts:217 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/
+api.ts:252 [AUTH] JWT Token - exp: 1765567039 iat: 1765563439 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/  Headers: Object
+queryClient.ts:217 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/
+api.ts:252 [AUTH] JWT Token - exp: 1765567039 iat: 1765563439 type: access user_id: 1
+api.ts:257 [AUTH] Including Bearer token in request
+queryClient.ts:196 [API GET] https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/  Headers: Object
+queryClient.ts:217 [API GET] 200 https://devcrm.moio.ai/api/v1/flows/events/31956703-51e9-495a-ba5f-1adfd7b63ad0/
+dataFlowAnalyzer.ts:644 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:673 [DataFlow] Topological order: Array(2)
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[],"event_schema":null}
+dataFlowAnalyzer.ts:403 [DataFlow] Event trigger "Event" schema lookup: Object
+dataFlowAnalyzer.ts:578 [DataFlow] "Event" output: [trigger, data]
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[] config={}
+dataFlowAnalyzer.ts:578 [DataFlow] "Send Email" output: []
+dataFlowAnalyzer.ts:644 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:673 [DataFlow] Topological order: Array(2)
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[],"event_schema":null}
+dataFlowAnalyzer.ts:403 [DataFlow] Event trigger "Event" schema lookup: Object
+dataFlowAnalyzer.ts:578 [DataFlow] "Event" output: [trigger, data]
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[] config={}
+dataFlowAnalyzer.ts:578 [DataFlow] "Send Email" output: []
+dataFlowAnalyzer.ts:644 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:673 [DataFlow] Topological order: Array(2)
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[],"event_schema":null}
+dataFlowAnalyzer.ts:403 [DataFlow] Event trigger "Event" schema lookup: Object
+dataFlowAnalyzer.ts:578 [DataFlow] "Event" output: [trigger, data]
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[trigger, data] config={}
+dataFlowAnalyzer.ts:578 [DataFlow] "Send Email" output: [trigger, data]
+dataFlowAnalyzer.ts:644 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:673 [DataFlow] Topological order: Array(2)
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[],"event_schema":null}
+dataFlowAnalyzer.ts:403 [DataFlow] Event trigger "Event" schema lookup: Object
+dataFlowAnalyzer.ts:578 [DataFlow] "Event" output: [trigger, data]
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[trigger, data] config={}
+dataFlowAnalyzer.ts:578 [DataFlow] "Send Email" output: [trigger, data]
+dataFlowAnalyzer.ts:644 [DataFlow] analyzeDataFlow called: Object
+dataFlowAnalyzer.ts:673 [DataFlow] Topological order: Array(2)
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Event" (trigger_event): inputs=[] config={"event_name":"deal.created","conditions":[],"event_schema":null}
+dataFlowAnalyzer.ts:403 [DataFlow] Event trigger "Event" schema lookup: Object
+dataFlowAnalyzer.ts:578 [DataFlow] "Event" output: [trigger, data]
+dataFlowAnalyzer.ts:341 [DataFlow] calculateNodeOutput for "Send Email" (tool_send_email): inputs=[trigger, data] config={}
+dataFlowAnalyzer.ts:578 [DataFlow] "Send Email" output: [trigger, data]
+2chunk-RPCDYKBN.js?v=b379048e:521 Warning: Encountered two children with the same key, `ctx.Event.data`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at div
+    at div
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-scroll-area.js?v=b379048e:116:13
+    at div
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-scroll-area.js?v=b379048e:54:7
+    at _c (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/ui/scroll-area.tsx:21:11)
+    at div
+    at div
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at Presence (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-E4UC4BFD.js?v=b379048e:24:11)
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=b379048e:176:13
+    at _c5 (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=b379048e:54:7
+    at div
+    at div
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-G76BAGTM.js?v=b379048e:61:7
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=b379048e:79:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=b379048e:56:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-DUCXC5SA.js?v=b379048e:29:5
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MSOVU5HG.js?v=b379048e:235:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MSOVU5HG.js?v=b379048e:158:58
+    at Presence (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-E4UC4BFD.js?v=b379048e:24:11)
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MSOVU5HG.js?v=b379048e:149:64
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=b379048e:79:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=b379048e:56:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=b379048e:42:13
+    at https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-G76BAGTM.js?v=b379048e:260:22
+    at Presence (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-E4UC4BFD.js?v=b379048e:24:11)
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at DialogPortal (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MSOVU5HG.js?v=b379048e:111:11)
+    at _c3 (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at Dialog (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MSOVU5HG.js?v=b379048e:52:5)
+    at FlowCanvas (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/pages/flow-builder.tsx:238:23)
+    at div
+    at BuilderDataProviders (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/flow/BuilderDataContext.tsx:56:3)
+    at ReactFlowProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/reactflow.js?v=b379048e:6515:38)
+    at FlowBuilder (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/pages/flow-builder.tsx:3386:22)
+    at ProtectedRoute (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=rKQ1tsC1OVb4uH_X6DvvE:48:38)
+    at Route (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b379048e:191:16)
+    at Switch (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b379048e:247:17)
+    at AppRoutes (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=rKQ1tsC1OVb4uH_X6DvvE:92:42)
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at TooltipProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b379048e:64:5)
+    at SidebarProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/ui/sidebar.tsx:59:3)
+    at AppLayout (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/App.tsx?v=rKQ1tsC1OVb4uH_X6DvvE:344:31)
+    at AppContent
+    at CacheBuster (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/components/cache-buster.tsx:55:31)
+    at AuthProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/contexts/AuthContext.tsx:31:32)
+    at Provider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b379048e:38:15)
+    at TooltipProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b379048e:64:5)
+    at ThemeProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/src/contexts/ThemeContext.tsx:20:33)
+    at QueryClientProvider (https://407e82de-8e0f-4d55-9571-e93ff4bdb986-00-3mzgqcz01drdq.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b379048e:2805:3)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=b379048e:521Comprende este error
+useWebSocket.ts:206 [WS] Connection closed: 1006 
+useWebSocket.ts:232 [WS] Reconnecting in 3000ms (attempt 1/5)
+useWebSocket.ts:45 [WS] Building WebSocket URL - apiBase: https://devcrm.moio.ai path: /ws/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/preview/stream/
+useWebSocket.ts:78 [WS] Final WebSocket URL: wss://devcrm.moio.ai/ws/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/preview/stream/?token=***
+useWebSocket.ts:171 [WS] Connecting to: wss://devcrm.moio.ai/ws/flows/b9eaf318-c3a3-4c0e-a772-6eb941c125eb/preview/stream/?token=***
+useWebSocket.ts:179 [WS] Connected successfully
+useWebSocket.ts:189 [WS] Message received: connected
+useWebSocket.ts:550 [FlowPreviewStream] Event: connected {flow_id: 'b9eaf318-c3a3-4c0e-a772-6eb941c125eb'}
+useWebSocket.ts:556 [FlowPreviewStream] Connected to preview stream

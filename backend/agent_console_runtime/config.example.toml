@@ -1,0 +1,96 @@
+sessions_dir = "./.data/sessions"
+
+[model]
+provider = "openai"
+# provider = "xai"
+name = "gpt-4.1-mini"
+# Prefer env var OPENAI_API_KEY. You can also set api_key directly.
+# api_key = "sk-..."
+# base_url = "https://api.openai.com/v1"
+# For xAI, prefer env var XAI_API_KEY and base_url "https://api.x.ai/v1"
+temperature = 0.2
+timeout_seconds = 60
+# max_output_tokens = 1500
+
+[agent]
+session_key = "main"
+# thinking = "high"
+# verbosity = "minimal"
+# timeout_ms = 120000
+max_steps = 8
+context_compaction_enabled = true
+context_last_interactions = 3
+context_recent_messages = 24
+context_summary_max_chars = 6000
+system_prompt = "You are a pragmatic software agent. Use tools when needed and provide concrete outcomes."
+
+[tools]
+workspace_root = "../.."
+vendors_file = "./.data/vendors/vendors.json"
+allowlist = [
+  "files.read",
+  "files.write",
+  "files.list",
+  "files.search",
+  "shell.run",
+  "web.fetch",
+  "web.request",
+  "web.extract",
+  "web.scrape",
+  "api.run",
+  "resource.read",
+  "code.python",
+  "docker.run",
+  "vault.list",
+  "vault.set",
+  "vault.get",
+  "vault.delete",
+  "tools.list",
+  "tools.create",
+  "packages.install",
+  "memory.record",
+  "memory.search",
+  "memory.recent",
+]
+# Tools in this list are only exposed and executable for tenant admins on each turn.
+# admin_only = ["tools.create", "packages.install"]
+shell_enabled = true
+shell_timeout_seconds = 30
+docker_enabled = false
+docker_timeout_seconds = 60
+dynamic_tools_enabled = true
+dynamic_tools_dir = "./.data/custom-tools"
+package_install_enabled = false
+package_install_timeout_seconds = 600
+vault_enabled = true
+vault_file = "./.data/vault/secrets.enc.json"
+# Prefer env var REPLICA_VAULT_PASSPHRASE instead of storing passphrase in this file.
+# vault_passphrase = "replace-me"
+
+[plugins]
+# Plugin bundles are discovered by looking for "replica.plugin.json" files under this directory.
+manifests_dir = "./plugins"
+platform_approved = ["crm.contacts"]
+tenant_enabled = ["crm.contacts"]
+user_allowed = ["crm.contacts"]
+approved_permissions = ["filesystem_read", "network_outbound"]
+tenant_config_keys = ["base_url"]
+user_config_keys = ["default_audience"]
+tenant_credentials = ["crm_api_key"]
+user_credentials = ["crm_login"]
+
+[skills]
+# Skill directories containing SKILL.md files (root SKILL.md and/or child SKILL.md files are discovered).
+directories = [
+  "./skills",
+  "/Users/martinotero/.codex/skills",
+]
+# Empty means enable all discovered skills.
+enabled = []
+include_in_system_prompt = true
+max_skill_chars = 40000
+
+[app]
+host = "127.0.0.1"
+port = 8088
+log_level = "info"

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "example.plugin",
+  "name": "Example Plugin",
+  "version": "1.0.0",
+  "description": "Describe what this plugin does",
+  "entrypoint": "plugin.py",
+  "icon": "icon.svg",
+  "readme": "README.md",
+  "tools": [
+    "files.read"
+  ],
+  "capabilities": [
+    "tools"
+  ],
+  "permissions": [
+    "network_outbound"
+  ],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "base_url": {
+        "type": "string",
+        "default": "https://api.example.com"
+      }
+    }
+  },
+  "requirements": {
+    "tenant_config": [
+      "base_url"
+    ],
+    "tenant_credentials": [
+      "api_key"
+    ],
+    "assets": [
+      "openapi.json"
+    ]
+  }
+}

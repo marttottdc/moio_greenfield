@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moio-frontend.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "moio-frontend.name" . }}
+    helm.sh/chart: {{ include "moio-frontend.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "moio-frontend.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "moio-frontend.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if and .Values.podAnnotations (not (empty .Values.podAnnotations)) }}
+      annotations:
+        {{ toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "moio-frontend.serviceAccountName" . }}
+
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      containers:
+        - name: {{ include "moio-frontend.name" . }}
+
+          {{ $repository := required "image.repository is required" .Values.image.repository }}
+          {{ $tag := default .Chart.AppVersion .Values.image.tag }}
+          
+          image: "{{$repository}}:{{$tag}}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: {{ default "production" .Values.env.config.NODE_ENV | quote }}
+            - name: PORT
+              value: {{ default "5000" .Values.env.config.PORT | quote }}
+
+          {{- $useConfigMap := or .Values.env.config .Values.configFiles -}}
+          {{- $useSecret := or .Values.env.secrets .Values.secretEnv -}}
+          {{- if or $useConfigMap $useSecret }}
+          envFrom:
+            {{- if $useConfigMap }}
+            - configMapRef:
+                name: {{ include "moio-frontend.fullname" . }}-config
+            {{- end }}
+            {{- if $useSecret }}
+            - secretRef:
+                name: {{ include "moio-frontend.fullname" . }}-secret
+            {{- end }}
+          {{- end }}
+
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: {{ default "http" .Values.livenessProbe.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: {{ default "http" .Values.readinessProbe.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.startupProbe.path }}
+              port: {{ default "http" .Values.startupProbe.port }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+          {{- end }}
+
+          {{- if .Values.configFiles }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config
+          {{- end }}
+
+      {{- if .Values.configFiles }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "moio-frontend.fullname" . }}-config
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,31 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "moio-frontend.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "moio-frontend.name" . }}
+    helm.sh/chart: {{ include "moio-frontend.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "moio-frontend.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+{{- end }}

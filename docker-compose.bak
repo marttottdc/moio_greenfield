@@ -1,0 +1,158 @@
+version: "3.7"
+
+services:
+  devcrm:
+    image: "ghcr.io/marttottdc/moio_bot:latest"
+
+    entrypoint: >
+      sh -c "
+      python manage.py makemigrations --noinput &&
+      python manage.py migrate --noinput &&
+      hypercorn -c hypercorn_config.py --bind 0.0.0.0:8100 moio_platform.asgi:application
+      "
+
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://127.0.0.1:8100/health"]
+        interval: 1m30s
+        timeout: 30s
+        retries: 3
+
+    #command: hypercorn -c hypercorn_config.py --bind 0.0.0.0:8100 moio_platform.asgi:application
+    volumes:
+      - "app:/app"
+
+    networks:
+      - public
+
+
+    environment:
+      - DEBUG=${DEBUG}
+      - CSRF_DOMAIN=${CSRF_DOMAIN}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_STORAGE_STATIC_BUCKET_NAME=${AWS_STORAGE_STATIC_BUCKET_NAME}
+      - AWS_STORAGE_MEDIA_BUCKET_NAME=${AWS_STORAGE_MEDIA_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - APP_NAME=${APP_NAME}
+      - DJANGO_ACCOUNT_ALLOW_REGISTRATION=${DJANGO_ACCOUNT_ALLOW_REGISTRATION}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USE}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.devcrm.rule=Host(`devcrm.moio.ai`)"
+        - "traefik.http.routers.devcrm.entrypoints=websecure"
+        - "traefik.http.routers.devcrm.tls.certresolver=myresolver"
+        - "traefik.http.services.devcrm.loadbalancer.server.port=8100"
+        - "traefik.http.routers.devcrm.service=devcrm"
+
+
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+
+  worker:
+    image: "ghcr.io/marttottdc/moio_bot:latest"
+
+    command: celery -A moio_bot worker -E -l info --max-memory-per-child=128000 --concurrency=2 -Q moio-bot
+    volumes:
+      - "app:/app"
+    networks:
+      - public
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+
+    environment:
+      - DEBUG=${DEBUG}
+      - CSRF_DOMAIN=${CSRF_DOMAIN}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_STORAGE_STATIC_BUCKET_NAME=${AWS_STORAGE_STATIC_BUCKET_NAME}
+      - AWS_STORAGE_MEDIA_BUCKET_NAME=${AWS_STORAGE_MEDIA_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - APP_NAME=${APP_NAME}
+      - DJANGO_ACCOUNT_ALLOW_REGISTRATION=${DJANGO_ACCOUNT_ALLOW_REGISTRATION}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USE}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+
+  beat:
+    image: "ghcr.io/marttottdc/moio_bot:latest"
+
+    command: celery -A moio_bot beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - "app:/app"
+
+    networks:
+      - public
+
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+
+    environment:
+      - DEBUG=${DEBUG}
+      - CSRF_DOMAIN=${CSRF_DOMAIN}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_STORAGE_STATIC_BUCKET_NAME=${AWS_STORAGE_STATIC_BUCKET_NAME}
+      - AWS_STORAGE_MEDIA_BUCKET_NAME=${AWS_STORAGE_MEDIA_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - APP_NAME=${APP_NAME}
+      - DJANGO_ACCOUNT_ALLOW_REGISTRATION=${DJANGO_ACCOUNT_ALLOW_REGISTRATION}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USE}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+
+volumes:
+  app:
+    driver: local
+
+
+networks:
+  public:
+    external: true

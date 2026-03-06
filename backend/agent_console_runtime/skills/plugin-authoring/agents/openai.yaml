@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plugin Authoring"
+  short_description: "Draft and validate Replica plugin bundles"
+  default_prompt: "Create or review a Replica plugin ZIP bundle, including manifest, entrypoint, and readiness checks."

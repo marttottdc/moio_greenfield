@@ -1,0 +1,229 @@
+{
+  "templates": [
+    {
+      "id": "2370111223504224",
+      "name": "requerimiento_servicio_heliar",
+      "category": "MARKETING",
+      "language": "es",
+      "status": "APPROVED",
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Requerimiento Servicio Heliar"
+        },
+        {
+          "type": "BODY",
+          "text": "Estimado equipo {{partner_name}}, nuestro canal de atención 24hs, ha recibido un requerimiento que requiere su atención.\n\nRequerimiento: {{requerimiento}}\nNombre {{nombre}}\nTeléfono: {{telefono}}\nDirección:{{direccion}}\nCoordenadas:{{ubicacion}}\n\nEl contacto fue avisado de que será contactado por ustedes.",
+          "example": {
+            "body_text_named_params": [
+              {
+                "param_name": "partner_name",
+                "example": "Car Up"
+              },
+              {
+                "param_name": "requerimiento",
+                "example": "Bateria Heliar HFB32s"
+              },
+              {
+                "param_name": "nombre",
+                "example": "Jose Diaz"
+              },
+              {
+                "param_name": "telefono",
+                "example": "091234567"
+              },
+              {
+                "param_name": "direccion",
+                "example": "Rio Nilo 921 "
+              },
+              {
+                "param_name": "ubicacion",
+                "example": "lat:32.2323,lon:-47.2122"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "Matrix Baterías - Especialistas en Baterías"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "type": "QUICK_REPLY",
+              "text": "Enterados"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1370254651406383",
+      "name": "aviso_de_requerimiento_partner",
+      "category": "MARKETING",
+      "language": "es",
+      "status": "APPROVED",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Estimado equipo {{partner_name}},\n\nNuestro canal de ventas 24h ha detectado una oportunidad comercial que requiere su atención.\n\nRequerimiento: {{requerimiento}}\nNombre {{nombre}}\nTeléfono: {{telefono}}\nUbicacion: {{ubicacion}}\n\n*El contacto ya avisado que será contactado por ustedes*",
+          "example": {
+            "body_text_named_params": [
+              {
+                "param_name": "partner_name",
+                "example": "Car Up"
+              },
+              {
+                "param_name": "requerimiento",
+                "example": "Bateria HFB24S"
+              },
+              {
+                "param_name": "nombre",
+                "example": "Darío Perez"
+              },
+              {
+                "param_name": "telefono",
+                "example": "09123456"
+              },
+              {
+                "param_name": "ubicacion",
+                "example": "Cno Carrasco 1234 (lat: 34.2312312, lon:-47.323123)"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "Equipo Matrix Baterías"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "type": "QUICK_REPLY",
+              "text": "Enterados"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "798300466039587",
+      "name": "invitacion_experto",
+      "category": "MARKETING",
+      "language": "es",
+      "status": "APPROVED",
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "IMAGE",
+          "example": {
+            "header_handle": [
+              "https://scontent.whatsapp.net/v/t61.29466-34/545810126_798300469372920_6986785210755438625_n.png?ccb=1-7&_nc_sid=8b1bef&_nc_ohc=aSJOMw5vlwIQ7kNvwEDMBGo&_nc_oc=AdnjZaa__VagZSY3Z8fuJ2cLfFvYgGK8VSmEh5c6d6Un2r7eehnC8VOjkj2oidW3WDE&_nc_zt=3&_nc_ht=scontent.whatsapp.net&edm=AH51TzQEAAAA&_nc_gid=0Z2cMSRE6O2ftCvbUkqClg&_nc_tpa=Q5bMBQG_54t3_03-REGSWMaDOL4PnoVGcx84H-aXKcQ6vGlT4mTBTPLYu4msm3sAeE3d3DbzqIveoNWsGA&oh=01_Q5Aa3QGCF7CV9VY_WLG5pMiTJrVB-_gv9TC8Ox8YpjFDmsmx1Q&oe=69671478"
+            ]
+          }
+        },
+        {
+          "type": "BODY",
+          "text": "Hola {{name}}, bienvenido a *Heliar Express Experto*, el servicio de Matrix Baterías para nuestros distribuidores.\n\nDesde este número, 24/7, podrás:\n\n• Consultar la batería recomendada para cada vehículo\n• Hacer consultas directas\n• Acceder a información técnica útil\n• Recibir novedades\n\nTe invitamos a guardar este número y compartirlo con tus empleados y clientes mayoristas.\n\nEsperamos recibir tus consultas, dudas y comentarios por este medio que iremos mejorando continuamente.",
+          "example": {
+            "body_text_named_params": [
+              {
+                "param_name": "name",
+                "example": "José"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "Matrix Baterías"
+        }
+      ]
+    },
+    {
+      "id": "1348342049692282",
+      "name": "vuelta_a_clases",
+      "category": "MARKETING",
+      "language": "es",
+      "status": "APPROVED",
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "IMAGE",
+          "example": {
+            "header_handle": [
+              "https://scontent.whatsapp.net/v/t61.29466-34/473402844_1348342053025615_4387606584426954961_n.png?ccb=1-7&_nc_sid=8b1bef&_nc_ohc=taKBIx-6QGUQ7kNvwGyfvyU&_nc_oc=AdmVsBmclKL_iESoHoyFFt85EU9ZWfQnzQwUXT9ZTYaa1kc_wmhi1nBgVFuThe4nMbo&_nc_zt=3&_nc_ht=scontent.whatsapp.net&edm=AH51TzQEAAAA&_nc_gid=0Z2cMSRE6O2ftCvbUkqClg&_nc_tpa=Q5bMBQGEDS7ubDjzLEHxS_yVvP6oq7CgakpRvx1PX7YtiDBtcEaXZSfm1qOEHFi0L3LuW61W_K9GPOOXVw&oh=01_Q5Aa3QHOkIRws2naj_7gj74Ji5wQTfkn1JV5-3wAHi2wZosf-A&oe=6967275A"
+            ]
+          }
+        },
+        {
+          "type": "BODY",
+          "text": "¡ Aprovecha la promoción de vuelta a clases ! \nAgendá un chequeo de batería gratis en Matrix y si es es tiempo de cambir tu batería te damos un {{descuento}}",
+          "example": {
+            "body_text_named_params": [
+              {
+                "param_name": "descuento",
+                "example": "15% de descuento"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "matrixbaterias.com.uy"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "type": "QUICK_REPLY",
+              "text": "Me interesa"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1284223806026021",
+      "name": "csat_2025",
+      "category": "UTILITY",
+      "language": "es",
+      "status": "APPROVED",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hola {{nombre}}, en Matrix valoramos mucho tu opinión. Es por eso que queremos pedirte que contestes nuestra encuesta de satisfacción.\n\nMuchas gracias",
+          "example": {
+            "body_text_named_params": [
+              {
+                "param_name": "nombre",
+                "example": "Marcelo"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "matrixbaterias.com.uy"
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            {
+              "type": "FLOW",
+              "text": "Contestar",
+              "flow_id": 1415457789437673,
+              "flow_action": "NAVIGATE",
+              "navigate_screen": "RECOMMEND"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+Response headers
+ access-co

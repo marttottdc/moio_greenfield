@@ -1,0 +1,9 @@
+web: hypercorn -c hypercorn_config.py --bind 0.0.0.0:${PORT} moio_platform.asgi:application
+worker: celery -A moio_bot worker -E -l info --max-memory-per-child=128000 --concurrency=2 -Q $APP_NAME
+beat: celery -A moio_bot beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+
+
+#web: gunicorn moio_platform.wsgi
+# gunicorn your_project.asgi:application -w 4 -k uvicorn.workers.UvicornWorker
+# hypercorn your_project.asgi:application -w 4 -k uvicorn.workers.UvicornWorker
