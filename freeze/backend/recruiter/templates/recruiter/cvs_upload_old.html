@@ -1,0 +1,90 @@
+{% load static i18n %}
+{% block extra_css %}
+    <link href="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone.css" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="header-title m-t-0">Carga de curriculums de Buscojobs</h4>
+                        <p class="text-muted font-14">
+                            Arrastra los curriculums o los archivos .zip bajados de Buscojobs. Los Candidatos se importarán mágicamente
+                        </p>
+
+                        <form action="{% url 'recruiter:carga_cvs' %}" method="post" class="dropzone" id="myAwesomeDropzone" data-plugin="dropzone" data-previews-container="#file-previews" data-upload-preview-template="#uploadPreviewTemplate">
+                            {% csrf_token %}
+                                <div class="fallback">
+                                    <input name="file" type="file" multiple />
+                                </div>
+
+                                <div class="dz-message needsclick">
+                                    <i class="h1 text-muted dripicons-cloud-upload"></i>
+                                    <h3>Arrastra archivos o haz click para seleccionarlos.</h3>
+                                    <span class="text-muted font-13">(CVs individuales de Buscojobs o archivos .ZIP de Buscojobs)</span>
+                                </div>
+
+                        </form>
+
+                        <!-- Preview -->
+                        <div class="dropzone-previews mt-3" id="file-previews"></div>
+                    </div>
+        </div>
+        <!-- end card-->
+    </div>
+    <!-- end col-->
+</div>
+    <!-- end row -->
+
+{% endblock %}
+
+<!-- file preview template -->
+<div class="d-none" id="uploadPreviewTemplate">
+    <div class="card mt-1 mb-0 shadow-none border">
+        <div class="p-2">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <i class="mdi mdi-file-outline"></i>
+                </div>
+                <div class="col ps-0">
+                    <a href="javascript:void(0);" class="text-muted" data-dz-name></a>
+                    <p class="mb-0" data-dz-size></p>
+                </div>
+                <div class="col-auto">
+                    <!-- Button -->
+                    <a href="" class="btn btn-link btn-lg text-muted" data-dz-remove>
+                        <i class="dripicons-cross"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="row my-1">
+                <div class="col">
+                    <div class="progress progress-striped active" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="progress-bar progress-bar-success" style="width:0;" data-dz-uploadprogress></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <strong class="error text-danger" data-dz-errormessage></strong>
+            </div>
+    </div>
+</div>
+</div>
+<div class="btn-group-justified text-end">
+    <button class="btn btn-primary rounded-3"
+            hx-get="{% url 'recruiter:confirm_cv_load' %}"
+            hx-target="#moio-full-content">
+            Confirmar
+
+    </button>
+</div>
+
+{% block extra_javascript %}
+
+<script src="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone-min.js"></script>
+<script src="{% static 'js/recruiter/recruiter.fileupload.js' %}"></script>
+
+{% endblock %}

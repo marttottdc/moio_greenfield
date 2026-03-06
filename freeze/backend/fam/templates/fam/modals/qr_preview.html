@@ -1,0 +1,168 @@
+{% load static i18n %}
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "QR Label Preview" %}</h5>
+  <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+
+<div class="modal-body">
+  <div class="row">
+    <div class="col-8">
+      <form id="qr-form"
+            method="post" enctype="multipart/form-data"
+
+            hx-encoding="multipart/form-data"
+            hx-trigger="change, keyup delay:300ms from:#qr-form"
+            hx-target="#qr-preview"
+            hx-swap="outerHTML">
+        {% csrf_token %}
+
+        <div class="mb-2">
+          <label for="data" class="form-label">{% trans "QR Data" %}</label>
+          <input type="text" class="form-control" name="data" id="data" value="{{ data }}">
+        </div>
+
+        <div class="mb-2">
+          <label for="main_text" class="form-label">{% trans "Main Text (above QR)" %}</label>
+          <input type="text" class="form-control" name="main_text" id="main_text" value="{{ main_text }}">
+        </div>
+
+        <div class="mb-2">
+          <label for="code_text" class="form-label">{% trans "Code Text (below QR)" %}</label>
+          <input type="text" class="form-control" name="code_text" id="code_text" value="{{ code_text }}">
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label for="width_mm" class="form-label">{% trans "Label Width (mm)" %}</label>
+            <input type="number" step="0.1" class="form-control" name="width_mm" id="width_mm" value="{{ width_mm|default:60 }}">
+          </div>
+          <div class="col">
+            <label for="height_mm" class="form-label">{% trans "Label Height (mm)" %}</label>
+            <input type="number" step="0.1" class="form-control" name="height_mm" id="height_mm" value="{{ height_mm|default:60 }}">
+          </div>
+          <div class="col">
+            <label for="dpi" class="form-label">{% trans "DPI" %}</label>
+            <input type="number" class="form-control" name="dpi" id="dpi" value="{{ dpi|default:300 }}">
+          </div>
+        </div>
+
+        <div class="row mt-2">
+          <div class="col">
+            <label for="bleed_mm" class="form-label">{% trans "Bleed (mm)" %}</label>
+            <input type="number" step="0.1" class="form-control" name="bleed_mm" id="bleed_mm" value="{{ bleed_mm|default:0 }}">
+          </div>
+          <div class="col">
+            <label for="logo" class="form-label">{% trans "Logo" %}</label>
+            <input type="file" class="form-control" id="logo" name="logo">
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label for="layout" class="form-label">{% trans "Layout" %}</label>
+          <select class="form-select" name="layout" id="layout">
+            {% for key in layouts %}
+              <option value="{{ key }}" {% if layout == key %}selected{% endif %}>{{ key }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <hr class="my-3">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">{% trans "Single Label Preset" %}</label>
+            <select class="form-select" id="single_preset" onchange="
+              const [w,h]=this.value.split('x');
+              if(w&&h){width_mm.value=w;height_mm.value=h;this.form.dispatchEvent(new Event('change',{bubbles:true}))}
+            ">
+              <option value="">—</option>
+              <option value="30x30">30×30 mm</option>
+              <option value="50x30">50×30 mm</option>
+              <option value="60x60">60×60 mm</option>
+              <option value="70x50">70×50 mm</option>
+              <option value="100x60">100×60 mm</option>
+            </select>
+            <button type="button" class="btn btn-outline-primary mt-2 w-100"
+                    onclick="submitPdf('{% url 'fam:qr_label_print_single' %}', this)">
+              {% trans "Open single-label PDF" %}
+            </button>
+          </div>
+
+          <div class="col-6">
+            <label class="form-label">{% trans 'Sheet Preset' %}</label>
+            <select class="form-select" id="sheet_preset" onchange="
+              const m=this.value;
+              const map={
+                'A4-3x8-70x37':{page:'A4',orient:'portrait',cols:3,rows:8,cell_w:70,cell_h:37,gap_x:2,gap_y:2,margin:5},
+                'A4-2x7-90x50':{page:'A4',orient:'portrait',cols:2,rows:7,cell_w:90,cell_h:50,gap_x:4,gap_y:4,margin:8},
+                'Letter-2x5-101x54':{page:'Letter',orient:'portrait',cols:2,rows:5,cell_w:101,cell_h:54,gap_x:4,gap_y:4,margin:10}
+              };
+              if(map[m]){
+                for (const [k,v] of Object.entries(map[m])){
+                  const el=document.getElementById('sheet_'+k); if(el) el.value=v;
+                }
+              }
+            ">
+              <option value="">—</option>
+              <option value="A4-3x8-70x37">A4 · 3×8 · 70×37mm</option>
+              <option value="A4-2x7-90x50">A4 · 2×7 · 90×50mm</option>
+              <option value="Letter-2x5-101x54">Letter · 2×5 · 101×54mm</option>
+            </select>
+
+            <div class="row g-1 mt-2">
+              <div class="col-6"><label class="form-label">Page</label><select id="sheet_page" class="form-select"><option>A4</option><option>Letter</option></select></div>
+              <div class="col-6"><label class="form-label">Orientation</label><select id="sheet_orient" class="form-select"><option>portrait</option><option>landscape</option></select></div>
+              <div class="col-3"><label class="form-label">Cols</label><input id="sheet_cols" class="form-control" type="number" value="3"></div>
+              <div class="col-3"><label class="form-label">Rows</label><input id="sheet_rows" class="form-control" type="number" value="8"></div>
+              <div class="col-3"><label class="form-label">Cell W (mm)</label><input id="sheet_cell_w" class="form-control" type="number" value="70"></div>
+              <div class="col-3"><label class="form-label">Cell H (mm)</label><input id="sheet_cell_h" class="form-control" type="number" value="37"></div>
+              <div class="col-4 mt-1"><label class="form-label">Gap X (mm)</label><input id="sheet_gap_x" class="form-control" type="number" value="2"></div>
+              <div class="col-4 mt-1"><label class="form-label">Gap Y (mm)</label><input id="sheet_gap_y" class="form-control" type="number" value="2"></div>
+              <div class="col-4 mt-1"><label class="form-label">Margin (mm)</label><input id="sheet_margin" class="form-control" type="number" value="5"></div>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary mt-2 w-100"
+                    onclick="submitPdf('{% url 'fam:qr_label_print_sheet' %}', this)">
+              {% trans "Open sheet PDF" %}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-4">
+      <div id="qr-preview">
+        {% if img_data %}
+          <img class="img-fluid border shadow-sm" src="data:image/png;base64,{{ img_data }}" alt="{% trans 'QR Label' %}">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-footer">
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Close' %}</button>
+</div>
+
+<script>
+function submitPdf(actionUrl, btn){
+  const form = document.getElementById('qr-form');
+  // save attributes used by HTMX preview
+  const prev = {
+    action: form.getAttribute('action'),
+    method: form.getAttribute('method'),
+    target: form.getAttribute('target'),
+    enctype: form.getAttribute('enctype')
+  };
+  // set to POST to new tab with multipart (keeps logo file)
+  form.setAttribute('action', actionUrl);
+  form.setAttribute('method', 'POST');
+  form.setAttribute('target', '_blank');
+  form.setAttribute('enctype', 'multipart/form-data');
+  form.submit();
+  // restore (so HTMX keeps working)
+  if(prev.action) form.setAttribute('action', prev.action); else form.removeAttribute('action');
+  if(prev.method) form.setAttribute('method', prev.method); else form.removeAttribute('method');
+  if(prev.target) form.setAttribute('target', prev.target); else form.removeAttribute('target');
+  if(prev.enctype) form.setAttribute('enctype', prev.enctype); else form.removeAttribute('enctype');
+}
+</script>

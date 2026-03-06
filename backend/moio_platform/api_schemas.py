@@ -63,9 +63,6 @@ class Tags:
     # Chatbot
     CHATBOT = "Chatbot"
 
-    # Robots
-    ROBOTS = "Robots"
-
     # DataLab
     DATALAB_FILES = "DataLab - Files"
     DATALAB_IMPORTS = "DataLab - Imports"

@@ -1,0 +1,47 @@
+{% load static i18n %}
+
+<!-- Start Content-->
+{% block content %}
+
+    <ul class="list-group list-group-horizontal pt-1align-items-center" id="page-nav-bar">
+    <li class="list-group-item align-self-center">
+        <button class="btn btn-block rounded-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#moio-leftmenu-offcanvas" aria-controls="offcanvasWithBothOptions">
+            <i class="mdi mdi-menu"></i>
+        </button>
+    </li>
+    <li class="list-group-item flex-fill align-self-center">
+        <input type="search"
+               name="search"
+               class="form-control border"
+               placeholder="Buscar.."
+               hx-post="{% url 'recruiter:candidate_search' %}"
+               hx-trigger="input changed delay:500ms, search"
+               hx-target="#dashboard-posting-list"
+               hx-swap="innerHTML"
+               hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+               hx-indicator="#loader">
+    </li>
+    <li class="list-group-item align-self-center">
+        <div class="d-flex btn-group-justified gap-1">
+            <button class="btn btn-block rounded-3" x-tooltip="Crear"><i class="mdi mdi-plus"></i></button>
+        </div>
+    </li>
+    <li class="list-group-item d-flex justify-content-center align-self-stretch align-items-center" id="loader">
+        <i class="mdi mdi-circle text-success htmx-hide"></i>
+        <div class="spinner-grow spinner-grow-sm text-warning htmx-indicator" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </li>
+</ul>
+
+    <div class="row mt-1 overflow-scroll"
+
+         id="moio-desktop-content"
+         hx-get="{% url 'recruiter:recruiter_dashboard_posting_list' %}"
+         hx-trigger="load, jobPostingAdded from:body"
+         hx-swap="innerHTML transition:true"
+         hx-indicator="#loader">
+
+    </div>
+
+{% endblock %}

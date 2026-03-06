@@ -1,0 +1,85 @@
+{% load static i18n %}
+<div class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title">{{page_title |default:""}}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+    <nav class="nav justify-content-end">
+                <div class="input-group py-1">
+                <input hx-post="#"
+                        hx-trigger="input changed delay:500ms from:#search-box, search from:#search-box"
+                        hx-swap="innerHTML"
+                        hx-target="#types_table"
+                        hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                        id="search-box"
+                        type="search"
+                        name="search"
+                        disabled
+                        class="form-control border border-dark me-2"
+                        placeholder="Buscar...">
+
+                <img src="{% static 'images/svg-loaders/puff.svg' %}" width="20" alt="loader" id="loader" class="htmx-indicator">
+
+                <div class="btn-group-justified">
+                    <button type="submit"
+                            hx-post="#"
+                            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                            id="btn_print_labels"
+                            disabled
+                            class="btn btn-primary rounded-3"> <i class="mdi mdi-printer-pos htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" id="loader" class="htmx-indicator">
+                    </button>
+                    <button type="button"
+                            hx-get="{% url 'fam:asset_type_crud' %}"
+                            hx-vals='{"action":"add"}'
+                            hx-target="#fam_crud_action_panel"
+                            id="btn_add_asset_type"
+                            class="btn btn-primary rounded-3"> <i class="mdi mdi-plus htmx-hide"></i>
+                            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" id="loader" class="htmx-indicator">
+                    </button>
+                </div>
+            </div>
+    </nav>
+
+    <div id="fam_crud_action_panel">
+        <table class="table table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Descripción</th>
+                <th scope="col">Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset_type in asset_types %}
+                <tr>
+                    <td>
+                        {{ asset_type.id }}
+                    </td>
+                    <td>
+                        {{ asset_type.name }}
+                    </td>
+                    <td>
+                        {{ asset_type.description }}
+                    </td>
+                    <td>
+                        <div class="btn-group-justified">
+                            <button hx-get="{% url 'fam:asset_type_crud_edit' asset_type.id %}"
+                                    type="button"
+                                    hx-vals='{"action":"edit"}'
+                                    hx-target="#fam_crud_action_panel"
+                                    class="btn btn-outline-primary">
+                                <i class="mdi mdi-note-edit htmx-hide"></i>
+                                <img src="{% static 'images/svg-loaders/puff.svg' %}" width="15" class="htmx-indicator">
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    </div>
+</div>

@@ -1,0 +1,276 @@
+<!-- print_format_modal.html -->
+{% load i18n %}
+
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "Print Formats" %}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+
+<div class="modal-body">
+
+  <div class="d-flex">
+    <!-- LEFT: form -->
+    <div class="col" id="left_pane">
+      <form id="pf-form"
+            hx-post="{% url 'fam:print_format_save' %}"
+            hx-target="#dialog"
+            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+            hx-swap="innerHTML">
+
+        <input type="hidden" name="id" value="{{ selected.id|default:'' }}">
+
+        <!-- === Group 1: Label layout & size === -->
+        <div class="border rounded p-2 mb-3">
+        <div class="d-flex justify-content-between">
+              <div class="fw-semibold mb-2">{% trans "Page layout & size" %}</div>
+        </div>
+
+          <div class="d-flex g-2 mb-2">
+            <form
+              hx-get="{% url 'fam:print_format_configuration' %}"
+              hx-target="#dialog"
+              hx-trigger="change from:#selected-print-format"
+              hx-swap="innerHTML"
+              hx-indicator="#pf-generate-preview"
+              class="d-flex gap-2 align-items-center">
+              <div class="input-group">
+                <span class="input-group-text">{% trans 'Select Page Layout' %}</span>
+                <select id="selected-print-format" name="id" class="form-select w-auto">
+                  <option value="new">{% trans "➕ Add new…" %}</option>
+                  {% for f in formats %}
+                    <option value="{{ f.id }}" {% if selected and selected.id == f.id %}selected{% endif %}>
+                      {{ f.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </form>
+          </div>
+          <div class="row g-1 mb-2">
+            <div class="col-8">
+              <div class="input-group">
+                <span class="input-group-text small">{% trans "Name" %}</span>
+                <input id="pf_name" class="form-control" name="name" placeholder="{% trans 'New format name' %}"
+                       value="{{ selected.name }}" required>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="input-group">
+                <span class="input-group-text small">DPI</span>
+                <input id="pf_dpi" class="form-control" name="dpi" min="300" max="1200" type="number"
+                       value="{{ selected.dpi|default:300 }}" required>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- === Group 2: Page layout === -->
+        <div class="border rounded p-2 mb-3">
+            <div class="fw-semibold mb-2">{% trans "Page layout" %}</div>
+            <div class="row g-1 mb-1">
+            <div class="col-6">
+            <div class="input-group">
+            <span class="input-group-text small">{% trans "Layout" %}</span>
+            <select class="form-select" name="layout_key" id="pf_layout">
+              {% for key in layouts %}
+                <option value="{{ key }}" {% if selected and selected.layout_key == key %}selected{% endif %}>{{ key }}</option>
+              {% endfor %}
+            </select>
+            </div>
+            </div>
+            <div class="col-6">
+            <div class="input-group">
+            <span class="input-group-text small">{% trans 'Label W' %}(mm):</span>
+            <input class="form-control" name="width_mm" id="pf_w" type="number" step="0.1"
+                   value="{{ selected.width_mm|default:60 }}">
+            <span class="input-group-text small">{% trans 'H' %}(mm):</span>
+            <input class="form-control" name="height_mm" id="pf_h" type="number" step="0.1"
+                   value="{{ selected.height_mm|default:60 }}">
+            </div>
+            </div>
+            </div>
+            <div class="row g-1 mb-1">
+            <div class="col-6">
+              <div class="input-group">
+                <span class="input-group-text">{% trans "Page Size" %}</span>
+                <select class="form-select" name="page" id="pf_page">
+                  <option value="A4" {% if not selected or selected.page == 'A4' %}selected{% endif %}>A4</option>
+                  <option value="Letter" {% if selected and selected.page == 'Letter' %}selected{% endif %}>Letter</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="input-group">
+                <span class="input-group-text">{% trans "Orientation" %}</span>
+                <select class="form-select" name="orient" id="pf_orient">
+                  <option value="portrait" {% if not selected or selected.orient == 'portrait' %}selected{% endif %}>portrait</option>
+                  <option value="landscape" {% if selected and selected.orient == 'landscape' %}selected{% endif %}>landscape</option>
+                </select>
+              </div>
+            </div>
+          </div>
+            <div class="row g-1 mb-1">
+            <div class="col-3">
+              <div class="input-group">
+                <span class="input-group-text">Cols</span>
+                <input class="form-control" name="cols" id="pf_cols" type="number"
+                       value="{{ selected.cols|default:3 }}">
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="input-group">
+                <span class="input-group-text small">Rows</span>
+                <input class="form-control" name="rows" id="pf_rows" type="number"
+                       value="{{ selected.rows|default:8 }}">
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="input-group">
+                <span class="input-group-text small">Gap X</span>
+                <input class="form-control" name="gap_x_mm" id="pf_gap_x" type="number" step="0.1"
+                       value="{{ selected.gap_x_mm|default:2 }}">
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="input-group">
+                <span class="input-group-text small">Gap Y</span>
+                <input class="form-control" name="gap_y_mm" id="pf_gap_y" type="number" step="0.1"
+                       value="{{ selected.gap_y_mm|default:2 }}">
+              </div>
+            </div>
+          </div>
+            <div class="row g-1 mb-1">
+                <div class="col-4">
+                  <div class="input-group">
+                    <span class="input-group-text small">Top margin</span>
+                    <input class="form-control" name="top_margin_mm" id="pf_top_margin" type="number" step="0.1"
+                           value="{{ selected.top_margin_mm|default:5 }}">
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="input-group">
+                    <span class="input-group-text small">Left margin</span>
+                    <input class="form-control" name="left_margin_mm" id="pf_left_margin" type="number" step="0.1"
+                           value="{{ selected.left_margin_mm|default:5 }}">
+                  </div>
+                </div>
+                <div class="col-4 ps-2">
+                     <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="show_footer" value="1" name="show_footer" checked>
+                    <label class="form-check-label" for="show_footer">{% trans 'Show footer' %}</label>
+                </div>
+                    <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="show_grid" value="1" name="show_grid" checked>
+                    <label class="form-check-label" for="show_grid">{% trans 'Show grid' %}</label>
+                </div>
+                </div>
+            </div>
+
+
+        </div>
+
+        <!-- === Group 3: Label data === -->
+        <div class="border rounded p-2 mb-3">
+          <div class="fw-semibold mb-2">{% trans "Field Mapping" %}</div>
+          {% for item in layout_items %}
+
+                <div class="mb-1">
+                {% if item.type == "text" %}
+                <div class="input-group input-group-sm">
+                    <label class="input-group-text small">{{ item.role|title }}</label>
+                    <select class="form-select" name="map_field_{{ item.id }}">
+                        <option value="">{% trans "Select the value" %}</option>
+                        <option value="fixed-text">{% trans "Fixed Text --—>" %}</option>
+                      {% for f in available_fields %}
+                        <option value="{{ f }}"
+                          {% if mappings and mappings.item.id and mappings.item.id.type == "field" and mappings.item.id.value == f %}selected{% endif %}>
+                          {{ f }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <input type="text"
+                           class="form-control"
+                           name="map_fixed_{{ item.id }}"
+                           value="{% if mappings and mappings.item.id and mappings.item.id.type == 'fixed' %}{{ mappings.item.id.value }}{% endif %}"
+                           placeholder="{% trans 'Fixed text…' %}">
+                </div>
+                {% endif %}
+
+                </div>
+          {% empty %}
+            <div class="text-muted small">{% trans "This layout has no text elements to map." %}</div>
+          {% endfor %}
+        </div>
+
+
+      </form>
+    </div>
+    <!-- Make the dialog roomy but keep preview contained -->
+    <div class="col mb-3 h-100" id="right_pane" style="max-width: 40%;">
+     <div class="border rounded p-2 ">
+          <div class="d-flex justify-content-between gap-2">
+                <div class="fw-semibold mb-2">{% trans "Sheet Preview (PDF)" %}</div>
+                <button id="pf-generate-preview"
+                        class="btn btn-sm btn-outline-primary mb-2"
+                        hx-get="{% url 'fam:print_format_page_preview_fragment' %}"
+                        hx-include="#pf-form"
+                        hx-trigger="load, click, change from:body"
+                        hx-target="#pf_preview_container"
+                        hx-swap="innerHTML">
+
+                    <span class="htmx-hide"> {% trans "Generate preview" %}</span>
+                    <span id="pf_preview_spinner" class="htmx-indicator"> {% trans "Generating…" %}</span>
+                </button>
+          </div>
+        <div id="pf_preview_container">
+          <div class="text-muted small">{% trans "Click “Generate preview” to render the page." %}</div>
+        </div>
+     </div>
+    </div>
+</div>
+</div>
+    <!-- == Modal Footer === -->
+<div class="modal-footer">
+    <div class="d-flex gap-1">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Cancel' %}</button>
+        <button type="button"
+              class="btn btn-outline-secondary ms-auto"
+              hx-include="#pf-form"
+              hx-swap="none"
+              data-bs-dismiss="modal">{% trans 'Use this format' %}
+        </button>
+
+        <button type="button"
+                class="btn btn-primary"
+                hx-post="{% url 'fam:print_format_save' %}"
+                hx-target="#dialog"
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-swap="innerHTML"
+                hx-include="#pf-form">
+                <span class="htmx-hide"> {% trans 'Save' %}</span>
+                <span class="htmx-indicator">{% trans 'Saving' %}</span>
+        </button>
+    </div>
+</div>
+    <!-- RIGHT: preview (manual generation via HTMX) -->
+
+<script>
+(() => {
+  const content = document.currentScript.closest('.modal-content');
+  const dialog  = content?.closest('.modal-dialog');
+  if (!dialog) return;
+  dialog.classList.add('modal-xl','modal-dialog-scrollable','modal-fullscreen-lg-down');
+  dialog.style.setProperty('--bs-modal-width', 'min(95vw, 1400px)');
+})();
+</script>
+
+<style>
+  /* Constrain embedded PDF size inside the modal */
+  #pf_preview_container .pf-preview-obj{
+    width: 100%;
+    height: clamp(300px, 62vh, 900px); /* contained within modal */
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    display: block;
+  }
+</style>

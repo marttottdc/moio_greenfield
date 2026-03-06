@@ -1,0 +1,36 @@
+{% load static i18n %}
+<div class="modal-header">
+    <h5 class="modal-title">{% trans "Tags Creation" %}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+  </div>
+
+
+<form hx-post="{% url 'fam:batch_create_labels' %}" hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}' hx-target="#fam_labels_table">
+    <div class="modal-body">
+        <div class="d-flex align-items-between">
+            <div class="mb-2">
+                <label for="prefix" class="form-label">{% trans 'Prefijo' %}</label>
+                <input type="text" x-tooltip="Prefijo del código ej. ABC" class="form-control" id="prefix" name="prefix" placeholder="ABC">
+            </div>
+            <div class="mb-2">
+                <label for="digits" class="form-label">{% trans 'Digits' %}</label>
+                <input type="number" x-tooltip="Cantidad de Dígitos a utilizar" class="form-control" id="digits" name="digits" placeholder="3">
+            </div>
+            <div class="mb-2">
+                <label for="quantity" class="form-label">{% trans 'Quantity' %}</label>
+                <input type="number" x-tooltip="Número total de etiquetas a generar" class="form-control" id="quantity" name="quantity" placeholder="5">
+            </div>
+        </div>
+
+    </div>
+    <div class="modal-footer">
+    <div class="btn-group-justified text-end">
+            <button class="btn btn-secondary rounded-3" data-bs-dismiss="modal">{% trans 'Cancel' %}</button>
+            <button id="fam_labels_submit" type="submit" class="btn btn-primary rounded-3">
+                    {% trans 'Generate' %} <i class="mdi mdi-creation htmx-hide"></i>
+                    <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" class="htmx-indicator">
+            </button>
+        </div>
+    </div>
+</form>
+

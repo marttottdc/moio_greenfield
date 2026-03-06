@@ -1,0 +1,116 @@
+{% load static i18n humanize %}
+        <!-- start page title -->
+<div class="row ms-1 pt-1">
+<div class="row">
+    <div class="col-8">
+            <h3>{{job_posting.name}}</h3>
+    </div>
+
+    <div class="col-4 justify-content-end">
+             <div class="btn-group-justified text-end">
+                  <button data-bs-toggle="modal"
+                    hx-post="{% url 'recruiter:job_posting_delete' job_posting.jp_id %}"
+                    hx-target="#moio-full-content"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-trigger="confirmed"
+                    onClick="Swal.fire({
+                            title: 'Atencion',
+                            text:'El borrado de {{ job_posting.name }} hará que los candidatos queden disponibles para otras búsquedas.',
+                            icon:'warning',
+                            showCancelButton:true,
+                            confirmButtonText:'Si, Borrar'
+                    }).then((result)=>{if(result.isConfirmed){htmx.trigger(this, 'confirmed');} })"
+
+                    class="btn btn-sm btn-outline-secondary rounded-3">
+                    <i class="mdi mdi-delete small htmx-hide"></i>
+                    <img src="{% static 'images/svg-loaders/puff.svg' %}" width="15" class="htmx-indicator" alt="loader">
+                 </button>
+                 <button type="button"
+                        hx-get="{% url 'recruiter:message_templates_configuration' job_posting.jp_id %}"
+                        hx-target="#dialog"
+                        hx-swap="innerHTML"
+                        x-data
+                        x-tooltip="Configurar Mensajes"
+                        class="btn btn-sm btn-outline-secondary rounded-3"
+                        {% if job_posting.status == "C" %} disabled {% endif %}
+                        id="btn_message_template_configuration">
+                        <i class="mdi mdi-message-processing small htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="15" class="htmx-indicator">
+                </button>
+                 <button type="button"
+                         data-bs-toggle="collapse"
+                         href="#collapse{{ job_posting.jp_id }}"
+                         class="btn btn-sm btn-outline-secondary rounded-3">
+                        <i class="mdi mdi-window-minimize"></i>
+                 </button>
+                 <button type="button"
+                         hx-get="{% url 'recruiter:dashboard' %}"
+                         hx-target="#moio-full-content"
+                         class="btn btn-sm btn-outline-secondary rounded-3">
+                        <i class="mdi mdi-window-close htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="15" class="htmx-indicator">
+                 </button>
+            </div>
+        </div>
+</div>
+
+<div class="row mt-1" id="job-posting-details-panel">
+    <div class="container collapse show" id="collapse{{ job_posting.jp_id }}">
+        <div class="row">
+            <div class="col-12">
+                <ul class="list-group list-group-horizontal rounded-3">
+                        <li class="list-group-item {% if job_posting.status in "CEGISNUF" %} list-group-item-success {% else %} list-group-item-secondary {% endif %} text-center me-1 mb-1 flex-fill">
+                            <i class="mdi mdi-rocket-launch"></i>
+                            Inicio
+                        </li>
+                        <li class="list-group-item {% if job_posting.status in "CEGISUF" %} list-group-item-success {% else %} list-group-item-secondary {% endif %} text-center me-1 mb-1 flex-fill">
+                            <i class="mdi mdi-database-search"></i>
+                            Preselección
+                        </li>
+                        <li class="list-group-item {% if job_posting.status in "CEGUF" %} list-group-item-success {% else %} list-group-item-secondary {% endif %} text-center me-1 mb-1 flex-fill">
+                            <i class="mdi mdi-crowd"></i>
+                            Grupal
+                        </li>
+                        <li class="list-group-item {% if job_posting.status in "CUF" %} list-group-item-success {% else %} list-group-item-secondary {% endif %} text-center me-1 mb-1 flex-fill">
+                            <i class="mdi mdi-human"></i>
+                            Individual
+                        </li>
+                        <li class="list-group-item {% if job_posting.status in "C" %} list-group-item-success {% else %} list-group-item-secondary {% endif %} text-center me-1 mb-1 flex-fill">
+                                <i class="mdi mdi-flag-checkered"></i>
+                                Cierre
+                        </li>
+                </ul>
+            </div>
+        </div>
+        <div class="row mx-1">
+            <div class="col-12">
+                <h5>Descripción:</h5>
+                <p class="text-dark mb-2">
+                    {{ job_posting.description }}
+                </p>
+            </div>
+        </div>
+        <div class="row mx-1 pt-1">
+            <div class="col-6">
+                    <h5>Sucursales:</h5>
+                    <ul style="list-style-type: square;">
+                    {% for branch in job_posting.branch.get_queryset %}
+                        <li class="badge bg-info text-light">{{ branch.name }}</li>
+                    {% endfor %}
+                    </ul>
+            </div>
+            <div class="col-6">
+                <ul>
+                    <li>Lanzado: {{ job_posting.created.date | naturalday }}</li>
+                    <li>Vacantes: {{ job_posting.vacantes }}</li>
+                    <li>Salario: ${{ job_posting.salary }}</li>
+                    <li>Group Interview: {{ job_posting.group_interview_date | naturalday }}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

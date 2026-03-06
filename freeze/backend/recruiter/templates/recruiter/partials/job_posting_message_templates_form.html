@@ -1,0 +1,24 @@
+{% load static i18n %}
+
+<form hx-post="{% url 'recruiter:message_templates_configuration' job_posting.jp_id %}" hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}' hx-target="#dialog" hx-swap="outerHTML" enctype="multipart/form-data" class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title">Configurar Mensajes</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div class="text-dark small">
+            Para personalizar el mensaje, inserta cualquiera de estas variables en el lugar apropiado. (<b>&#123;&#123; nombre_candidato &#125;&#125;</b> <b>&#123;&#123; psigma_url &#125;&#125;</b> <b>&#123;&#123;  fecha_prueba_grupal &#125;&#125;</b> <b>&#123;&#123;descripcion_llamado &#125;&#125;</b>)
+            Por ejemplo: Hola &#123;&#123; nombre_candidato &#125;&#125;,se mostrará como: Hola José.
+
+        </div><br>
+
+        {{ template_config_form.as_div }}
+        <div class="btn-group-justified text-end">
+            <button type="button" class="btn btn-secondary mt-1" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" id="btn_message_template_configuration_submit" class="btn btn-primary mt-1">Guardar
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="20" class="htmx-indicator">
+            </button>
+        </div>
+    </div>
+</form>
+

@@ -1,0 +1,55 @@
+{% load static i18n %}
+<link href="{% static 'css/inputTags.css' %}" rel="stylesheet" type="text/css" />
+
+<form
+    hx-post="{% url 'recruiter:load_cv' %}"
+    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+    hx-trigger="click from:#cv_load_button"
+    enctype="multipart/form-data">
+    <div class="card-title">
+
+        <h4>Ingresa el CV para importar</h4>
+        <p class="text-muted small">
+            Carga curriculums recibidos de cualquier parte
+        </p>
+    </div>
+        <div class="row pb-1">
+            <div class="col-8">
+            <input type="file" class="form-control" name="cv_file" required>
+            </div>
+        </div>
+        <div class="row pb-1">
+             <div class="col-8">
+                <label for="tags" class="small form-label">Tags</label>
+                <input class="inputTags-field" hidden value="" name="tags" id="tags">
+            </div>
+        </div>
+        <div class="row pb-1">
+            <div class="col-4">
+                <label for="source" class="small form-label">Origen</label>
+                <input type="text" id="source" name="source" class="form-control" placeholder="recomendado" required>
+            </div>
+        </div>
+        <div class="btn-group-justified text-end">
+            <button type="button" id="cv_load_button" class="btn btn-primary rounded-3">Cargar <i class="mdi mdi-cloud-upload htmx-hide"></i>
+                <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" class="htmx-indicator" width="20">
+            </button>
+        </div>
+</form>
+
+
+   <!-- end card-->
+<script>
+    $('#tags').inputTags({
+        max:10,
+    create: function() {
+        console.log('Event called when an item is created');
+    },
+    update: function() {
+      console.log('Event called when an item is updated');
+    },
+    destroy: function() {
+      console.log('Event called when an item is deleted');
+    },
+    });
+</script>

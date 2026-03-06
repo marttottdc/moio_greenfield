@@ -1,0 +1,132 @@
+{% load static i18n %}
+
+
+
+{% if template_id == "1" %}
+<div class="row pt-1">
+    {% for sample_label in labels_to_print %}
+    <div class="col-6 gy-1 gx-3 align-items-center border border-dark rounded-3">
+        <div class="row justify-content-center">
+            {% if preview_image %}
+            <div class="col-auto m-1 align-self-center">
+                <img src="{{ preview_image }}" alt="Preview" width="100">
+            </div>
+            {% endif %}
+            <div class="col-auto px-2 align-self-center">
+                <div class="card-text big"> Activo: {{ sample_label.company_tag }} </div>
+                <div class="card-text"> Empresa: {{ sample_label.tenant.nombre }} </div>
+                <div class="card-text"> MAC Address: {{ sample_label.mac_address | default:"N/A"}} </div>
+                <div class="card-text small">{{ sample_label.created }} </div>
+            </div>
+
+            <div class="col-auto text-center m-1">
+                <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="img-rounded" width="100">
+            </div>
+
+        </div>
+        <div class="row text-center">
+            <div class="card-text small text-dark">{{ custom_message }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% elif template_id == "2" %}
+<div class="row align-items-center">
+    {% for sample_label in labels_to_print %}
+    <div class="container p-1 d-flex justify-content-evenly border border-dark rounded-3">
+        <div class="col-2">
+            <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="img-rounded" width="100">
+        </div>
+        <div class="col-auto">
+            <div class="card-text big text-dark"> Company Tag: {{ sample_label.company_tag }} </div>
+            <div class="card-text"> Empresa: {{ sample_label.tenant.nombre }} </div>
+            <div class="card-text"> MAC Addres: {{ sample_label.mac_address | default:"N/A"}} </div>
+            <div class="card-text small"> Creada: {{ sample_label.created }}</div>
+            {% if preview_image %}
+                <div class="col-auto align-self-center">
+                    <img src="{{ preview_image }}" class="img-fluid" alt="Preview" width="100">
+                </div>
+            {% endif %}
+    </div>
+        <div class="row text-center">
+            <div class="card-text small text-dark">{{ custom_message }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% elif template_id == "3" %}
+
+<div class="row align-items-center">
+{% for sample_label in labels_to_print %}
+    <div class="col-auto text-center border border-dark rounded-3">
+        {% if preview_image %}
+        <div class="row pt-1 text-center">
+            <div class="col">
+                <img src="{{ preview_image }}" alt="Preview" width="100">
+            </div>
+        </div>
+        {% endif %}
+        <figure class="figure pt-1">
+            <figcaption class="figure-caption text-dark">{{sample_label.company_tag}}</figcaption>
+            <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="figure-img img-fluid rounded" width="100">
+            <figcaption class="figure-caption text-dark">{{ sample_label.tenant.nombre }} control de activos</figcaption>
+        </figure>
+    </div>
+{% endfor %}
+</div>
+
+{% elif template_id == "4" %}
+<div class="row align-items-center">
+{% for sample_label in labels_to_print %}
+    <div class="col-auto text-center border border-dark rounded-3">
+        {% if preview_image %}
+            <div class="row pt-1 text-center">
+                <div class="col">
+                    <img src="{{ preview_image }}" alt="Preview" width="100">
+                </div>
+            </div>
+        {% endif %}
+        <figure class="figure pt-1">
+            <figcaption class="figure-caption text-dark">{{ sample_label.tenant.nombre }} control de activos</figcaption>
+            <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="figure-img img-fluid rounded" width="100">
+            <figcaption class="figure-caption text-dark">{{sample_label.company_tag}}</figcaption>
+        </figure>
+    </div>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="row align-items-center">
+{% for sample_label in labels_to_print %}
+    <div class="col-auto text-center border border-dark rounded-3">
+        {% if preview_image %}
+            <div class="row pt-1 text-center">
+                <div class="col align-self-center">
+                <figure class="figure pt-1">
+                    <img src="{{ preview_image }}" alt="Preview" class="figure-img img-fluid rounded" width="100">
+                    <figcaption class="figure-caption text-dark">Control de Activos</figcaption>
+                </figure>
+                </div>
+                <div class="col">
+                    <figure class="figure pt-1">
+                        <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="figure-img img-fluid rounded" width="100">
+                        <figcaption class="figure-caption text-dark">{{sample_label.company_tag}}</figcaption>
+                    </figure>
+                </div>
+            </div>
+        {% else %}
+        <figure class="figure pt-1">
+            <figcaption class="figure-caption text-dark">{{ sample_label.tenant.nombre }}<br> Control de Activos</figcaption>
+            <img src="{{ sample_label.qr_code.url }}" alt="{{ sample_label.company_tag }}" class="figure-img img-fluid rounded" width="100">
+            <figcaption class="figure-caption text-dark">{{sample_label.company_tag}}</figcaption>
+        </figure>
+        {% endif %}
+        <div class="row text-center">
+        <div class="card-text small text-dark">{{ custom_message }}</div>
+        </div>
+    </div>
+{% endfor %}
+</div>
+{% endif %}
+

@@ -1,0 +1,36 @@
+{% load static i18n humanize%}
+{% load recruiter_tags%}
+
+<div class="row">
+    <table class="table table-hover text-dark small caption-top">
+        <caption>Entrevistas</caption>
+        <thead class="table-primary ">
+            <th scope="col">Notas</th>
+            <th scope="col">Fecha</th>
+            <th scope="col">Entrevistador</th>
+        </thead>
+        <tbody>
+        {% for item in notes %}
+        <tr>
+            <td><div class="text-dark small"> {{ item.note }}</div></td>
+            <td><div class="text-dark small"> {{ item.date | naturaltime}} </div></td>
+            <td><div class="text-dark small"> {{ item.user.first_name }} {{ item.user.last_name }}</div></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form hx-post="{% url 'recruiter:register_one_to_one' job_posting.jp_id candidate.pk %}"
+    hx-trigger="click from:#evaluation-{{ job_posting.jp_id }}-{{ candidate.pk }}, click from:#submit-{{ job_posting.jp_id }}-{{ candidate.pk }}"
+    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+    hx-target="#interview_notes">
+
+        <label for="notes_one_to_one">Notas de Entrevista</label>
+        <textarea id="notes_one_to_one" name="notes_one_to_one" required class="form-control" placeholder="Escribe aquí tus comentarios y conclusiones sobre la entrevista" rows="4"></textarea>
+        <div class="btn-group-justified text-end">
+            <button type="submit" class="btn btn-primary rounded-3 mt-1" id="submit-{{ job_posting.jp_id }}-{{ candidate.pk }}"><i class="mdi mdi-send htmx-hide"></i>
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="20" class="htmx-indicator">
+            </button>
+        </div>
+</form>

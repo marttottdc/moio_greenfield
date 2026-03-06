@@ -8,8 +8,12 @@ from django.core.files.storage import default_storage
 from openai import OpenAI, BaseModel
 
 from portal.models import TenantConfiguration
-from recruiter.core.gpt_tools import tools
 import logging
+
+try:
+    from recruiter.core.gpt_tools import tools
+except ModuleNotFoundError:
+    tools = []
 
 logger = logging.getLogger(__name__)
 

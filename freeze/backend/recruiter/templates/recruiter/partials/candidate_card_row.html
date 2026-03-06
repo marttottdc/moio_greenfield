@@ -1,0 +1,48 @@
+{% load static i18n %}
+
+<tr id="candidate-{{ candidate.pk }}">
+    <td>
+        {%  if candidate.profile_picture %}
+            <div class="col-12 text-center">
+                <img class="rounded-circle text-center" src="{{ candidate.profile_picture.url }}" alt="{{ candidate.contact.fullname }}" width="100" height="auto" >
+            </div>
+        {% endif %}
+        <div class="col-12">
+        <h6 class="text-center">{{ candidate.contact.fullname.title }}</h6>
+        </div>
+    </td>
+    <td>
+        <p class="text-dark small">
+        Teléfono:<a class="text-dark small" href="https://wa.me/{{ candidate.contact.phone }}?text=Hola {{ candidate.contact.fullname }}" target="_blank"> {{ candidate.contact.phone }}</a><br>
+        Cédula: {{ candidate.document_id }} <br>
+        Date of Birth: {{ candidate.date_birth }}<br>
+        SER Score: {{ candidate.psicotest_score }}<br>
+        Tags:   {% for tag in candidate.tags.all  %}
+                                <span class="badge badge-outline-info">{{ tag }}</span>
+                                {% endfor %}
+                        <br>
+        {% if candidate.cv_file_doc %}
+            <a href="{{ candidate.cv_file_doc.file.url }}" class="link-primary" target="_blank"><i class="mdi mdi-file-document"></i> {{ candidate.cv_file_doc}} </a>
+        {% endif %}
+        </p>
+    </td>
+    <td>
+        {% if candidate.recruiter_status in "DW" %}
+            <div class="badge bg-warning text-light">{{ candidate.get_recruiter_status_display.title }}</div><br>
+        {% elif candidate.recruiter_status == "G" %}
+            <div class="badge bg-success text-light">{{ candidate.get_recruiter_status_display.title }}</div><br>
+        {% else %}
+            <div class="badge badge-outline-primary">{{ candidate.get_recruiter_status_display.title }}</div><br>
+        {% endif %}
+    </td>
+    <td>
+        {{ candidate.recruiter_summary }}<br>
+        <hr>
+        <div class="px-1">
+        {% include "recruiter/partials/candidate_transition_buttons.html" %}
+        </div>
+    </td>
+
+</tr>
+
+

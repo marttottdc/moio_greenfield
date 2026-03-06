@@ -1,0 +1,54 @@
+{% load static i18n %}
+
+<nav class="navbar right fixed-bottom navbar-dark bg-dark gx-2"  style="z-index: 1000 ;">
+    <div class="col-6 ps-2 text-white">
+        <div hx-get="{% url 'recruiter:job_posting_statistics' job_posting.jp_id %}" hx-trigger="load, click from:#candidate_transition_buttons_bar">
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="20" class="htmx-indicator" >
+        </div>
+    </div>
+    <div class="col-4 pe-2 justify-content-end">
+        <div class="btn-group-justified text-end">
+        {% if job_posting.status == "C" %}
+            <h4 class="text-white">Posting Cerrado - Buen trabajo {{ user.first_name }}</h4>
+        {% else %}
+                {% if job_posting.status == "S" %}
+                <button type="button"  class="btn btn-outline-danger btn-sm rounded-3"
+                    hx-post='{% url "recruiter:job_posting_action" job_posting.jp_id  %}'
+                    hx-trigger="click"
+                    hx-push-url="true"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-vals='{"next_step": "launch_search"}'
+                    hx-target ="#moio-full-content"
+                    hx-indicator="#loader">
+                    Buscar más...
+                </button>
+                {% endif %}
+
+                <button type="button"  class="btn btn-primary btn-sm rounded-3"
+                    hx-post='{% url "recruiter:job_posting_action" job_posting.jp_id  %}'
+                    hx-trigger="click"
+                    hx-push-url="true"
+                    hx-disabled-elt="this"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-swap="innerHTML"
+                    hx-indicator="#next_action_loader"
+                    hx-target ="#moio-full-content"
+
+                    {% if job_posting.status == "S" %}
+                        hx-vals='{"next_step": "confirm_preselection"}'
+                    {% elif job_posting.status == "G" %}
+                        hx-vals='{"next_step": "close_group_interview"}'
+                    {% elif job_posting.status == "E" %}
+                        hx-vals='{"next_step": "confirm_shortlist"}'
+                    {% elif job_posting.status == "U" %}
+                        hx-vals='{"next_step": "close_individual_interviews"}'
+                    {% elif job_posting.status == "F" %}
+                        hx-vals='{"next_step": "shortlist_results"}'
+                    {% endif %}
+                    >
+                    {{ job_posting.get_status_display }} <span id="next_action_loader"> <i class="mdi mdi-arrow-right htmx-hide"></i> <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="20" class="htmx-indicator"></span>
+                </button>
+        {% endif %}
+        </div>
+    </div>
+</nav>

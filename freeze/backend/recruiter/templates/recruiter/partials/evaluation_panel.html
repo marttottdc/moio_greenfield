@@ -1,0 +1,92 @@
+{% load static i18n humanize %}
+{% load recruiter_tags%}
+
+
+<form hx-post="{% url 'recruiter:register_candidate_evaluation' job_posting.jp_id candidate.pk %}"
+      hx-trigger="click from:#evaluation-{{ job_posting.jp_id }}-{{ candidate.pk }}, click from:#submit-{{ job_posting.jp_id }}-{{ candidate.pk }}"
+      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'>
+
+    <fieldset {% if candidate.recruiter_status != "E" %} disabled {% endif %}>
+        <div class="row">
+        <table class="table table-hover text-dark small caption-top">
+            <caption>Evaluación</caption>
+            <thead class="table-primary">
+                <th scope="col">Categoría </th>
+                <th scope="col">Bajo</th>
+                <th scope="col">Medio</th>
+                <th scope="col">Alto</th>
+            </thead>
+
+            <tbody>
+            {% for cat in eval_categories %}
+            <tr>
+                <th scope="row">
+                    <h6 class=text-start">{{ cat.title }}</h6>
+                </th>
+                <td>
+                    <div class="form-check form-radio-danger form-check-inline">
+                        <input type="radio" name="{{ cat }}" value="low" {% if  scores|get_value:cat  == "low" %} checked {% endif %}  class="form-check-input" required>
+                    </div>
+                <td>
+                    <div class="form-check form-radio-warning form-check-inline">
+                        <input type="radio"  name="{{ cat }}" value="medium" {% if  scores|get_value:cat  == "medium" %} checked {% endif %} class="form-check-input" required>
+                    </div>
+                </td>
+                <td>
+                    <div class="form-check form-radio-success form-check-inline">
+                        <input type="radio" name="{{ cat }}" value="high" {% if  scores|get_value:cat  == "high" %} checked {% endif %} class="form-check-input" required>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+             </tbody>
+
+            <thead class="table-primary border">
+                <th scope="col">Psicotécnico</th>
+                <th scope="col">Negativo</th>
+                <th scope="col">Medio</th>
+                <th scope="col">Positivo</th>
+            </thead>
+            <tbody>
+            <th scope="row">
+                <h6 class=text-start">Eval Psic</h6>
+            </th>
+
+            <td>
+                <div class="form-check form-radio-danger form-check-inline">
+                    <input type="radio" name="psy_eval" value="low" {% if  scores|get_value:"psy_eval"  == "low" %} checked {% endif %} class="form-check-input" required>
+                </div>
+            </td>
+
+            <td>
+                <div class="form-check form-radio-warning form-check-inline">
+                    <input type="radio" name="psy_eval" value="medium" {% if  scores|get_value:"psy_eval"  == "medium" %} checked {% endif %} class="form-check-input" required>
+                </div>
+            </td>
+
+            <td>
+                <div class="form-check form-radio-success form-check-inline">
+                    <input type="radio" name="psy_eval" value="high" {% if  scores|get_value:"psy_eval"  == "high" %} checked {% endif %} class="form-check-input" required>
+                </div>
+            </td>
+
+            </tbody>
+        </table>
+
+        <div class="row">
+            <div class="mb-3">
+
+                <label for="group_eval_comments" class="form-label text-dark small">Comentarios</label>
+                <textarea class="form-control" id="group_eval_comments" name="group_eval_comments" rows="4">{{ candidate_evaluation_comments }}</textarea>
+
+            </div>
+        </div>
+
+    </div>
+    </fieldset>
+</form>
+<div class="row">
+    <div class="text-dark small"> {{ candidate_evaluation.user }} - {{ candidate_evaluation.date | naturalday}} </div>
+</div>
+
+

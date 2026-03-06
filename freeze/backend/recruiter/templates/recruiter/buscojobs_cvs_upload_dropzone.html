@@ -1,0 +1,92 @@
+{% load static i18n %}
+
+<form action="{% url 'recruiter:carga_cvs' %}"
+      method="post"
+      class="dropzone"
+      enctype="multipart/form-data"
+      id="recruiter-dropzone">
+        {% csrf_token %}
+        <h2 class="dz-message">Arrastra o Selecciona los archivos a importar</h2>
+        <input type="hidden" name="batch" value="{{ batch }}">
+        <input type="hidden" name="tags" value="{{ tags }}">
+        <input type="hidden" name="source" value="{{ source }}">
+
+    <div class="previews"></div>
+
+    <div class="btn-group-justified text-end pt-1">
+        <button type="submit" id="btn-dropzone-confirm-upload" class="btn btn-primary rounded-3">Enviar</button>
+    </div>
+
+</form>
+
+
+
+<script>
+  // Note that the name "myDropzone" is the camelized
+  // id of the form.
+Dropzone.options.recruiterDropzone = {
+  // Configuration options go here
+
+    paramName:'files',
+    uploadMultiple: true,
+    autoProcessQueue: false,
+    autoQueue: true,
+    parallelUploads: 100,
+    maxFiles: 100,
+    previewsContainer: ".previews",
+
+  init: function () {
+      var recruiterDropzone = this;
+
+      // First change the button to actually tell Dropzone to process the queue.
+      // Button event listener for manual upload
+        document.getElementById("btn-dropzone-confirm-upload").addEventListener("click", function() {
+            if (recruiterDropzone.getQueuedFiles().length > 0) {
+                recruiterDropzone.processQueue();  // Manually trigger the upload process
+            } else {
+                alert("No hay archivos seleccionados.");
+            }
+        });
+      // Listen to the sendingmultiple event. In this case, it's the sendingmultiple event instead
+        // of the sending event because uploadMultiple is set to true.
+        this.on("sendingmultiple", function() {
+          // Gets triggered when the form is actually being sent.
+          // Hide the success button or the complete form.
+            Swal.fire({
+                  title: "Procesando",
+                  text: "Procesando archivos, no cierres esta ventana",
+                  imageUrl: "{% static 'images/svg-loaders/puff.svg' %}",
+                  imageWidth: 50,
+                  imageHeight: 50,
+                  imageAlt: "Procesando",
+                  showConfirmButton: false,
+                });
+
+        });
+
+        this.on("successmultiple", function(files, response) {
+            // Hide the modal and remove backdrop if using Bootstrap modal
+            var modal = document.getElementById("modal");
+            if (modal) {
+                $(modal).modal("hide");  // Hide the modal
+            }
+
+            // Clear Dropzone previews
+            this.removeAllFiles(true);  // true ensures that only uploaded files are removed
+
+            // Show success notification
+            Swal.fire({
+                title: "Hecho!",
+                text: "Archivos Subidos",
+                icon: "success"
+            });
+        });
+
+        this.on("errormultiple", function(files, response) {
+          // Gets triggered when there was an error sending the files.
+          // Maybe show form again, and notify user of error
+        });
+  }
+}
+Dropzone.discover();
+</script>

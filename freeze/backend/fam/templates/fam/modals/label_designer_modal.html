@@ -1,0 +1,192 @@
+{% load static i18n %}
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "Choose a Layout" %}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+
+<div class="modal-body p-0">
+  <div class="composer">
+  <!-- Top toolbar: fixed-height to avoid vertical shifting -->
+  <div class="composer-toolbar d-flex gap-2 align-items-center justify-content-end">
+      <div class="mb-0">
+            <form id="layout-selector">
+              <select class="form-select" id="layoutSelect">
+                <option selected disabled>{% trans 'Select layout' %}</option>
+                <option value="__new__">+ {% trans 'New layout' %}</option>
+                {% for al in available_layouts %}
+                  <option value="{{ al.pk }}">{{ al.key }}</option>
+                {% endfor %}
+              </select>
+            </form>
+        </div>
+    <div class="d-flex align-items-end justify-content-end gap-2 flex-wrap">
+      <div class="form-check form-switch m-0">
+        <input class="form-check-input" type="checkbox" id="gridChk" checked>
+        <label class="form-check-label small" for="gridChk">Grid</label>
+      </div>
+      <button class="btn btn-primary btn-sm" id="exportBtn">Export PNG</button>
+      <button class="btn btn-outline-danger btn-sm" id="clearBtn">Clear</button>
+    </div>
+
+  </div>
+
+  <!-- Main 3-column layout -->
+  <div class="composer-grid">
+    <!-- Left: vertical palette -->
+    <aside class="composer-rail d-flex flex-column align-items-center ps-1 border-end">
+      <div id="palette" class="d-flex flex-column gap-2 pt-1 pe-1">
+        <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="qr" title="QR">
+          <i class="bi bi-qr-code"></i>
+        </button>
+        <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="logo" title="Logo">
+          <i class="bi bi-image"></i>
+        </button>
+        <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="title" title="Title">
+          <i class="bi bi-textarea-t"></i>
+        </button>
+        <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="code" title="Code">
+          <i class="bi bi-braces"></i>
+        </button>
+      </div>
+      <div class="small text-muted mt-2 text-center text-wrap">
+        {% trans 'Drag onto canvas' %}
+      </div>
+    </aside>
+
+    <!-- Center: stage -->
+    <main class="composer-center">
+      <div class="composer-stage-wrap border rounded position-relative p-2">
+        <div class="composer-drop-hint small fw-semibold text-primary">Drop to add</div>
+          <div class="composer-busy d-none" id="composerBusy">
+              <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+              <span class="ms-2">Working…</span>
+            </div>
+        <canvas id="stage"></canvas>
+      </div>
+      <div class="small text-muted mt-2">
+        Del to delete · Arrow keys to nudge (Shift×10) · Hold Alt while resizing images to ignore aspect ratio
+      </div>
+    </main>
+
+    <!-- Right: inspector (now hosts the ratios) -->
+    <aside class="composer-inspector border-start">
+      <div class="composer-inspector-inner">
+        <div class="mb-3">
+        <div class="fw-semibold small text-muted mb-1">Aspect Ratio</div>
+        <div class="btn-group btn-group-sm flex-wrap w-100" role="group" id="ratioSeg">
+        <button type="button" class="btn btn-outline-secondary active" data-ratio="1:1">1:1</button>
+        <button type="button" class="btn btn-outline-secondary" data-ratio="3:2">3:2</button>
+        <button type="button" class="btn btn-outline-secondary" data-ratio="5:4">5:4</button>
+        <button type="button" class="btn btn-outline-secondary" data-ratio="4:3">4:3</button>
+        <button type="button" class="btn btn-outline-secondary" data-ratio="16:9">16:9</button>
+        </div>
+        </div>
+        <div class="fw-semibold small text-muted mb-2 d-flex align-items-center justify-content-between">
+          <span>Inspector</span>
+        </div>
+
+        <!-- Live inspector controls -->
+          <!-- Dynamic inspector actions live here as icon buttons (populate via JS) -->
+        <div id="inspector" class="d-grid gap-2">
+          <div class="text-muted small">Select an element on the canvas.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</div>
+
+<div class="modal-footer my-1 py-1">
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Close' %}</button>
+  <button type="button" class="btn btn-primary" id="saveLayoutBtn">{% trans 'Save layout' %}</button>
+</div>
+
+<style>
+  /* --- Layout skeleton --- */
+  .composer { --toolbar-h: 44px; }
+  .composer-toolbar{
+    min-height: var(--toolbar-h);
+    padding: .25rem .5rem;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    background-color: var(--crm-panel-bg, rgba(0,0,0,0.02));
+  }
+  .composer-grid{
+    display: grid;
+    grid-template-columns: 56px 1fr 300px; /* rail | stage | inspector */
+    gap: 0;
+
+  }
+
+  /* --- Rail --- */
+  .composer .composer-rail{width:56px;background-color:var(--crm-panel-bg,rgba(0,0,0,0.02))}
+  .composer .composer-pill{width:40px;height:40px;border-radius:.75rem;border:1px solid rgba(0,0,0,.08)}
+  .composer .composer-pill:active{transform:scale(.98)}
+
+  /* --- Center (stage) --- */
+  .composer-center{
+    display: flex;
+    flex-direction: column;
+    padding: .5rem;
+    min-width: 0;
+  }
+  .composer .composer-stage-wrap{
+    background-color:#f8f9fa;
+    min-height: 280px;
+    /* stable viewport usage without jumping */
+
+  }
+  .composer #stage{
+    display:block; width:100%;
+    height:100%;
+    background:#fff; border-radius:.5rem;
+    box-shadow:0 .25rem 1.25rem rgba(0,0,0,.08)
+  }
+  .composer .composer-drop-hint{
+    display:none; position:absolute; inset:.5rem; border:2px dashed #9ec5fe;
+    background:repeating-linear-gradient(135deg, rgba(13,110,253,.06) 0 10px, rgba(25,135,84,.06) 10px 20px);
+    border-radius:.5rem; align-items:center; justify-content:center
+  }
+  .composer .composer-stage-wrap.dragover .composer-drop-hint{display:flex}
+
+  /* --- Right inspector --- */
+  .composer-inspector{
+    position: relative;
+    background:#fff;
+  }
+  .composer-inspector-inner{
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - var(--toolbar-h));
+    overflow: auto;
+    padding: .75rem;
+  }
+  .composer-inspector .btn-group .btn{flex:1 1 auto}
+
+  /* --- Responsive: collapse inspector under stage on narrow screens --- */
+  @media (max-width: 992px){
+    .composer-grid{
+      grid-template-columns: 56px 1fr; /* drop right column */
+      grid-auto-rows: auto;
+    }
+    .composer-inspector{
+      grid-column: 1 / -1; /* full width row */
+      border-top: 1px solid rgba(0,0,0,.06);
+      border-left: 0;
+    }
+    .composer-inspector-inner{
+      max-height: none;
+      position: static;
+    }
+  }
+  .composer-stage-wrap .composer-busy{
+    position:absolute; inset:0; z-index:10;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.65);
+  }
+  .d-none{ display:none !important; }
+</style>
+
+
+<script>window.FAM_LABEL_DESIGNER_URL = "{% url 'fam:label_designer' %}";</script>
+<script src="{% static 'js/label_composer_renderer.js' %}"></script>
+<script src="{% static 'js/label_composer_docman.js' %}"></script>

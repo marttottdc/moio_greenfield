@@ -1,0 +1,37 @@
+{% load static i18n %}
+<div class="col-sm-6 col-xl-3">
+    <div class="card shadow-none m-0">
+        <div class="card-body h-100 text-center">
+            <i class="dripicons-checklist text-muted"></i>
+            <h3><span>{{scan_details_count|default:"0"}}</span></h3>
+            <p class="text-muted font-15 mb-0">Received Scans</p>
+        </div>
+    </div>
+</div>
+<div class="col-sm-6 col-xl-3">
+    <div class="card shadow-none m-0">
+        <div class="card-body h-100 text-center">
+            <i class="dripicons-warning text-muted"></i>
+            <h3><span>{{risk_orders|default:"0"}}</span></h3>
+            <p class="text-muted font-15 mb-0">Pedidos en Riesgo</p>
+        </div>
+    </div>
+</div>
+<div class="col-sm-6 col-xl-3">
+    <div class="card shadow-none m-0">
+        <div class="card-body h-100 text-center">
+            <i class="dripicons-document text-muted"></i>
+            <h3><span>{{pending_orders|default:"0"}}</span></h3>
+            <p class="text-muted font-15 mb-0">Pedidos en Proceso</p>
+        </div>
+    </div>
+</div>
+<div class="col-sm-6 col-xl-3">
+            <div class="card shadow-none m-0">
+                <div class="card-body h-100 text-center">
+                    <i class="dripicons-graph-line text-muted" ></i>
+                    <h3><span>0</span> <i class="mdi mdi-arrow-up text-success"></i></h3>
+                    <p class="text-muted font-15 mb-0">Envios Activos</p>
+                </div>
+            </div>
+        </div>

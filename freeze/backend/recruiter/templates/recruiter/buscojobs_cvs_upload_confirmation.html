@@ -1,0 +1,12 @@
+{% load static %}
+
+<div class="list-group">
+{% for doc in documents %}
+    <div class="list-group-item">
+    <a href="{{ doc.file.url }}" target="_blank">{{ doc.name }}</a>
+    <p class="small">Lote: {{ doc.batch }} | Subido: {{ doc.uploaded_at }}</p>
+    {{ doc.source }}
+    {{ doc.error }}
+    </div>
+{% endfor %}
+</div>

@@ -1,0 +1,57 @@
+{% load static i18n %}
+{% block content %}
+    <div class="btn-group-justified text-end">
+        <a type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample" aria-expanded="false" aria-controls="collapseExample">
+            Filtros <i class="mdi mdi-menu-down"></i>
+        </a>
+    </div>
+
+    <div class="collapse" id="collapseExample">
+    <form
+          id="filter-form"
+          hx-get="{% url 'recruiter:candidates' %}"
+          hx-trigger="click from:#candidate-search-button, change, keyup changed delay:1s"
+          hx-vals='{"action":"filter"}'
+          hx-target = "#candidates-list">
+            <div class="row">
+                <div class="col-3">
+                     <label class="form-check-label small" for="{{ filter.form.contact__fullname.id_for_label }}">
+                    Nombre:
+                     </label>
+                    {{ filter.form.contact__fullname }}
+                </div>
+                <div class="col-3">
+                    <label class="form-check-label small" for="{{ filter.form.document_id.id_for_label }}">
+                    Cédula:
+                    </label>
+                    {{ filter.form.document_id }}
+                </div>
+            </div>
+            <div class="row pt-1">
+                <div class="form-group">
+                <label class="small">{{ filter.form.recruiter_status.label }}:</label><br>
+                    {%  for checkbox in filter.form.recruiter_status %}
+                        <div class="form-check col-3 form-check-inline">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="btn-group-justified text-end pt-1">
+                <button type="button" id="candidate-search-button" class="btn btn-primary">Filtrar
+                    <i class="mdi mdi-filter htmx-hide"></i><img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="15" alt="loader" id="loader" class="htmx-indicator">
+                </button>
+            </div>
+    </form>
+
+    </div>
+
+<div class="row pt-1 g-1" id="candidates-list">
+    {% include 'recruiter/partials/candidate_list.html' %}
+</div>
+
+{% endblock %}
+

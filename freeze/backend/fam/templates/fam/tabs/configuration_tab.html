@@ -1,0 +1,110 @@
+{% load static i18n %}
+<div class="tab-pane fade" id="configuration" role="tabpanel">
+<div class="row pt-1">
+
+    <div class="col-4">
+    <div class="card h-100 pt-1">
+      <div class="card-body">
+        <h5 class="card-title">Activos</h5>
+        <p class="card-text">Creación de registros de Activos</p>
+          <ul class="list-group list-group-flush">
+
+              <li class="list-group-item">
+                  <div class="row">
+                  <div class="col-3 align-content-center">Marcas</div>
+                  <div class="col-auto">
+                      <button class="btn btn-outline-primary"><i class="mdi mdi-table-edit" x-tooltip="Administrar"></i></button>
+                  </div>
+                  </div>
+              </li>
+
+              <li class="list-group-item">
+                  <div class="row">
+                  <div class="col-3 align-content-center">Modelos</div>
+                  <div class="col-auto">
+                      <button class="btn btn-outline-primary"><i class="mdi mdi-table-edit" x-tooltip="Administrar"></i></button>
+                  </div>
+                  </div>
+              </li>
+              <li class="list-group-item">
+                  <div class="row">
+                  <div class="col-3 align-content-center">Tipos</div>
+                  <div class="col-auto">
+                      <button class="btn btn-outline-primary"
+                      hx-get="{% url 'fam:asset_type_crud' %}"
+                      hx-target="#dialog">
+                          <i class="mdi mdi-table-edit htmx-hide" x-tooltip="Administrar"></i>
+                          <img src="{% static 'images/svg-loaders/puff.svg' %}" width="15" class="htmx-indicator">
+                      </button>
+                  </div>
+                  </div>
+              </li>
+              <li class="list-group-item">
+                  <div class="row">
+                  <div class="col-3 align-content-center">Políticas</div>
+                  <div class="col-auto">
+                      <button class="btn btn-outline-primary"
+                      hx-get="{% url 'fam:policy_crud' %}"
+                      hx-target="#mainContent" hx-trigger="click" hx-indicator="#moio-loader" ><i class="mdi mdi-table-edit htmx-hide" x-tooltip="Administrar"></i>
+
+                      </button>
+                  </div>
+                  </div>
+              </li>
+          </ul>
+      </div>
+    </div>
+    </div>
+    <div class="col-4">
+    <div class="card h-100 pt-1">
+      <div class="card-body">
+        <h5 class="card-title">Etiquetas</h5>
+        <p class="card-text">Crear etiquetas para imprimir, las etiquetas se crean separadas de los activos y se deben asociar a los activos </p>
+          <div class="d-flex">
+
+              <button class="btn btn-primary"
+                          hx-get="{% url 'fam:batch_create_labels' %}"
+                          hx-target="#dialog"
+                          hx-swap="innerHTML"
+                          hx-indicator="[data-modal-loader]">
+                      <i class="bi bi-qr-code"></i> {% trans 'Create' %}
+                  </button>
+              <button type="submit"
+                            hx-post="{% url 'fam:print_labels' %}"
+                            hx-include ="#fam_labels_table_form"
+                            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                            id="btn_print_labels"
+                            hx-target="#dialog"
+                            class="btn btn-primary rounded-3"> <i class="mdi mdi-printer-pos htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" id="loader" class="htmx-indicator">
+                    </button>
+              <button type="button" class="btn btn-primary btn-sm rounded-3"
+                      hx-get="{% url 'fam:label_designer' %}"
+                      hx-target="#dialog" hx-swap="innerHTML"><i class="mdi mdi-qrcode-edit htmx-hide"></i>Design Label</button>
+              <button type="button" class="btn btn-primary btn-sm rounded-3"
+                      hx-get="{% url 'fam:print_format_configuration' %}"
+                      hx-target="#dialog"
+                      hx-swap="innerHTML"><i class="mdi mdi-file-edit-outline"></i>Manage Print Formats</button>
+
+
+          </div>
+      </div>
+    </div>
+    </div>
+    <div class="col-4">
+        <div class="card h-100 pt-1">
+            <div class="card-body">
+                <div class="card-title">
+                    <h5 class="card-title">{% trans 'Assets' %}</h5>
+                    <p class="card-text">{% trans 'Asset Config' %}</p>
+                </div>
+                <div class="d-flex">
+                    <button type="button" class="btn btn-primary" hx-get="{% url 'fam:asset_import' %}" hx-target="#dialog" style="cursor: pointer">
+                         Importar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>

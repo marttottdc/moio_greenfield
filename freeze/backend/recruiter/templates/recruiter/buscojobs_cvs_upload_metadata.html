@@ -1,0 +1,52 @@
+{% load static i18n %}
+<link href="{% static 'css/inputTags.css' %}" rel="stylesheet" type="text/css" />
+
+<form hx-post="{% url 'recruiter:carga_cvs' %}"
+      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+      hx-target="#dropzone-area"
+      hx-indicator="#btn-confirm-load-cvs"
+      hx-trigger="click from:#btn-confirm-load-cvs"
+      hx-vals='{"action":"save-metadata"}'>
+        <div class="card-title">
+            <h4>Carga de curriculums de Buscojobs</h4>
+            <p class="text-muted small">
+                Carga curriculums o los archivos .zip bajados de Buscojobs.
+            </p>
+        </div>
+        <div class="row pb-1">
+            <div class="col-4">
+                <label for="source" class="small form-label">Origen</label>
+                <input type="text" id="source" name="source" class="form-control" value="buscojobs" placeholder="buscojobs" required>
+            </div>
+        </div>
+        <div class="row pb-1">
+            <div class="col-4">
+                <label for="tags" class="small form-label">Tags</label>
+                <textarea class="inputTags-field" hidden value="" name="tags" id="tags"></textarea>
+                <small>Enter para confirmar un tag</small>
+            </div>
+        </div>
+</form>
+
+<div id="dropzone-area">
+        <div class="btn-group-justified text-end">
+            <button type="button" id="btn-confirm-load-cvs" class="btn btn-primary rounded-3">Siguiente
+                <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" class="htmx-indicator" width="20">
+            </button>
+        </div>
+</div>
+    <!-- end card-->
+<script>
+    $('#tags').inputTags({
+        max:10,
+    create: function() {
+        console.log('Event called when an item is created');
+    },
+    update: function() {
+      console.log('Event called when an item is updated');
+    },
+    destroy: function() {
+      console.log('Event called when an item is deleted');
+    },
+    });
+</script>
