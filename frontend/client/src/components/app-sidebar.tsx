@@ -34,6 +34,7 @@ import {
   CheckSquare,
   Database,
   Loader2,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -135,6 +136,8 @@ const iconMap: Record<string, any> = {
   settings: Settings,
   activities: CheckSquare,
   datalab: Database,
+  agents: Bot,
+  agent_console: Bot,
 };
 
 
@@ -287,6 +290,7 @@ export function AppSidebar() {
       { title: "Communications", url: "/communications", icon: MessageSquare },
       { title: "Tickets", url: "/tickets", icon: Ticket },
       { title: "Automation Studio", url: "/workflows", icon: Workflow },
+      { title: "Agent Console", url: "/agent-console", icon: Bot },
       { title: "Data Lab", url: "/datalab", icon: Database },
     ];
 

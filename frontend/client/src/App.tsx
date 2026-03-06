@@ -28,7 +28,7 @@ import AgentToolsManager from "@/pages/agent-tools-manager";
 import EventsBrowser from "@/pages/events-browser";
 import MCPConnectionsManager from "@/pages/mcp-connections-manager";
 import JsonSchemasManager from "@/pages/json-schemas-manager";
-import RobotsManager from "@/pages/robots-manager";
+import AgentConsole from "@/pages/agent-console";
 import Settings from "@/pages/settings";
 import AdminConsole from "@/pages/admin";
 import ApiTester from "@/pages/api-tester";
@@ -163,7 +163,10 @@ function AppRoutes() {
         <ProtectedRoute component={JsonSchemasManager} />
       </Route>
       <Route path="/workflows/robots">
-        <ProtectedRoute component={RobotsManager} />
+        <Redirect to="/agent-console" />
+      </Route>
+      <Route path="/agent-console">
+        <ProtectedRoute component={AgentConsole} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
