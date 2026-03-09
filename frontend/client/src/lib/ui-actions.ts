@@ -33,7 +33,7 @@ export const AppRoute = {
   AgentTools:       "/workflows/agent-tools",
   MCPConnections:   "/workflows/mcp-connections",
   JsonSchemas:      "/workflows/json-schemas",
-  Robots:           "/workflows/robots",
+  AgentConsole:     "/agent-console",
 } as const;
 
 export type AppRouteValue = typeof AppRoute[keyof typeof AppRoute];

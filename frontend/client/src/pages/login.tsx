@@ -2,14 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
+import {
+  Bot,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  Settings,
+  Shield,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/lib/queryClient";
-import { logLoginSubmitStart, logLoginSubmitError, getLastAuthError, clearLastAuthError, persistLastAuthError } from "@/lib/loginMonitor";
-import { getApiBaseOverride, getDefaultApiBaseUrl, setApiBaseOverride } from "@/lib/api";
+import {
+  getLastAuthError,
+  clearLastAuthError,
+  logLoginSubmitStart,
+  logLoginSubmitError,
+  persistLastAuthError,
+} from "@/lib/loginMonitor";
+import { isPlatformAdminRole, isTenantAdminRole } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -18,406 +31,364 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GlobalFooter } from "@/components/global-footer";
 import moioLogo from "@assets/FAVICON_MOIO_1763393251809.png";
+
+// ─── Schema ───────────────────────────────────────────────────────────────────
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
-
 type LoginFormData = z.infer<typeof loginSchema>;
-const CUSTOM_PRESET_VALUE = "custom";
 
-type ApiStatusState = "unknown" | "checking" | "online" | "slow" | "offline";
+// ─── Destinations ─────────────────────────────────────────────────────────────
 
-type ApiStatus = {
-  state: ApiStatusState;
-  latencyMs?: number;
+type DestCard = {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  path: string;
+  iconBg: string;
 };
 
-const LATENCY_GOOD_THRESHOLD_MS = 700;
+function buildDestinations(role: string | null | undefined): DestCard[] {
+  const cards: DestCard[] = [
+    {
+      key: "crm",
+      label: "CRM Platform",
+      description: "Contacts, deals, tickets, campaigns and workflows.",
+      icon: LayoutDashboard,
+      path: "/dashboard",
+      iconBg: "bg-gradient-to-br from-sky-500 to-blue-600",
+    },
+    {
+      key: "console",
+      label: "Agent Console",
+      description: "Interactive chat with AI agents and session history.",
+      icon: Bot,
+      path: "/agent-console",
+      iconBg: "bg-gradient-to-br from-violet-500 to-purple-600",
+    },
+  ];
 
-const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-
-const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-const trimLeadingSlash = (value: string) => value.replace(/^\/+/, "");
-
-const buildProbeUrl = (base: string, path?: string) => {
-  const normalizedBase = trimTrailingSlash(base);
-
-  if (!path || path.length === 0) {
-    return normalizedBase || "/";
+  if (isTenantAdminRole(role)) {
+    cards.push({
+      key: "tenant-admin",
+      label: "Tenant Admin",
+      description: "Workspaces, users, skills, automations and integrations.",
+      icon: Settings,
+      path: "/tenant-admin/legacy",
+      iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
+    });
   }
 
-  const normalizedPath = trimLeadingSlash(path);
-
-  if (!normalizedBase || normalizedBase === "/") {
-    return `/${normalizedPath}`;
+  if (isPlatformAdminRole(role)) {
+    cards.push({
+      key: "platform-admin",
+      label: "Platform Admin",
+      description: "Tenants, platform users, global settings and plugins.",
+      icon: Shield,
+      path: "/platform-admin",
+      iconBg: "bg-gradient-to-br from-rose-500 to-red-600",
+    });
   }
 
-  return `${normalizedBase}/${normalizedPath}`;
-};
+  return cards;
+}
 
-const getApiStatusDotClass = (status: ApiStatus): string => {
-  switch (status.state) {
-    case "online":
-      return "bg-emerald-500";
-    case "slow":
-      return "bg-amber-400";
-    case "offline":
-      return "bg-red-500";
-    default:
-      return "bg-muted-foreground/60";
-  }
-};
+// ─── Component ────────────────────────────────────────────────────────────────
 
-const getApiStatusLabel = (status: ApiStatus): string => {
-  const latencyInfo =
-    typeof status.latencyMs === "number" ? ` (${status.latencyMs} ms)` : "";
-
-  switch (status.state) {
-    case "online":
-      return `API reachable${latencyInfo}`;
-    case "slow":
-      return `High latency${latencyInfo}`;
-    case "offline":
-      return "API unreachable";
-    case "checking":
-      return "Checking API status…";
-    default:
-      return "Status unknown";
-  }
-};
+// Step 1 = credentials, Step 2 = destination selector (skipped if only one)
+type LoginStep = "credentials" | "destinations";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, logout, user, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+  const [step, setStep] = useState<LoginStep>("credentials");
+
+  // Login form
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
-  const defaultApiBase = "https://platform.moio.ai";
-  const backendPresets = useMemo(() => {
-    return [
-      { label: "Production (platform.moio.ai)", value: "https://platform.moio.ai", overridable: false },
-      { label: "Staging (devcrm.moio.ai)", value: "https://devcrm.moio.ai", overridable: false },
-    ];
-  }, []);
-  
-  const initialBackendHost = getApiBaseOverride() ?? defaultApiBase;
-  const [backendHost, setBackendHost] = useState(initialBackendHost);
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "unknown" });
-  const [selectedPreset, setSelectedPreset] = useState<string>(() => {
-    const match = backendPresets.find((preset) => preset.value === initialBackendHost);
-    return match ? match.value : CUSTOM_PRESET_VALUE;
-  });
 
-  const applyBackendHost = (value: string) => {
-    const nextValue = value.trim();
-    setBackendHost(nextValue);
-
-    if (!nextValue) {
-      setApiBaseOverride(undefined);
-      return;
-    }
-
-    setApiBaseOverride(nextValue);
-  };
-
-  const handlePresetChange = (value: string) => {
-    setSelectedPreset(value);
-
-    if (value === CUSTOM_PRESET_VALUE) {
-      setBackendHost("");
-      return;
-    }
-
-    applyBackendHost(value);
-  };
-
-  const isCustomSelected = selectedPreset === CUSTOM_PRESET_VALUE;
-  const isInputDisabled = !isCustomSelected;
-
-  // On mount, if no override is set, default to production
-  useEffect(() => {
-    if (!getApiBaseOverride()) {
-      applyBackendHost(defaultApiBase);
-    }
-  }, []);
-
-  useEffect(() => {
-    const matchedPreset = backendPresets.find((preset) => preset.value === backendHost);
-    const resolvedValue = matchedPreset ? matchedPreset.value : CUSTOM_PRESET_VALUE;
-    if (resolvedValue !== selectedPreset) {
-      setSelectedPreset(resolvedValue);
-    }
-  }, [backendHost, backendPresets, selectedPreset]);
-
-  const resolvedBackendHost = backendHost || defaultApiBase;
-
-  // After a reload (e.g. forceLogout), show the last auth info so the user knows why they're on login
   useEffect(() => {
     const last = getLastAuthError();
-    if (last) {
-      clearLastAuthError();
-      if (last.reason === "force_logout") {
-        setSessionExpiredMessage(last.message || "Your session expired. Please sign in again.");
-        // Don't log as error — session expiry is an expected flow
-      } else {
-        const text = [last.step && `Step: ${last.step}`, last.status && `HTTP ${last.status}`, last.message].filter(Boolean).join(" · ");
-        setErrorMessage(text);
-        console.error("[Login] Last auth error (page reloaded before you could see it):", last);
-      }
+    if (!last) return;
+    clearLastAuthError();
+    if (last.reason === "force_logout") {
+      setSessionExpiredMessage(last.message || "Your session expired. Please sign in again.");
+    } else {
+      const text = [
+        last.step && `Step: ${last.step}`,
+        last.status && `HTTP ${last.status}`,
+        last.message,
+      ].filter(Boolean).join(" · ");
+      setErrorMessage(text);
     }
   }, []);
-
-  useEffect(() => {
-    const hostToProbe = backendHost || defaultApiBase;
-
-    if (!hostToProbe) {
-      setApiStatus({ state: "unknown" });
-      return;
-    }
-
-    let isActive = true;
-    const controller = new AbortController();
-
-    const probeApi = async () => {
-      setApiStatus({ state: "checking" });
-      const candidatePaths = ["api/v1/health/", "health/", ""];
-
-      for (const candidate of candidatePaths) {
-        const targetUrl = buildProbeUrl(hostToProbe, candidate);
-        const start = now();
-
-        try {
-          const response = await fetch(targetUrl, {
-            method: "GET",
-            cache: "no-store",
-            signal: controller.signal,
-          });
-          const latency = Math.round(now() - start);
-
-          if (!response.ok) {
-            continue;
-          }
-
-          if (!isActive) {
-            return;
-          }
-
-          const state = latency <= LATENCY_GOOD_THRESHOLD_MS ? "online" : "slow";
-          setApiStatus({ state, latencyMs: latency });
-          return;
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-        }
-      }
-
-      if (!isActive) {
-        return;
-      }
-
-      setApiStatus({ state: "offline" });
-    };
-
-    probeApi();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [backendHost, defaultApiBase]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
+
+  const destinations = useMemo(() => buildDestinations(user?.role), [user?.role]);
+
+  // After auth: skip selector if only one destination, else advance to step 2
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const dests = buildDestinations(user.role);
+    if (dests.length === 1) {
+      navigate(dests[0].path);
+    } else {
+      setStep("destinations");
+    }
+  }, [isAuthenticated, user]);
+
+  // If already authenticated when the page loads (e.g. refresh), handle the same way
+  useEffect(() => {
+    if (isAuthenticated && user && step === "credentials") {
+      const dests = buildDestinations(user.role);
+      if (dests.length === 1) {
+        navigate(dests[0].path);
+      } else {
+        setStep("destinations");
+      }
+    }
+  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setErrorMessage(null);
     setSessionExpiredMessage(null);
     logLoginSubmitStart();
-
     try {
       await login(data.email, data.password);
+      // navigation handled by the useEffect above
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
       const message = error instanceof Error ? error.message : String(error);
       logLoginSubmitError(status, message);
       persistLastAuthError(message, { status });
-      if (error instanceof ApiError) {
-        setErrorMessage(error.message || "Invalid credentials. Please try again.");
-      } else {
-        setErrorMessage("An unexpected error occurred. Please try again.");
-      }
+      setErrorMessage(
+        error instanceof ApiError
+          ? error.message || "Invalid credentials. Please try again."
+          : "An unexpected error occurred. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
-      {/* Animated background gradients */}
-      <div className="fixed inset-0 -z-10 overflow-hidden">
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.14),_transparent_28%),linear-gradient(135deg,#f8fafc,#e0ecff)]">
+      {/* Floating blobs */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-gradient-to-br from-[#58a6ff]/30 via-blue-200/20 to-transparent rounded-full blur-3xl animate-float" />
         <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-gradient-to-tr from-[#ffba08]/25 via-amber-200/15 to-transparent rounded-full blur-3xl animate-float-delayed" />
         <div className="absolute -bottom-40 right-1/3 w-[550px] h-[550px] bg-gradient-to-tl from-blue-300/25 via-transparent to-[#58a6ff]/15 rounded-full blur-3xl animate-float-slow" />
       </div>
 
       <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
-          <Card className="backdrop-blur-sm bg-card/95 border-border/50 shadow-xl">
-            <CardHeader className="space-y-1 text-center">
-              <div className="mx-auto mb-4">
-                <img
-                  src={moioLogo}
-                  alt="moio"
-                  className="h-16 w-auto"
-                  data-testid="img-logo"
-                />
+        <div className="w-full max-w-5xl">
+          <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.14)] backdrop-blur-md">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-8">
+              <img src={moioLogo} alt="moio" className="h-12 w-auto" data-testid="img-logo" />
+              <div>
+                <div className="font-mono text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Moio
+                </div>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                  {step === "destinations" ? "Where to?" : "Access Hub"}
+                </h1>
               </div>
-              <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-              <CardDescription>
-                Sign in to access your CRM platform
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {sessionExpiredMessage && (
-                  <Alert variant="default" data-testid="alert-session-expired">
-                    <AlertDescription>{sessionExpiredMessage}</AlertDescription>
-                  </Alert>
-                )}
-                {errorMessage && (
-                  <Alert variant="destructive" data-testid="alert-error">
-                    <AlertDescription>{errorMessage}</AlertDescription>
-                  </Alert>
-                )}
+            </div>
 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="demo@moio.ai"
-                          autoComplete="off"
-                          disabled={isLoading}
-                          data-testid="input-email"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          autoComplete="off"
-                          disabled={isLoading}
-                          data-testid="input-password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-2">
-                  <Label htmlFor="backend-host">Backend host</Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Select value={selectedPreset} onValueChange={handlePresetChange}>
-                      <SelectTrigger className="sm:w-1/2" data-testid="select-backend-host">
-                        <SelectValue placeholder="Select backend" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {backendPresets.map((preset) => (
-                          <SelectItem key={preset.value} value={preset.value}>
-                            {preset.label}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={CUSTOM_PRESET_VALUE}>Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="backend-host"
-                      value={backendHost}
-                      onChange={(event) => applyBackendHost(event.target.value)}
-                      placeholder="https://custom.example.com"
-                      autoComplete="off"
-                      disabled={isInputDisabled}
-                      data-testid="input-backend-host"
-                    />
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>
-                      Requests will be sent to:
-                      <span className="font-mono"> {resolvedBackendHost}</span>
-                      {!isInputDisabled && <span> (custom)</span>}
-                    </p>
-                    <div className="flex items-center gap-2" role="status" aria-live="polite">
-                      <span
-                        className={`inline-flex h-2.5 w-2.5 rounded-full ${getApiStatusDotClass(apiStatus)}${
-                          apiStatus.state === "checking" ? " animate-pulse" : ""
-                        }`}
-                      />
-                      <span>{getApiStatusLabel(apiStatus)}</span>
+            {step === "destinations" && user ? (
+              /* ── Step 2: Destination selector ── */
+              <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
+                {/* User info */}
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
+                      Signed in
                     </div>
+                    <div className="text-base font-semibold text-slate-900 truncate">
+                      {user.full_name || user.username}
+                    </div>
+                    {user.email && (
+                      <div className="text-xs text-slate-500 truncate mt-0.5">{user.email}</div>
+                    )}
+                    {user.role && (
+                      <div className="mt-2 inline-block rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600 capitalize">
+                        {user.role.replace(/_/g, " ")}
+                      </div>
+                    )}
+                    {user.organization?.name && (
+                      <div className="text-xs text-slate-400 mt-1 truncate">
+                        {user.organization.name}
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-4 w-full gap-2 text-slate-600 hover:text-slate-900"
+                      onClick={() => { logout(); setStep("credentials"); }}
+                      data-testid="button-logout"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      Sign out
+                    </Button>
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
-                  data-testid="button-login"
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isLoading ? "Signing in..." : "Sign in"}
-                </Button>
-              </form>
-            </Form>
+                {/* Destination cards */}
+                <div>
+                  <p className="text-slate-600 mb-4 text-sm">Select where you want to go:</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {destinations.map((dest) => (
+                      <button
+                        key={dest.key}
+                        type="button"
+                        onClick={() => navigate(dest.path)}
+                        className="group text-left rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer"
+                        data-testid={`button-dest-${dest.key}`}
+                      >
+                        <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${dest.iconBg} mb-3`}>
+                          <dest.icon className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="font-semibold text-slate-900 text-sm mb-1">{dest.label}</div>
+                        <div className="text-xs text-slate-500 leading-relaxed">{dest.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── Step 1: Credentials form ── */
+              <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+                <div>
+                  <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+                    Sign in to access CRM, Agent Console, and administration surfaces.
+                  </p>
 
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              <p>Connecting to Moio Platform</p>
-              <p className="text-xs mt-1">
-                Production: platform.moio.ai | Staging: devcrm.moio.ai
-              </p>
-            </div>
-          </CardContent>
-          </Card>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        {sessionExpiredMessage && (
+                          <Alert data-testid="alert-session-expired">
+                            <AlertDescription>{sessionExpiredMessage}</AlertDescription>
+                          </Alert>
+                        )}
+                        {errorMessage && (
+                          <Alert variant="destructive" data-testid="alert-error">
+                            <AlertDescription>{errorMessage}</AlertDescription>
+                          </Alert>
+                        )}
+
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="email"
+                                  placeholder="you@moio.ai"
+                                  autoComplete="username"
+                                  disabled={isLoading}
+                                  data-testid="input-email"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Password</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="password"
+                                  placeholder="••••••••"
+                                  autoComplete="current-password"
+                                  disabled={isLoading}
+                                  data-testid="input-password"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                          data-testid="button-login"
+                        >
+                          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {isLoading ? "Signing in…" : "Sign in"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </div>
+                </div>
+
+                {/* Right panel */}
+                <aside className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-7 text-slate-100 shadow-lg hidden lg:block">
+                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300 mb-5">
+                    What's inside
+                  </div>
+                  <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
+                    <div>
+                      <div className="text-white font-medium mb-0.5 flex items-center gap-2">
+                        <LayoutDashboard className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                        CRM Platform
+                      </div>
+                      Contacts, deals, tickets, campaigns, workflows, data lab.
+                    </div>
+                    <div>
+                      <div className="text-white font-medium mb-0.5 flex items-center gap-2">
+                        <Bot className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                        Agent Console
+                      </div>
+                      Interactive AI sessions with workspace and model selection.
+                    </div>
+                    <div>
+                      <div className="text-white font-medium mb-0.5 flex items-center gap-2">
+                        <Settings className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        Tenant Admin
+                      </div>
+                      Workspaces, skills, automations — tenant admins.
+                    </div>
+                    <div>
+                      <div className="text-white font-medium mb-0.5 flex items-center gap-2">
+                        <Shield className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                        Platform Admin
+                      </div>
+                      Tenants, global users, plugins — platform admins.
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            )}
+          </section>
         </div>
       </div>
-      <GlobalFooter className="border-0 bg-transparent text-muted-foreground/80" />
+
+      <GlobalFooter className="border-0 bg-transparent text-slate-400" />
     </div>
   );
 }

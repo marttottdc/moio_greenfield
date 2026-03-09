@@ -574,7 +574,7 @@ export default function Workflows() {
           ))}
           <button
             type="button"
-            onClick={() => navigate("/workflows/robots")}
+            onClick={() => navigate("/agent-console")}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors text-muted-foreground hover-elevate"
             data-testid="button-open-robot-studio"
           >
@@ -3934,7 +3934,7 @@ function ComponentsWorkspace({ scriptsCount = 0, whatsappTemplatesCount = 0 }: C
         navigate("/workflows/json-schemas");
         break;
       case "robots":
-        navigate("/workflows/robots");
+        navigate("/agent-console");
         break;
       default:
         // Other component types not yet implemented

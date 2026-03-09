@@ -29,7 +29,7 @@ import AgentToolsManager from "@/pages/agent-tools-manager";
 import EventsBrowser from "@/pages/events-browser";
 import MCPConnectionsManager from "@/pages/mcp-connections-manager";
 import JsonSchemasManager from "@/pages/json-schemas-manager";
-import RobotsManager from "@/pages/robots-manager";
+import AgentConsole from "@/pages/agent-console";
 import Settings from "@/pages/settings";
 import PlatformAdmin from "@/pages/admin";
 import PlatformAdminLegacyPage from "@/pages/platform-admin-legacy";
@@ -85,7 +85,7 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/login">
-        {isAuthenticated ? <Redirect to="/dashboard" /> : <Login />}
+        <Login />
       </Route>
 
       <Route path="/desktop-agent-console/platform-admin">
@@ -193,7 +193,10 @@ function AppRoutes() {
         <ProtectedRoute component={JsonSchemasManager} />
       </Route>
       <Route path="/workflows/robots">
-        <ProtectedRoute component={RobotsManager} />
+        <Redirect to="/agent-console" />
+      </Route>
+      <Route path="/agent-console">
+        <ProtectedRoute component={AgentConsole} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
@@ -296,7 +299,8 @@ function AppLayout() {
   const isFullBleedPage =
     location === "/flows/new" ||
     /^\/flows\/[^/]+\/edit\/?$/.test(location) ||
-    /^\/datalab(\/|$)/.test(location);
+    /^\/datalab(\/|$)/.test(location) ||
+    location === "/agent-console";
 
   return (
     <SidebarProvider 
