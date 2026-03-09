@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logLoginStep("fetch_profile", "ok");
 
       lastStep = "redirect";
-      setLocation("/dashboard");
+      setLocation("/login");
       logLoginStep("redirect", "ok");
     } catch (error) {
       logLoginStep(lastStep, "fail", undefined, error);

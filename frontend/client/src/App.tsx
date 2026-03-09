@@ -85,7 +85,7 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/login">
-        {isAuthenticated ? <Redirect to="/dashboard" /> : <Login />}
+        <Login />
       </Route>
 
       <Route path="/desktop-agent-console/platform-admin">
