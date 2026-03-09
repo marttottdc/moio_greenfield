@@ -299,7 +299,8 @@ function AppLayout() {
   const isFullBleedPage =
     location === "/flows/new" ||
     /^\/flows\/[^/]+\/edit\/?$/.test(location) ||
-    /^\/datalab(\/|$)/.test(location);
+    /^\/datalab(\/|$)/.test(location) ||
+    location === "/agent-console";
 
   return (
     <SidebarProvider 
