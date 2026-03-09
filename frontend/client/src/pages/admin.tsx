@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,6 +30,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
+import { canAccessPlatformAdmin, isPlatformAdminRole, normalizeAppRole } from "@/lib/rbac";
 
 /** User row in admin: Moio GET /api/v1/users/ shape */
 type User = MoioUserRead;
@@ -76,10 +78,12 @@ const orgSchema = z.object({
 
 type UserFormData = z.infer<typeof userSchema>;
 type OrgFormData = z.infer<typeof orgSchema>;
+type AdminTab = "users" | "organization" | "roles" | "docs";
 
 export default function AdminConsole() {
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
@@ -89,23 +93,36 @@ export default function AdminConsole() {
   const [docContent, setDocContent] = useState("");
   const [templateType, setTemplateType] = useState("guide");
   const [validationResult, setValidationResult] = useState<any | null>(null);
+  const normalizedRole = normalizeAppRole(currentUser?.role);
+  const isPlatformAdmin = isPlatformAdminRole(currentUser?.role);
+  const canOpenPlatformAdmin = canAccessPlatformAdmin(currentUser?.role);
+  const availableTabs = useMemo<AdminTab[]>(
+    () => (isPlatformAdmin ? ["users", "organization", "roles", "docs"] : ["users", "organization", "roles"]),
+    [isPlatformAdmin]
+  );
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [activeTab, availableTabs]);
 
   const { data: usersList, isLoading: usersLoading } = useQuery<MoioUserRead[], ApiError>({
     queryKey: [apiV1("/users/"), searchTerm, roleFilter],
     queryFn: () => moioUsersApi.list(),
-    enabled: activeTab === "users",
+    enabled: canOpenPlatformAdmin && activeTab === "users",
   });
 
   const { data: orgData, isLoading: orgLoading } = useQuery<OrganizationResponse, ApiError>({
     queryKey: [apiV1("/settings/organization")],
     queryFn: () => fetchJson<OrganizationResponse>(apiV1("/settings/organization")),
-    enabled: activeTab === "organization",
+    enabled: canOpenPlatformAdmin && activeTab === "organization",
   });
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery<RolesResponse, ApiError>({
     queryKey: [apiV1("/settings/roles")],
     queryFn: () => fetchJson<RolesResponse>(apiV1("/settings/roles")),
-    enabled: activeTab === "roles",
+    enabled: canOpenPlatformAdmin && activeTab === "roles",
   });
 
   const {
@@ -117,7 +134,7 @@ export default function AdminConsole() {
   } = useQuery<any, ApiError>({
     queryKey: ["/api/docs/ingestion/status/"],
     queryFn: () => fetchJson<any>("/api/docs/ingestion/status/"),
-    enabled: activeTab === "docs",
+    enabled: canOpenPlatformAdmin && activeTab === "docs",
     staleTime: 10_000,
   });
 
@@ -360,30 +377,112 @@ export default function AdminConsole() {
     }
   };
 
+  if (!canOpenPlatformAdmin) {
+    return (
+      <PageLayout
+        title="Platform Admin"
+        description="Administrative console for platform and tenant administrators"
+        showSidebarTrigger={false}
+      >
+        <GlassPanel className="p-8">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">Administrative access required</h2>
+              <p className="text-sm text-muted-foreground">
+                This route is only available to <span className="font-mono">tenant_admin</span> and{" "}
+                <span className="font-mono">platform_admin</span> users.
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+                Current role
+                <Badge variant="secondary">{normalizedRole}</Badge>
+              </div>
+            </div>
+          </div>
+        </GlassPanel>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout
-      title="Admin Console"
-      description="Manage users, organization settings, and permissions"
+      title="Platform Admin"
+      description={
+        isPlatformAdmin
+          ? "Global administration for platform users, roles, and operational tools"
+          : "Tenant administration for users, tenant settings, and role visibility"
+      }
+      headerAction={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.location.assign("/platform-admin/legacy")}
+          >
+            Legacy Platform UI
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.location.assign("/tenant-admin/legacy")}
+          >
+            Legacy Tenant UI
+          </Button>
+        </div>
+      }
       showSidebarTrigger={false}
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <GlassPanel className="p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <Shield className="h-4 w-4 text-[#58a6ff]" />
+            Effective role
+          </div>
+          <div className="mt-3">
+            <Badge variant={getRoleBadgeVariant(normalizedRole)}>{normalizedRole}</Badge>
+          </div>
+        </GlassPanel>
+        <GlassPanel className="p-4 lg:col-span-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <Building className="h-4 w-4 text-[#58a6ff]" />
+            Scope
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {isPlatformAdmin
+              ? "You are operating at platform scope. Global tools are visible and backend queries can return platform-wide objects."
+              : "You are operating at tenant scope. Objects shown here are limited to the authenticated tenant."}
+          </p>
+        </GlassPanel>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTab)} className="space-y-6">
         <TabsList>
-          <TabsTrigger value="users" data-testid="tab-users">
-            <Users className="h-4 w-4 mr-2" />
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="organization" data-testid="tab-organization">
-            <Building className="h-4 w-4 mr-2" />
-            Organization
-          </TabsTrigger>
-          <TabsTrigger value="roles" data-testid="tab-roles">
-            <Shield className="h-4 w-4 mr-2" />
-            Roles
-          </TabsTrigger>
-          <TabsTrigger value="docs" data-testid="tab-docs">
-            <FileText className="h-4 w-4 mr-2" />
-            Docs
-          </TabsTrigger>
+          {availableTabs.includes("users") ? (
+            <TabsTrigger value="users" data-testid="tab-users">
+              <Users className="h-4 w-4 mr-2" />
+              Users
+            </TabsTrigger>
+          ) : null}
+          {availableTabs.includes("organization") ? (
+            <TabsTrigger value="organization" data-testid="tab-organization">
+              <Building className="h-4 w-4 mr-2" />
+              {isPlatformAdmin ? "Organization" : "Tenant"}
+            </TabsTrigger>
+          ) : null}
+          {availableTabs.includes("roles") ? (
+            <TabsTrigger value="roles" data-testid="tab-roles">
+              <Shield className="h-4 w-4 mr-2" />
+              Roles
+            </TabsTrigger>
+          ) : null}
+          {availableTabs.includes("docs") ? (
+            <TabsTrigger value="docs" data-testid="tab-docs">
+              <FileText className="h-4 w-4 mr-2" />
+              Docs
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="users" className="space-y-6">
@@ -513,12 +612,12 @@ export default function AdminConsole() {
 
         <TabsContent value="organization" className="space-y-6">
           <GlassPanel className="p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Building className="h-5 w-5" style={{ color: "#58a6ff" }} />
-              <Subheading className="!text-base !normal-case !tracking-normal">
-                Organization Settings
-              </Subheading>
-            </div>
+              <div className="flex items-center gap-2 mb-6">
+                <Building className="h-5 w-5" style={{ color: "#58a6ff" }} />
+                <Subheading className="!text-base !normal-case !tracking-normal">
+                  {isPlatformAdmin ? "Organization Settings" : "Tenant Settings"}
+                </Subheading>
+              </div>
 
             {orgLoading ? (
               <div className="space-y-4">
@@ -538,7 +637,11 @@ export default function AdminConsole() {
                         <FormControl>
                           <Input {...field} data-testid="input-org-name" />
                         </FormControl>
-                        <FormDescription>The legal name of your organization</FormDescription>
+                        <FormDescription>
+                          {isPlatformAdmin
+                            ? "The legal name of your organization"
+                            : "The name exposed to users inside the current tenant"}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -610,12 +713,12 @@ export default function AdminConsole() {
 
         <TabsContent value="roles" className="space-y-6">
           <GlassPanel className="p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Shield className="h-5 w-5" style={{ color: "#58a6ff" }} />
-              <Subheading className="!text-base !normal-case !tracking-normal">
-                Roles & Permissions
-              </Subheading>
-            </div>
+              <div className="flex items-center gap-2 mb-6">
+                <Shield className="h-5 w-5" style={{ color: "#58a6ff" }} />
+                <Subheading className="!text-base !normal-case !tracking-normal">
+                  {isPlatformAdmin ? "Roles & Permissions" : "Tenant Roles"}
+                </Subheading>
+              </div>
 
             {rolesLoading ? (
               <div className="space-y-4">

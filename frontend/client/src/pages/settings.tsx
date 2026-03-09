@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { emailApi } from "@/lib/integrations/emailApi";
 import { calendarApi } from "@/lib/integrations/calendarApi";
 import type { EmailAccount, CalendarAccount } from "@/lib/integrations/types";
+import { isTenantAdminRole } from "@/lib/rbac";
 
 type IconComponent = ComponentType<{ className?: string; style?: CSSProperties }>;
 
@@ -781,7 +782,7 @@ export default function Settings() {
     retry: false,
   });
 
-  const canManageTenantAccounts = me?.role === "admin" || me?.role === "tenant_admin" || me?.role === "superuser";
+  const canManageTenantAccounts = isTenantAdminRole(me?.role);
 
   const handleConfigure = (integration: IntegrationCard) => {
     setSelectedIntegration(integration);

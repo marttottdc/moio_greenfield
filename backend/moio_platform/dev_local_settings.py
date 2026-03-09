@@ -39,6 +39,8 @@ CORS_ALLOWED_ORIGINS = list(
             "http://localhost:5005",
             "http://127.0.0.1:5010",
             "http://localhost:5010",
+            "http://127.0.0.1:5177",
+            "http://localhost:5177",
             "http://127.0.0.1:8000",
             "http://localhost:8000",
             "https://127.0.0.1:8000",
@@ -66,6 +68,8 @@ CSRF_TRUSTED_ORIGINS = list(
             "http://localhost:5005",
             "http://127.0.0.1:5010",
             "http://localhost:5010",
+            "http://127.0.0.1:5177",
+            "http://localhost:5177",
         ]
     )
 )
