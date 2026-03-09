@@ -20,7 +20,6 @@ import {
   logLoginSubmitError,
   persistLastAuthError,
 } from "@/lib/loginMonitor";
-import { setApiBaseOverride, getApiBaseOverride } from "@/lib/api";
 import { isPlatformAdminRole, isTenantAdminRole } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,53 +32,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { GlobalFooter } from "@/components/global-footer";
 import moioLogo from "@assets/FAVICON_MOIO_1763393251809.png";
 
-// ─── Backend host / API status ────────────────────────────────────────────────
+// ─── Schema ───────────────────────────────────────────────────────────────────
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
 type LoginFormData = z.infer<typeof loginSchema>;
-
-const CUSTOM_PRESET_VALUE = "custom";
-type ApiStatusState = "unknown" | "checking" | "online" | "slow" | "offline";
-type ApiStatus = { state: ApiStatusState; latencyMs?: number };
-const LATENCY_GOOD_MS = 700;
-const perfNow = () =>
-  typeof performance !== "undefined" ? performance.now() : Date.now();
-
-function buildProbeUrl(base: string, path?: string): string {
-  const b = base.replace(/\/+$/, "");
-  if (!path) return b || "/";
-  const p = path.replace(/^\/+/, "");
-  return b ? `${b}/${p}` : `/${p}`;
-}
-
-function apiStatusDotClass(s: ApiStatus): string {
-  if (s.state === "online") return "bg-emerald-500";
-  if (s.state === "slow") return "bg-amber-400";
-  if (s.state === "offline") return "bg-red-500";
-  return "bg-slate-400";
-}
-
-function apiStatusLabel(s: ApiStatus): string {
-  const lat = typeof s.latencyMs === "number" ? ` (${s.latencyMs} ms)` : "";
-  if (s.state === "online") return `API reachable${lat}`;
-  if (s.state === "slow") return `High latency${lat}`;
-  if (s.state === "offline") return "API unreachable";
-  if (s.state === "checking") return "Checking…";
-  return "Status unknown";
-}
 
 // ─── Destinations ─────────────────────────────────────────────────────────────
 
@@ -147,73 +109,6 @@ export default function Login() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState<LoginStep>("credentials");
 
-  // Backend host
-  const defaultApiBase = "https://platform.moio.ai";
-  const backendPresets = useMemo(
-    () => [
-      { label: "Production (platform.moio.ai)", value: "https://platform.moio.ai" },
-      { label: "Staging (devcrm.moio.ai)", value: "https://devcrm.moio.ai" },
-    ],
-    []
-  );
-  const initialHost = getApiBaseOverride() ?? defaultApiBase;
-  const [backendHost, setBackendHost] = useState(initialHost);
-  const [selectedPreset, setSelectedPreset] = useState<string>(() => {
-    const m = backendPresets.find((p) => p.value === initialHost);
-    return m ? m.value : CUSTOM_PRESET_VALUE;
-  });
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({ state: "unknown" });
-  const isCustom = selectedPreset === CUSTOM_PRESET_VALUE;
-
-  function applyHost(value: string) {
-    const v = value.trim();
-    setBackendHost(v);
-    setApiBaseOverride(v || undefined);
-  }
-
-  function handlePresetChange(value: string) {
-    setSelectedPreset(value);
-    if (value === CUSTOM_PRESET_VALUE) {
-      setBackendHost("");
-    } else {
-      applyHost(value);
-    }
-  }
-
-  useEffect(() => {
-    if (!getApiBaseOverride()) applyHost(defaultApiBase);
-  }, []);
-
-  useEffect(() => {
-    const m = backendPresets.find((p) => p.value === backendHost);
-    const v = m ? m.value : CUSTOM_PRESET_VALUE;
-    if (v !== selectedPreset) setSelectedPreset(v);
-  }, [backendHost, backendPresets]);
-
-  useEffect(() => {
-    const host = backendHost || defaultApiBase;
-    if (!host) { setApiStatus({ state: "unknown" }); return; }
-    let active = true;
-    const ctrl = new AbortController();
-    setApiStatus({ state: "checking" });
-    (async () => {
-      for (const candidate of ["api/v1/health/", "health/", ""]) {
-        const url = buildProbeUrl(host, candidate);
-        const start = perfNow();
-        try {
-          const res = await fetch(url, { method: "GET", cache: "no-store", signal: ctrl.signal });
-          if (!res.ok) continue;
-          if (!active) return;
-          const lat = Math.round(perfNow() - start);
-          setApiStatus({ state: lat <= LATENCY_GOOD_MS ? "online" : "slow", latencyMs: lat });
-          return;
-        } catch { if (ctrl.signal.aborted) return; }
-      }
-      if (active) setApiStatus({ state: "offline" });
-    })();
-    return () => { active = false; ctrl.abort(); };
-  }, [backendHost]);
-
   // Login form
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -241,7 +136,6 @@ export default function Login() {
   });
 
   const destinations = useMemo(() => buildDestinations(user?.role), [user?.role]);
-  const resolvedHost = backendHost || defaultApiBase;
 
   // After auth: skip selector if only one destination, else advance to step 2
   useEffect(() => {
@@ -350,14 +244,6 @@ export default function Login() {
                       Sign out
                     </Button>
                   </div>
-
-                  {/* API status */}
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`inline-flex h-2 w-2 rounded-full shrink-0 ${apiStatusDotClass(apiStatus)}`} />
-                      <span className="font-mono truncate">{resolvedHost}</span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Destination cards */}
@@ -457,40 +343,6 @@ export default function Login() {
                         </Button>
                       </form>
                     </Form>
-                  </div>
-
-                  {/* Backend host selector */}
-                  <div className="mt-4 space-y-2">
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Select value={selectedPreset} onValueChange={handlePresetChange}>
-                        <SelectTrigger className="sm:w-1/2 text-xs" data-testid="select-backend-host">
-                          <SelectValue placeholder="Backend" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {backendPresets.map((p) => (
-                            <SelectItem key={p.value} value={p.value} className="text-xs">
-                              {p.label}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value={CUSTOM_PRESET_VALUE} className="text-xs">Custom</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={backendHost}
-                        onChange={(e) => applyHost(e.target.value)}
-                        placeholder="https://custom.example.com"
-                        autoComplete="off"
-                        disabled={!isCustom}
-                        className="text-xs"
-                        data-testid="input-backend-host"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span className={`inline-flex h-2 w-2 rounded-full shrink-0 ${apiStatusDotClass(apiStatus)}${apiStatus.state === "checking" ? " animate-pulse" : ""}`} />
-                      <span className="font-mono truncate">{resolvedHost}</span>
-                      <span>—</span>
-                      <span>{apiStatusLabel(apiStatus)}</span>
-                    </div>
                   </div>
                 </div>
 
