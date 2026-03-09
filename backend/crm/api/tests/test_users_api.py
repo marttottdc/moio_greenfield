@@ -108,6 +108,7 @@ class UsersApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data["email"], "new@a.test")
         self.assertEqual(response.data["organization"]["id"], str(self.tenant_a.id))
+        self.assertEqual(response.data["organization"]["primary_domain"], "a.test")
         self.assertIn("member", response.data["groups"])
 
         created = self._user_model.objects.get(email="new@a.test")
@@ -136,4 +137,3 @@ class UsersApiTests(APITestCase):
 
         response = self.client.delete(f"/api/v1/users/{self.tenant_admin.id}/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-

@@ -1,5 +1,7 @@
 const DEFAULT_API_BASE = "/api";
+const DEFAULT_WS_BASE = "/ws";
 const API_BASE_OVERRIDE_KEY = "moio:api_base_override";
+const WS_BASE_OVERRIDE_KEY = "moio:ws_base_override";
 
 function normalizeBaseUrl(value?: string | null) {
   if (typeof value !== "string") {
@@ -60,12 +62,65 @@ function writeToStorage(key: string, value?: string | null) {
   }
 }
 
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+function setUrlHostname(value: string, hostname: string) {
+  try {
+    const url = new URL(value);
+    url.hostname = hostname;
+    return trimTrailingSlash(url.toString());
+  } catch {
+    return undefined;
+  }
+}
+
+function stripApiSuffix(value: string) {
+  return trimTrailingSlash(value)
+    .replace(/\/api\/v1$/i, "")
+    .replace(/\/api$/i, "");
+}
+
+function toWebSocketBase(value?: string | null) {
+  const normalized = normalizeBaseUrl(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.startsWith("ws://") || normalized.startsWith("wss://")) {
+    return trimTrailingSlash(normalized);
+  }
+
+  const root = stripApiSuffix(normalized);
+  const withWsPath = `${root}/ws`;
+
+  if (withWsPath.startsWith("https://")) {
+    return withWsPath.replace(/^https:\/\//i, "wss://");
+  }
+
+  if (withWsPath.startsWith("http://")) {
+    return withWsPath.replace(/^http:\/\//i, "ws://");
+  }
+
+  return withWsPath || DEFAULT_WS_BASE;
+}
+
 function getEnvApiBaseUrl() {
-  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) ?? DEFAULT_API_BASE;
+  return (
+    normalizeBaseUrl(import.meta.env.VITE_API_ORIGIN) ??
+    // Backward-compatible fallback for older env files.
+    normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL) ??
+    DEFAULT_API_BASE
+  );
 }
 
 function getStoredApiBaseOverride() {
   return normalizeBaseUrl(readFromStorage(API_BASE_OVERRIDE_KEY));
+}
+
+function getStoredWebSocketBaseOverride() {
+  return normalizeBaseUrl(readFromStorage(WS_BASE_OVERRIDE_KEY));
 }
 
 export function getDefaultApiBaseUrl() {
@@ -81,12 +136,152 @@ export function setApiBaseOverride(value?: string | null) {
   writeToStorage(API_BASE_OVERRIDE_KEY, normalizedValue ?? null);
 }
 
+export function setWebSocketBaseOverride(value?: string | null) {
+  const normalizedValue = normalizeBaseUrl(value);
+  writeToStorage(WS_BASE_OVERRIDE_KEY, normalizedValue ?? null);
+}
+
 export function clearApiBaseOverride() {
   writeToStorage(API_BASE_OVERRIDE_KEY, null);
 }
 
+export function clearWebSocketBaseOverride() {
+  writeToStorage(WS_BASE_OVERRIDE_KEY, null);
+}
+
 export function getApiBaseUrl() {
   return getStoredApiBaseOverride() ?? getEnvApiBaseUrl();
+}
+
+export function getDefaultWebSocketBaseUrl() {
+  return (
+    normalizeBaseUrl(import.meta.env.VITE_WS_BASE_URL) ??
+    toWebSocketBase(import.meta.env.VITE_API_ORIGIN) ??
+    // Backward-compatible fallback for older env files.
+    toWebSocketBase(import.meta.env.VITE_API_BASE_URL) ??
+    DEFAULT_WS_BASE
+  );
+}
+
+export function getWebSocketBaseUrl() {
+  return (
+    getStoredWebSocketBaseOverride() ??
+    toWebSocketBase(getStoredApiBaseOverride()) ??
+    getDefaultWebSocketBaseUrl()
+  );
+}
+
+export interface TenantConnectionTarget {
+  id: string;
+  name?: string | null;
+  domain?: string | null;
+  subdomain?: string | null;
+  primary_domain?: string | null;
+  schema_name?: string | null;
+}
+
+function getTenantHost(target?: TenantConnectionTarget | null) {
+  if (!target) {
+    return undefined;
+  }
+
+  const primaryDomain = normalizeBaseUrl(target.primary_domain);
+  if (primaryDomain) {
+    return primaryDomain.replace(/^https?:\/\//i, "").replace(/^wss?:\/\//i, "");
+  }
+
+  const subdomain = normalizeBaseUrl(target.subdomain);
+  const domain = normalizeBaseUrl(target.domain);
+  if (subdomain && domain) {
+    return `${subdomain}.${domain}`;
+  }
+
+  return domain;
+}
+
+function applyTenantTemplate(template: string | undefined, target?: TenantConnectionTarget | null) {
+  const normalizedTemplate = normalizeBaseUrl(template);
+  const tenantHost = getTenantHost(target);
+  if (!normalizedTemplate || !tenantHost) {
+    return undefined;
+  }
+
+  const replacements: Record<string, string> = {
+    tenant_host: tenantHost,
+    tenant_domain: normalizeBaseUrl(target?.domain) ?? "",
+    tenant_subdomain: normalizeBaseUrl(target?.subdomain) ?? "",
+    tenant_schema: normalizeBaseUrl(target?.schema_name) ?? "",
+  };
+
+  let resolved = normalizedTemplate;
+  let replaced = false;
+  for (const [key, value] of Object.entries(replacements)) {
+    const token = `{${key}}`;
+    if (resolved.includes(token)) {
+      resolved = resolved.split(token).join(value);
+      replaced = true;
+    }
+  }
+
+  if (replaced) {
+    return trimTrailingSlash(resolved);
+  }
+
+  if (
+    normalizedTemplate.startsWith("http://") ||
+    normalizedTemplate.startsWith("https://") ||
+    normalizedTemplate.startsWith("ws://") ||
+    normalizedTemplate.startsWith("wss://")
+  ) {
+    return setUrlHostname(normalizedTemplate, tenantHost);
+  }
+
+  return trimTrailingSlash(normalizedTemplate);
+}
+
+function getTenantApiTemplate() {
+  return (
+    normalizeBaseUrl(import.meta.env.VITE_TENANT_API_ORIGIN) ??
+    getEnvApiBaseUrl()
+  );
+}
+
+function getTenantWebSocketTemplate() {
+  return (
+    normalizeBaseUrl(import.meta.env.VITE_TENANT_WS_BASE_URL) ??
+    toWebSocketBase(import.meta.env.VITE_TENANT_API_ORIGIN) ??
+    getDefaultWebSocketBaseUrl()
+  );
+}
+
+export function resolveTenantApiBaseUrl(target?: TenantConnectionTarget | null) {
+  return applyTenantTemplate(getTenantApiTemplate(), target);
+}
+
+export function resolveTenantWebSocketBaseUrl(target?: TenantConnectionTarget | null) {
+  return (
+    applyTenantTemplate(getTenantWebSocketTemplate(), target) ??
+    toWebSocketBase(resolveTenantApiBaseUrl(target))
+  );
+}
+
+export function applyTenantConnectionTarget(target?: TenantConnectionTarget | null) {
+  const apiBase = resolveTenantApiBaseUrl(target);
+  const wsBase = resolveTenantWebSocketBaseUrl(target);
+
+  if (apiBase) {
+    setApiBaseOverride(apiBase);
+  }
+  if (wsBase) {
+    setWebSocketBaseOverride(wsBase);
+  }
+
+  return { apiBase, wsBase };
+}
+
+export function clearTenantConnectionTarget() {
+  clearApiBaseOverride();
+  clearWebSocketBaseOverride();
 }
 
 const LOGGED_OUT_FLAG_KEY = "moio:logged_out";
@@ -256,12 +451,6 @@ export function getAuthHeaders(): HeadersInit {
 
   return headers;
 }
-
-
-function trimTrailingSlash(value: string) {
-  return value.endsWith("/") ? value.slice(0, -1) : value;
-}
-
 function trimLeadingSlash(value: string) {
   return value.startsWith("/") ? value.slice(1) : value;
 }
@@ -289,7 +478,7 @@ export function createApiUrl(path: string, params?: QueryParams) {
   let normalizedPath = trimLeadingSlash(path);
   const query = buildSearch(params);
 
-  // Avoid double-prefixing when VITE_API_BASE_URL already includes /api or /api/v1.
+  // Avoid double-prefixing when the configured API origin already includes /api or /api/v1.
   // Examples we want to support:
   // - base="/api" + path="/api/v1/..." -> "/api/v1/..."
   // - base="https://host/api/v1" + path="/api/v1/..." -> "https://host/api/v1/..."
@@ -361,12 +550,17 @@ export interface MoioAuthMeResponse {
   full_name: string;
   role: string;
   avatar_url?: string | null;
+  organization?: MoioOrganizationRef | null;
 }
 
 /** Organization shape in user responses */
 export interface MoioOrganizationRef {
   id: string;
   name: string;
+  domain?: string;
+  subdomain?: string;
+  primary_domain?: string;
+  schema_name?: string;
 }
 
 /** GET /api/v1/users/ list item & GET /api/v1/users/{id}/ response (MoioUserRead) */

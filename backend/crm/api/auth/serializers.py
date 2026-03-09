@@ -65,7 +65,14 @@ class UserSerializer(serializers.ModelSerializer):
         tenant = getattr(obj, "tenant", None)
         if not tenant:
             return None
-        return {"id": str(tenant.pk), "name": tenant.nombre}
+        return {
+            "id": str(tenant.pk),
+            "name": tenant.nombre,
+            "domain": str(getattr(tenant, "domain", "") or ""),
+            "subdomain": str(getattr(tenant, "subdomain", "") or ""),
+            "primary_domain": str(getattr(tenant, "primary_domain", "") or ""),
+            "schema_name": str(getattr(tenant, "schema_name", "") or ""),
+        }
 
     def get_preferences(self, obj: UserModel) -> Dict[str, Any]:
         config = None

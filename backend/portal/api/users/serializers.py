@@ -94,7 +94,14 @@ class MoioUserReadSerializer(serializers.ModelSerializer):
         tenant = getattr(obj, "tenant", None)
         if not tenant:
             return None
-        return {"id": str(tenant.pk), "name": getattr(tenant, "nombre", str(tenant.pk))}
+        return {
+            "id": str(tenant.pk),
+            "name": getattr(tenant, "nombre", str(tenant.pk)),
+            "domain": str(getattr(tenant, "domain", "") or ""),
+            "subdomain": str(getattr(tenant, "subdomain", "") or ""),
+            "primary_domain": str(getattr(tenant, "primary_domain", "") or ""),
+            "schema_name": str(getattr(tenant, "schema_name", "") or ""),
+        }
 
     def get_role(self, obj: UserModel) -> str:
         return _resolve_role(obj)
@@ -176,4 +183,3 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
                 _set_role_groups(instance, role)
 
         return instance
-

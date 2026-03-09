@@ -125,6 +125,7 @@ class AuthApiTests(APITestCase):
         self.assertEqual(response.data["email"], self.user.email)
         self.assertIn("preferences", response.data)
         self.assertIn("organization", response.data)
+        self.assertEqual(response.data["organization"]["primary_domain"], "auth.test")
 
     def test_create_api_key_returns_plain_key_once(self) -> None:
         login_data = _login(self.client, self.user.email, "pass1234")

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAccessToken, getApiBaseOverride, getApiBaseUrl } from "@/lib/api";
+import { getAccessToken, getWebSocketBaseUrl } from "@/lib/api";
 import { refreshAccessToken } from "@/lib/queryClient";
 
 export type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";
@@ -39,35 +39,31 @@ export interface UseWebSocketReturn<T = unknown> {
 }
 
 export function buildWebSocketUrl(path: string): string {
-  // Prefer explicit override, fallback to configured base, then current origin.
-  const apiBase = getApiBaseOverride() ?? getApiBaseUrl();
-  
-  let wsBase: string;
-  
-  if (apiBase && apiBase.startsWith("https://")) {
-    // Absolute HTTPS URL - convert to WSS
-    wsBase = apiBase.replace("https://", "wss://");
-  } else if (apiBase && apiBase.startsWith("http://")) {
-    // Absolute HTTP URL - convert to WS
-    wsBase = apiBase.replace("http://", "ws://");
-  } else if (typeof window !== "undefined" && window.location?.origin) {
-    // Relative base (e.g. "/api") or empty → use same-origin WebSocket.
-    wsBase = window.location.origin.replace("https://", "wss://").replace("http://", "ws://");
-  } else {
+  const configuredBase = getWebSocketBaseUrl();
+  let wsBase = configuredBase.replace(/\/+$/, "");
+
+  if (wsBase.startsWith("/")) {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      const origin = window.location.origin.replace("https://", "wss://").replace("http://", "ws://");
+      wsBase = `${origin}${wsBase}`;
+    } else {
+      return "";
+    }
+  }
+
+  if (!wsBase.startsWith("ws://") && !wsBase.startsWith("wss://")) {
     return "";
   }
-  
-  // Strip API suffixes since WebSocket endpoints are at root level (e.g., /ws/*)
-  wsBase = wsBase.replace(/\/api\/v1\/?$/, "");
-  wsBase = wsBase.replace(/\/api\/?$/, "");
-  wsBase = wsBase.replace(/\/$/, "");
-  
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  
+
+  let normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (wsBase.endsWith("/ws") && normalizedPath.startsWith("/ws/")) {
+    normalizedPath = normalizedPath.slice(3);
+  }
+
   const token = getAccessToken();
   const separator = normalizedPath.includes("?") ? "&" : "?";
   const urlWithToken = token ? `${wsBase}${normalizedPath}${separator}token=${token}` : `${wsBase}${normalizedPath}`;
-  
+
   return urlWithToken;
 }
 

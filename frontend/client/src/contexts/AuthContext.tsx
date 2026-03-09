@@ -4,12 +4,14 @@ import { apiRequest, refreshAccessToken as refreshTokens, clearQueryCacheWithLog
 import { logLoginStep, persistLastAuthError, type LoginStep } from "@/lib/loginMonitor";
 import {
   apiV1,
+  applyTenantConnectionTarget,
+  clearTenantConnectionTarget,
   getAccessToken,
   setAccessToken,
   setRefreshToken,
   clearStoredTokens,
   setApiBaseOverride,
-  clearApiBaseOverride
+  setWebSocketBaseOverride,
 } from "@/lib/api";
 import { ApiError } from "@/lib/queryClient";
 
@@ -24,6 +26,10 @@ interface User {
   organization?: {
     id: string;
     name: string | null;
+    domain?: string;
+    subdomain?: string;
+    primary_domain?: string;
+    schema_name?: string;
   } | null;
 }
 
@@ -49,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("GET", apiV1("/auth/me/"));
       const data = await res.json();
       setUser(data);
+      applyTenantConnectionTarget(data.organization);
       return true;
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
@@ -98,11 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastStep = "backend_host";
       if (data.backend_host) {
         setApiBaseOverride(data.backend_host);
+        if (data.websocket_base || data.ws_base) {
+          setWebSocketBaseOverride(data.websocket_base ?? data.ws_base);
+        }
       } else {
         const possibleBackendFields = ["backend", "api_host", "api_base", "server_host"];
         for (const field of possibleBackendFields) {
           if (data[field]) {
             setApiBaseOverride(data[field]);
+            break;
+          }
+        }
+        const possibleWebSocketFields = ["websocket_base", "ws_base", "socket_host"];
+        for (const field of possibleWebSocketFields) {
+          if (data[field]) {
+            setWebSocketBaseOverride(data[field]);
             break;
           }
         }
@@ -117,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const meRes = await apiRequest("GET", apiV1("/auth/me/"), { authTokenOverride: access });
       const meData = await meRes.json();
       setUser(meData);
+      applyTenantConnectionTarget(meData.organization);
       logLoginStep("fetch_profile", "ok");
 
       lastStep = "redirect";
@@ -139,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout request failed:", error);
     } finally {
       clearStoredTokens();
-      clearApiBaseOverride();
+      clearTenantConnectionTarget();
       clearQueryCacheWithLogging("logout - clearing user session data");
       setUser(null);
       setLocation("/login");
