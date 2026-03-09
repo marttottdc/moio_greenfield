@@ -1,0 +1,8 @@
+{% load static i18n %}
+<h4 class="card-title mb-3">Candidatos a Invitar</h4>
+
+{% for candidate in candidates %}
+   {% include "recruiter/partials/candidate_card_thin.html" %}
+{% endfor %}
+
+{% include "recruiter/partials/job_posting_transition_buttons.html" %}

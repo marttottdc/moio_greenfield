@@ -1,0 +1,23 @@
+<div class="row px-2" id="fam-action">
+    <table class="table table-hover align-middle">
+      <thead class="table-light sticky-top" >
+        <tr>
+            <td>Nombre</td>
+            <td>Numero Serie</td>
+            <td>Marca</td>
+            <td>Tipo</td>
+        </tr>
+
+    </thead>
+    <tbody>
+         {% for asset in assets %}
+             <tr>
+                <td>{{ asset.name }}</td>
+                <td>{{ asset.serial_number }}</td>
+                <td>{{ asset.brand }}</td>
+                <td>{{ asset.type }} </td>
+             </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>

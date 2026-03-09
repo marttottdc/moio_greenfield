@@ -1,0 +1,234 @@
+{% load static i18n recruiter_tags %}
+<div class="hstack gap-3" id="candidate_transition_buttons_bar">
+    <div class="btn-group-justified" role="group">
+
+        <button class="btn rounded-3 btn-danger"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                hx-vals='{"action":"hard_discard"}'
+                x-tooltip="Descartar definitivamente"
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                {% if job_posting.status == "C" %} disabled {% endif %}
+                hx-swap="delete"
+                hx-disabled-elt="this">
+            <i class="mdi mdi-close big htmx-hide"></i><img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="15" class="htmx-indicator">
+            </button>
+
+            <button class="btn rounded-3 btn-outline-danger"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                hx-vals='{"action":"discard"}'
+                x-tooltip="Descartar por ahora"
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                {% if job_posting.status == "C" %} disabled {% endif %}
+                hx-swap="delete"
+                hx-disabled-elt="this">
+                 <i class="mdi mdi-recycle-variant htmx-hide"></i><img src="{% static 'images/svg-loaders/puff.svg' %}" width="15" class="htmx-indicator">
+            </button>
+
+    </div>
+     <div class="vr"></div>
+    <div class="btn-group ms-auto" role="group">
+    {% if job_posting.status in "NSI" %}
+
+        {% if candidate.recruiter_status == "M"%}
+        <button class="btn border rounded-3 btn-success"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                x-data
+                x-tooltip="Preseleccionar"
+                hx-vals='{"action":"preselect"}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this">
+            <i class="mdi mdi-check big htmx-hide" ></i>
+            <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="15" class="htmx-indicator">
+        </button>
+
+        {% elif candidate.recruiter_status == "D"%}
+
+        <a type="button" id="whatsapp_button_prueba_ser_{{ candidate.pk }}" class="btn border rounded-3 btn-warning" href="https://wa.me/{{ candidate.contact.phone }}?text={{ job_posting.psicotest_template|template_replace:candidate| urlencode }}"
+           x-data
+           x-tooltip="Enviar SER"
+           hx-trigger="whatsapp_sent"
+           target="_blank">
+            <i class="mdi mdi-head-check-outline big" ></i>
+        </a>
+
+        <div
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click, click from:#whatsapp_button_prueba_ser_{{ candidate.pk }}"
+                x-data
+                x-tooltip="Enviar SER"
+                hx-vals='{"action":"request_data"}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this">
+        </div>
+
+        {% elif candidate.recruiter_status == "W"%}
+
+        <button class="btn border rounded-3 btn-warning"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                x-data
+                x-tooltip="Datos Completados"
+                hx-vals='{"action":"data_completed"}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-prompt = "Cual fue el resultado?"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this"> <i class="mdi mdi-plus big htmx-hide" ></i><img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="15" alt="loader" class="htmx-indicator">
+        </button>
+
+        {% elif candidate.recruiter_status in "PDC"%}
+        <a type="button" id="whatsapp_button_invitation_gi_{{ candidate.pk }}" class="btn border rounded-3 btn-success" href="https://wa.me/{{ candidate.contact.phone }}?text={{ job_posting.invitation_template |template_replace:candidate| urlencode}}"
+           x-data
+           x-tooltip="Invitar"
+           hx-trigger="whatsapp_sent"
+           target="_blank">
+            <i class="mdi mdi-book-plus-outline big htmx-hide" ></i>
+        </a>
+        <div
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click, click from:#whatsapp_button_invitation_gi_{{ candidate.pk }}"
+                x-data
+                x-tooltip="Invitar a Entrevista Grupal"
+                hx-vals='{"action":"invite_to_group_interview"}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-indicator="#loader-{{ candidate.pk }}"
+                hx-swap="outerHTML">
+        </div>
+
+        {% elif candidate.recruiter_status == "I" %}
+
+        <select name="action" id="action-selector-{{ candidate.pk }}" class="form-select"
+            hx-trigger="change"
+            hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+            hx-swap="delete"
+            hx-indicator="#loader-{{ candidate.pk }}"
+            hx-target="#candidate-{{ candidate.pk }}">
+                <option value="" disabled selected>Selecciona</option>
+                <option value="confirm_participation_group_interview">Confirma Asistencia</option>
+                <option value="unavailable">No Disponible</option>
+                <option value="no_response">No Responde</option>
+                <option value="rejected">Rechaza</option>
+        </select>
+        {% elif candidate.recruiter_status == "G" %}
+            <button class="btn btn-success rounded-3" disabled><i class="mdi mdi-book-account-outline htmx-hide" ></i></button>
+        {% endif %}
+    {% endif %}
+
+
+        {% if candidate.recruiter_status == "G" and job_posting.status in "G" %}
+        <button class="btn border rounded-3 btn-success "
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                x-data
+                x-tooltip="Check-in"
+                hx-vals='{"action":"check_in"}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-swap="outerHTML"
+                hx-disabled-elt="this">
+                <i class="mdi mdi-human-greeting big htmx-hide" ></i>
+                <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="15" class="htmx-indicator">
+        </button>
+        {% endif %}
+
+        {% if candidate.recruiter_status in "E" and job_posting.status == "E" %}
+
+            <button class="btn border rounded-3 btn-outline-primary"
+                    hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                    hx-trigger="click"
+                    x-data
+                    x-tooltip="Guardar"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-vals='{"action":"evaluate"}'
+                    hx-target = "#candidate-{{ candidate.pk }}"
+                    hx-swap="outerHTML"
+                    hx-disabled-elt="this"
+                    id="evaluation-{{ job_posting.jp_id }}-{{ candidate.pk }}">
+                    <i class="mdi mdi-content-save big htmx-hide"></i>
+                    <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="15" alt="loader" class="htmx-indicator">
+            </button>
+        {% endif %}
+
+        {% if candidate.recruiter_status == "EV" and job_posting.status == "E" %}
+             <select name="action" id="action-selector-{{ candidate.pk }}" class="form-select"
+                hx-trigger="change"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-swap="delete"
+                hx-indicator="#loader-{{ candidate.pk }}"
+                hx-target="#candidate-{{ candidate.pk }}">
+                <option value="" disabled selected>Selecciona</option>
+                <option value="passed_group_evaluation">Pasa a Entrevistas</option>
+                <option value="failed_group_evaluation">No Pasa</option>
+            </select>
+        {% endif %}
+
+        {% if candidate.recruiter_status in "O" and job_posting.status in "UF" %}
+
+            <button class="btn btn-primary"
+                    hx-get='{% url 'recruiter:candidate_page' candidate.pk  %}'
+                    hx-trigger="click"
+                    x-data
+                    x-tooltip="Entrevistar"
+                    hx-push-url="true"
+                    hx-target="#dialog"
+                    hx-disabled-elt="this">
+                    <i class="mdi mdi-format-list-checkbox htmx-hide"></i>
+                    <img src="{% static 'images/svg-loaders/puff_light.svg' %}" alt="loader" width="15" class="htmx-indicator">
+            </button>
+
+            <select name="action" id="action-selector-{{ candidate.pk }}" class="form-select" required
+                hx-trigger="change"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-swap="outerHTML"
+                hx-target="#candidate-{{ candidate.pk }}"
+                hx-indicator="#loader-{{ candidate.pk }}"
+                hx-disabled-elt="this">
+                <option value="" disabled selected>Siguiente</option>
+                <option value="stand_by">Seleccionar</option>
+                <option value="hire">Contratar</option>
+            </select>
+        {% endif %}
+
+        {% if candidate.recruiter_status == "IV" and job_posting.status in "UF" %}
+
+            <button class="btn btn-outline-primary"
+                    hx-get='{% url 'recruiter:job_posting_details' job_posting.jp_id  %}'
+                    hx-trigger="click"
+                    x-data
+                    x-tooltip="Salir"
+                    hx-vals='{"action":"individual_interview_stage"}'
+                    hx-target="#moio-full-content"
+                    hx-indicator="#loader-{{ candidate.pk }}"
+                    hx-disabled-elt="this">
+                    <i class="mdi mdi-close"></i>
+            </button>
+
+            <select name="action" id="action-selector-{{ candidate.pk }}" class="form-select"
+                hx-trigger="change"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-swap="outerHTML"
+                hx-target="#candidate-{{ candidate.pk }}"
+                hx-indicator="#loader-{{ candidate.pk }}"
+                hx-disabled-elt="this">
+                <option value="" disabled selected>Selecciona</option>
+                <option value="stand_by" data-bs-dismiss="modal">Seleccionar</option>
+                <option value="hire" data-bs-dismiss="modal">Contratar</option>
+            </select>
+        {% endif %}
+    </div>
+    <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" id="loader-{{ candidate.pk }}" width="15" class="htmx-indicator">
+</div>

@@ -1,0 +1,32 @@
+{% load static i18n %}
+<div class="container-fluid ps-1 comm-layout">
+  <div class="page-header">
+    <div class="d-flex justify-content-between align-items-center mb-2" id="fam-screen-header"
+         hx-get="{% url 'fam:refresh-kpis' %}"
+         hx-trigger="refresh_data from:body"
+         hx-swap="outerHTML"
+         hx-target="#screen-kpis">
+      <div class="flex-shrink-0">
+        <h2 class="mb-1 fw-bold">{% trans 'Fixed Asset Management' %}</h2>
+        <p class="text-muted mb-0" style="font-size: 0.875rem;">{% trans 'Manage your assets' %}</p>
+      </div>
+      <!-- KPI Section with Bootstrap Grid -->
+        {% include 'fam/partials/header_kpis.html' %}
+
+    </div>
+  </div>
+
+    {% include 'fam/partials/fam_nav_pills.html' %}
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+
+      {% include 'fam/tabs/assets_tab.html' %}
+      {% include 'fam/tabs/transactions_tab.html' %}
+      {% include 'fam/tabs/qr_tags_tab.html' %}
+      {% include 'fam/tabs/analytics_tab.html' %}
+      {% include 'fam/tabs/configuration_tab.html' %}
+
+    </div>
+
+</div>

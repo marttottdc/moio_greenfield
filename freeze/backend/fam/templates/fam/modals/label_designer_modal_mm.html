@@ -1,0 +1,207 @@
+<!-- label_designer_modal.html -->
+<!-- filename: label_designer_modal.html -->
+{% load static i18n %}
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "Choose a Layout" %}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+
+<div class="modal-body p-0">
+  <div class="composer">
+    <!-- Toolbar -->
+    <div class="composer-toolbar d-flex gap-2 align-items-center justify-content-end">
+      <div class="mb-0">
+        <form id="layout-selector">
+          <select class="form-select" id="layoutSelect">
+            <option selected disabled>{% trans 'Select layout' %}</option>
+            <option value="__new__">+ {% trans 'New layout' %}</option>
+            {% for al in available_layouts %}
+            <option value="{{ al.pk }}">{{ al.key }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+      <div class="d-flex align-items-end justify-content-end gap-2 flex-wrap">
+        <div class="form-check form-switch m-0">
+          <input class="form-check-input" type="checkbox" id="gridChk" checked>
+          <label class="form-check-label small" for="gridChk">Grid</label>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <input id="zoomRange" type="range" min="10" max="400" step="1" value="100" style="width:160px">
+          <span class="small text-muted" id="zoomPct">100%</span>
+        </div>
+        <button class="btn btn-primary btn-sm" id="exportBtn">Export PNG</button>
+        <button class="btn btn-outline-danger btn-sm" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="composer-grid">
+      <!-- Palette -->
+      <aside class="composer-rail d-flex flex-column align-items-center ps-1 border-end">
+        <div id="palette" class="d-flex flex-column gap-2 pt-1 pe-1">
+          <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="qr" title="QR"><i class="bi bi-qr-code"></i></button>
+          <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="logo" title="Logo"><i class="bi bi-image"></i></button>
+          <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="title" title="Title"><i class="bi bi-textarea-t"></i></button>
+          <button class="btn btn-light p-2 shadow-0 composer-pill" draggable="true" data-kind="code" title="Code"><i class="bi bi-braces"></i></button>
+        </div>
+        <div class="small text-muted mt-2 text-center text-wrap">{% trans 'Drag onto canvas' %}</div>
+      </aside>
+
+      <!-- Stage -->
+      <main class="composer-center">
+        <div class="composer-stage-wrap border rounded position-relative p-2">
+          <div class="composer-drop-hint small fw-semibold text-primary">Drop to add</div>
+          <div class="composer-busy d-none" id="composerBusy">
+            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+            <span class="ms-2">Working…</span>
+          </div>
+          <canvas id="stage"></canvas>
+        </div>
+        <div class="small text-muted mt-2"> Del to delete · Arrow keys to nudge (Shift×10) · Space+Drag to pan · Ctrl/Cmd/Alt+Wheel to zoom </div>
+      </main>
+
+      <!-- Inspector -->
+      <aside class="composer-inspector border-start">
+        <div class="composer-inspector-inner">
+          <div class="mb-3">
+            <div class="fw-semibold small text-muted mb-1">{% trans "Label Size" %}</div>
+            <div class="row g-1">
+              <div class="col-6">
+                <label class="form-label small">{% trans "Width (mm)" %}</label>
+                <input type="number" min="1" step="0.1" class="form-control form-control-sm" id="docWidth">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">{% trans "Height (mm)" %}</label>
+                <input type="number" min="1" step="0.1" class="form-control form-control-sm" id="docHeight">
+              </div>
+            </div>
+            <div class="mt-2">
+              <label class="form-label small">{% trans "Orientation" %}</label>
+              <select id="docOrient" class="form-select form-select-sm">
+                <option value="portrait">{% trans "Portrait" %}</option>
+                <option value="landscape">{% trans "Landscape" %}</option>
+              </select>
+            </div>
+          </div>
+          <div class="fw-semibold small text-muted mb-2">{% trans "Inspector" %}</div>
+          <div id="inspector" class="d-grid gap-2">
+            <div class="text-muted small">Select an element on the canvas.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div class="modal-footer my-1 py-1">
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Close' %}</button>
+  <button type="button" class="btn btn-primary" id="saveLayoutBtn">{% trans 'Save layout' %}</button>
+</div>
+
+<style>
+  .modal-dialog { max-width: 75vw; }
+  .composer { --toolbar-h: 44px; }
+  .composer-toolbar{min-height:var(--toolbar-h);padding:.25rem .5rem;border-bottom:1px solid rgba(0,0,0,.06);background-color:var(--crm-panel-bg,rgba(0,0,0,0.02))}
+  .composer-grid{display:grid;grid-template-columns:56px 1fr 300px}
+  .composer .composer-rail{width:56px;background-color:var(--crm-panel-bg,rgba(0,0,0,0.02))}
+  .composer .composer-pill{width:40px;height:40px;border-radius:.75rem;border:1px solid rgba(0,0,0,.08)}
+  .composer-center{display:flex;flex-direction:column;padding:.5rem;min-width:0;}
+  .composer .composer-stage-wrap{background:#f8f9fa;min-height:640px;overflow:hidden;}
+  .composer #stage{display:block;background:transparent;border-radius:.5rem;box-shadow:0 .25rem 1.25rem rgba(0,0,0,.08)}
+  .composer .composer-drop-hint{display:none;position:absolute;inset:.5rem;border:2px dashed #9ec5fe; background:repeating-linear-gradient(135deg,rgba(13,110,253,.06) 0 10px,rgba(25,135,84,.06) 10px 20px); border-radius:.5rem;align-items:center;justify-content:center}
+  .composer .composer-stage-wrap.dragover .composer-drop-hint{display:flex}
+  .composer-inspector{background:#fff;}
+  .composer-inspector-inner{position:sticky;top:0;max-height:calc(100vh - var(--toolbar-h));overflow:auto;padding:.75rem;}
+  @media (max-width:992px){.composer-grid{grid-template-columns:56px 1fr}.composer-inspector{grid-column:1/-1;border-top:1px solid rgba(0,0,0,.06)}.composer-inspector-inner{max-height:none;position:static}}
+  .composer-stage-wrap .composer-busy{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.65);}
+  .d-none{display:none!important;}
+</style>
+
+<script>window.FAM_LABEL_DESIGNER_URL = "{% url 'fam:label_designer' %}";</script>
+<script src="{% static 'js/label_composer_renderer_mm.js' %}"></script>
+<script src="{% static 'js/label_composer_docman_mm.js' %}"></script>
+
+<!-- Instant size while typing -->
+<script>
+  (function attachWhenReady(){
+    if (!window.LabelComposer) { return setTimeout(attachWhenReady, 16); }
+
+    const w = document.getElementById("docWidth");
+    const h = document.getElementById("docHeight");
+    const o = document.getElementById("docOrient");
+    const zoomRange = document.getElementById("zoomRange");
+    const zoomPct = document.getElementById("zoomPct");
+
+    let currentW = window.LabelComposer.getMM().width_mm;
+    let currentH = window.LabelComposer.getMM().height_mm;
+
+    function syncInputsFromDoc(){
+      const mmDoc = window.LabelComposer.getMM();
+      currentW = mmDoc.width_mm;
+      currentH = mmDoc.height_mm;
+      if (w && document.activeElement !== w) w.value = mmDoc.width_mm;
+      if (h && document.activeElement !== h) h.value = mmDoc.height_mm;
+      if (o) o.value = mmDoc.width_mm >= mmDoc.height_mm ? "landscape" : "portrait";
+    }
+
+    // Live, instantaneous resize while typing
+    function onWidthInput(){
+      const v = parseFloat(w.value);
+      if (Number.isFinite(v)) {
+        currentW = Math.max(1, v);
+        window.LabelComposer.setSize(currentW, currentH, { behavior: 'preserve' });
+      }
+    }
+    function onHeightInput(){
+      const v = parseFloat(h.value);
+      if (Number.isFinite(v)) {
+        currentH = Math.max(1, v);
+        window.LabelComposer.setSize(currentW, currentH, { behavior: 'preserve' });
+      }
+    }
+
+    // Orientation flip: one-time fit
+    function onOrientationChange(){
+      const mmDoc = window.LabelComposer.getMM();
+      if (o.value === "portrait" && mmDoc.width_mm > mmDoc.height_mm){
+        window.LabelComposer.setSize(mmDoc.height_mm, mmDoc.width_mm, { behavior: 'fit' });
+      }
+      if (o.value === "landscape" && mmDoc.width_mm < mmDoc.height_mm){
+        window.LabelComposer.setSize(mmDoc.height_mm, mmDoc.width_mm, { behavior: 'fit' });
+      }
+      syncInputsFromDoc();
+    }
+
+    // Bind as 'input' for immediacy
+    if (w) w.addEventListener("input", onWidthInput);
+    if (h) h.addEventListener("input", onHeightInput);
+    if (o) o.addEventListener("change", onOrientationChange);
+
+    // Zoom slider (instant)
+    if (zoomRange) {
+      zoomRange.addEventListener('input', () => {
+        const pct = Math.min(400, Math.max(10, parseInt(zoomRange.value || "100", 10)));
+        window.LabelComposer.zoom(pct / 100);
+      });
+      document.addEventListener('labelcomposer:zoom', (e) => {
+        const pct = Math.round((e.detail?.zoom ?? 1) * 100);
+        zoomRange.value = String(pct);
+        if (zoomPct) zoomPct.textContent = pct + '%';
+      });
+    }
+
+    // Keep inputs synced when doc changes elsewhere
+    document.addEventListener('labelcomposer:doc', syncInputsFromDoc);
+
+    // Initial sync
+    syncInputsFromDoc();
+  })();
+</script>
+<!-- filename: label_designer_modal.html -->
+<script>
+  // QR preview for the editor (server will still generate real QR at print-time)
+  window.QR_SAMPLE_URL   = "{% static 'images/barcode.png' %}";
+  // Logo preview (only if the layout already has a logo)
+  window.LABEL_LOGO_URL  = {% if layout and layout.logo %}"{{ layout.logo.url|escapejs }}"{% else %}null{% endif %};
+</script>

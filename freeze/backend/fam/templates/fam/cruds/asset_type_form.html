@@ -1,0 +1,34 @@
+{% load static i18n %}
+{% load widget_tweaks %}
+
+<div class="row p-2">
+
+        <form id="types_form"
+            {% if id  %}
+            hx-post="{% url 'fam:asset_type_crud_edit' id %}"
+            {% else %}
+            hx-post="{% url 'fam:asset_type_crud' %}"
+            {% endif %}
+            hx-target="#dialog"
+            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'>
+
+            <div class="row gy-1">
+                {% if id  %}
+                    {% render_field form.name class="form-control" placeholder="ej. Heladera" readonly="readonly"  type="text"%}
+                {% else %}
+                    {% render_field form.name class="form-control" placeholder="ej. Heladera"  type="text"%}
+                {% endif %}
+                {% render_field form.description  type="text" class="form-control" placeholder="ej. Equipos de frio" %}
+                {%  render_field form.tenant %}
+            </div>
+
+            <div class="row py-1">
+                <div class="btn-group-justified text-end">
+                    <button class="btn btn-outline-primary rounded-3">Guardar <i class="mdi mdi-content-save htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff.svg' %}" width="15" class="htmx-indicator">
+                    </button>
+                </div>
+            </div>
+        </form>
+
+</div>

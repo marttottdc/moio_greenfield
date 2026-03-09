@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from crm.api.settings.preferences import build_user_preferences
 from portal.models import TenantConfiguration
+from portal.rbac import ROLE_ORDER, _role_rank, _user_group_names
 
 UserModel = get_user_model()
 
@@ -37,10 +38,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj: UserModel) -> str:
         if obj.is_superuser:
-            return "admin"
+            return "platform_admin"
+
+        highest_rank = max((_role_rank(name) for name in _user_group_names(obj)), default=-1)
+        if highest_rank >= 0:
+            return ROLE_ORDER[highest_rank]
+
         if obj.is_staff:
             return "manager"
-        return "user"
+
+        return "member"
 
     def get_avatar_url(self, obj: UserModel) -> str | None:
         if not obj.avatar:

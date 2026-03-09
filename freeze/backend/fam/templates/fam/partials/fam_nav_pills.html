@@ -1,0 +1,28 @@
+{% load static i18n %}
+<ul class="nav nav-pills mb-2" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="assets-tab" data-bs-toggle="pill" data-bs-target="#assets" type="button" role="tab">
+          <i class="bi bi-pc-display-horizontal"></i> {% trans 'Assets' %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="transactions-tab" data-bs-toggle="pill" data-bs-target="#transactions" type="button" role="tab">
+          <i class="bi bi-database-exclamation"></i> {% trans 'Transactions' %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="qr-tags-tab" data-bs-toggle="pill" data-bs-target="#qr-tags" type="button" role="tab">
+          <i class="bi bi-qr-code"></i> {% trans 'QR Tags' %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="analytics-tab" data-bs-toggle="pill" data-bs-target="#analytics" type="button" role="tab">
+          <i class="bi bi-bar-chart"></i> {% trans 'Analytics' %}
+        </button>
+      </li>
+        <li class="nav-item" role="presentation">
+        <button class="nav-link" id="configuration-tab" data-bs-toggle="pill" data-bs-target="#configuration" type="button" role="tab">
+          <i class="bi bi-gear"></i> {% trans 'Configuration' %}
+        </button>
+      </li>
+    </ul>

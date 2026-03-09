@@ -1,0 +1,47 @@
+{% load static i18n %}
+<div class="modal-content">
+<div class="modal-header">
+        <h5 class="modal-title">Importar Activos</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+    <div class="modal-body">
+        {% if 'form' %}
+            <form hx-post="{% url 'fam:asset_import' %}"
+                  hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                  enctype="multipart/form-data">
+
+                    {{ form.as_div }}
+
+                <div class="btn-group-justified text-end pt-1">
+                    <button class="btn btn-secondary rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary rounded-3">Importar</button>
+                    <img src="{% static 'images/svg-loaders/puff.svg' %}" width="20" class="htmx-indicator">
+                </div>
+            </form>
+        {% endif %}
+
+        {% if 'table_headers' %}
+            <table class="table table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        {% for header in table_headers %}
+                            <th scope="col">{{ header }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in preload_table%}
+                        <tr>
+                        {% for key, value in item.items %}
+                            <td>{{ value|default:"" }}</td>
+                        {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+    </div>
+
+</div>

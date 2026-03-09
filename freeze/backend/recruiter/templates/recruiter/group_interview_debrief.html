@@ -1,0 +1,21 @@
+{% load static i18n %}
+
+
+<div class="card" >
+
+    {%for candidate in candidates %}
+
+        {% include "recruiter/partials/candidate_card.html" %}
+
+    {% endfor %}
+</div>
+{% if job_posting.status == "E" %}
+        <div class="card-footer">
+            <button type="button"  class="btn btn-outline-primary rounded-pill"
+                    hx-post='{% url "recruiter:job_posting_action" job_posting.jp_id  %}'
+                    hx-trigger="click"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-vals='{"next_step": "confirm_shortlist"}'> Cerrar {{ job_posting.get_status_display }}
+            </button>
+        </div>
+{% endif %}

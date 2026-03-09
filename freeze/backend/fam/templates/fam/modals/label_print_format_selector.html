@@ -1,0 +1,41 @@
+{# templates/fam/modals/label_print_format_selector.html #}
+{% load i18n %}
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "Print Labels" %}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+<div class="modal-body">
+  <form id="fmt-form" method="post" action="{% url 'fam:print_labels_with_format_pdf' %}" target="_blank">
+    {% csrf_token %}
+    {% for lid in labels_to_print %}
+      <input type="hidden" name="label_id" value="{{ lid }}">
+    {% endfor %}
+
+    <div class="mb-2">
+      <label class="form-label">{% trans "Format" %}</label>
+      <select class="form-select" name="format_id" required>
+        {% for f in formats %}
+          <option value="{{ f.id }}">{{ f.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="auto_sheet" name="auto_sheet" value="1" checked>
+      <label class="form-check-label" for="auto_sheet">{% trans "Auto decide multi-label sheet" %}</label>
+    </div>
+    <div class="form-check mt-1">
+      <input class="form-check-input" type="checkbox" id="sheet" name="sheet" value="1" disabled>
+      <label class="form-check-label" for="sheet">{% trans "Force sheet (uncheck auto to enable)" %}</label>
+    </div>
+
+    <div class="mt-3">
+      <button type="submit" class="btn btn-primary">{% trans "Open PDF" %}</button>
+    </div>
+  </form>
+</div>
+<script>
+  const autoCb = document.getElementById('auto_sheet');
+  const sheetCb = document.getElementById('sheet');
+  autoCb.addEventListener('change', ()=>{ sheetCb.disabled = autoCb.checked; });
+</script>

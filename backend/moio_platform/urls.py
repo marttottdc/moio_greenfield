@@ -75,11 +75,8 @@ urlpatterns = [
     path("api/v1/campaigns/", include("campaigns.api.urls")),
 
     path("api/v1/flows/", include(("flows.api_urls", "flows_api"), namespace="flows_api")),
-    path("api/v1/robots/", include("robots.api_urls")),
     path("api/v1/scripts/", include("flows.api_script_urls")),
     path("api/v1/test/", test_api),
-    path("api/v1/fluidcms/", include("fluidcms.urls")),
-    path("api/v1/fluidcommerce/", include("fluidcommerce.urls")),
     path("api/v1/desktop-agent/", include("chatbot.api.urls")),
     path("api/v1/datalab/", include("datalab.api.urls")),
 

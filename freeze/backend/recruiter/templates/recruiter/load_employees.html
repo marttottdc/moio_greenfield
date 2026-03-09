@@ -1,0 +1,22 @@
+{% load static i18n %}
+
+
+<div class="card-title">
+<h5>Ingresa archivo para importar</h5>
+
+<form hx-post="{% url 'recruiter:load_employees' %}"
+    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+    hx-trigger="change"
+    hx-target="#moio-full-content"
+    enctype="multipart/form-data">
+
+<input type="file" name="employees_file" class="form-control">
+
+    <div class="row htmx-indicator">
+        <div class="col-12">
+            Cargando Datos ...
+            <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="30">
+        </div>
+    </div>
+</form>
+

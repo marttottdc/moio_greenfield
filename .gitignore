@@ -28,3 +28,5 @@ frontend/dist/
 *.pem
 *.key
 *.crt
+scripts/local/
+.local/

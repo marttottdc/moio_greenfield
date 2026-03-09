@@ -1,0 +1,78 @@
+{% load static i18n %}
+
+{% block title %}User: {{candidate.contact }}{% endblock %}
+
+{% block modal_contend %}
+<div class="modal-content">
+    <div class="modal-header">
+        <h4 class="modal-title" id="fill-primary-modalLabel">Candidatos</h4>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true"></button>
+    </div>
+
+    <div class="modal-body">
+        <div class="row py-lg-2">
+                <div class="card mb-md-0 mt-1" data-candidate-id="{{ candidate.document_id }}" >
+                    <div class="card-header">
+                            <div class="card-widgets">
+                                {% if candidate.psigma_score is None %}
+                                    <p class="card-subtitle badge bg-info text-light ">  Pendiente </p>
+                                {% elif candidate.psigma_score < 50 %}
+                                    <p class="card-subtitle badge bg-danger text-light ">  {{ candidate.psigma_score }} </p>
+                                {% elif candidate.psigma_score < 70 %}
+                                     <p class="card-subtitle badge bg-warning text-light ">  {{ candidate.psigma_score }} </p>
+                                {% else %}
+                                     <p class="card-subtitle badge bg-success text-light">  {{ candidate.psigma_score }} </p>
+                                {%  endif %}
+                            </div>
+
+                            <div class ="row">
+                                <div class="col-md-4" >
+                                    {% if candidate.profile_picture %}
+                                        <img class="img-thumbnail" src="{{ candidate.profile_picture.url }}" alt="{{ candidate.contact.fullname.title}}"/>
+                                    {% else %}
+                                        <img class="img-thumbnail" src="{% static 'images/default-avatar.png' %}" alt="{{ candidate.contact.fullname}}"/>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-8 align-content-center">
+                                <h4 class="card-title mb-1">{{ candidate.contact.fullname.title }}</h4><br>
+
+
+                                <div class="card-subtitle text-muted">
+                                    <a href="https://wa.me/{{ candidate.contact.phone }}"><i class="mdi mdi-whatsapp"></i> {{ candidate.contact.phone }}</a><br>
+                                    <i class="mdi mdi-id-card"></i> {{ candidate.document_id }}<br>
+                                    <i class="mdi mdi-email"></i> {{ candidate.contact.email }}<br>
+                                    <i class="mdi mdi-calendar"></i> {{ candidate.date_birth }}<br>
+                                    <i class="mdi mdi-location-enter"></i> {{ candidate.address }}<br>
+                                </div>
+
+                                    <i class="mdi mdi-map"></i>
+                                    <ul style="list-style-type: square;">
+                                    {% for item in candidate.candidate_distances %}
+                                        <li>Sucursal: {{ item.branch_name }} Distancia: {{ item.distance }} Tiempo: {{ item.duration }} min</li>
+                                    {% endfor %}
+                                    </ul>
+                                </div>
+
+                            </div>
+
+                    </div>
+
+                    <div class="card-body" >
+                         <div class="row py-lg-2">
+                            <p class="card-text"><br>{{ candidate.recruiter_summary }}</p>
+                         </div>
+                        <div class="row py-lg-2">
+                            <p class="card-text"><br>{{ candidate.work_experience }}</p>
+                         </div>
+                        <div class="row py-lg-2">
+                            <p class="card-text"><br>{{ candidate.education }}</p>
+                         </div>
+
+                    </div>
+                </div>
+        </div> <!-- end row-->
+    </div> <!-- end card -->
+</div>
+{% endblock %}
+

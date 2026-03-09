@@ -1,0 +1,19 @@
+{% load static i18n humanize %}
+<div class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title">Crear Activo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div class="row overflow-scroll">
+            <form>
+                {{ form.as_div }}
+                <div class="btn-group-justified text-end pt-1">
+                    <button id="fam_asset_cancel" type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button id="fam_asset_submit" type="submit" class="btn btn-primary rounded-3">Guardar</button>
+                    <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" class="htmx-indicator">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

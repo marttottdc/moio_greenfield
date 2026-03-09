@@ -1,0 +1,19 @@
+{% load static i18n %}
+
+<!-- Start Content-->
+
+    {% include "recruiter/partials/job_posting_details_header.html" %}
+    {% if candidates.count > 0  %}
+        {% include "recruiter/partials/job_posting_candidate_list.html" %}
+    {% else %}
+        <div class="card-body overflow-scroll bg-light">
+            <h3 class="text-center text-dark">No hay candidatos</h3>
+        </div>
+    {% endif %}
+    {% include "recruiter/partials/job_posting_transition_buttons.html" %}
+
+
+
+
+
+

@@ -1,0 +1,14 @@
+{% load static i18n %}
+<div class="list-group list-group-horizontal list-group-flush">
+    {% for item in kpis %}
+        <div class="list-group-item-action flex-fill">
+            <h1 class="text-center">{{item.value }}</h1>
+            <h6 class="text-center">{{ item.name }}</h6>
+        </div> <!-- end card-body-->
+    {% endfor %}
+</div>
+{% comment %}
+<div class="row" hx-get="{% url 'recruiter:candidate_clusters'%}" hx-trigger="load">
+    <img src="{% static 'images/svg-loaders/puff.svg' %}" class="htmx-indicator" alt="loader">
+</div>
+{% endcomment %}

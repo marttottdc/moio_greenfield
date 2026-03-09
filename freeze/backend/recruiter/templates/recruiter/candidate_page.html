@@ -1,0 +1,60 @@
+{% load static i18n humanize %}
+
+<div class="col-xl-12 col-sm-12 ml-2 mt-2" id="candidate-{{ candidate.pk }}">
+    <div class="card rounded-3 border-primary border  h-100" >
+        <div class="card-body">
+            <div class="row">
+                <div class="col-8">
+                    <h5 class="text-dark">{{ candidate.contact.fullname.title }}</h5>
+                </div>
+                <div class="col-4 text-center">
+                 {% if candidate.recruiter_status in "DW" %}
+                    <div class="badge bg-warning text-light">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                {% elif candidate.recruiter_status == "G" %}
+                    <div class="badge bg-success text-light">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                {% else %}
+                    <div class="badge badge-outline-primary">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                {% endif %}
+                </div>
+            </div>
+
+            <div class="row pt-1">
+                <div class="col-8">
+                    <a class="text-dark" href="https://wa.me/{{ candidate.contact.phone }}?text={{ candidate.contact.fullname | urlencode}}" target="_blank"><i class="mdi mdi-whatsapp"></i> {{ candidate.contact.phone }}</a>
+                    <p class="text-dark">
+                        Cédula: {{ candidate.document_id }} <br>
+                        Fecha Nac.: {{ candidate.date_birth }}<br>
+                        SER: {{ candidate.psicotest_score }}<br>
+                        Tags: {{ candidate.tags }}<br>
+                        Origen: {{ candidate.source.title }} - {{ candidate.created | naturalday }}
+                    </p>
+                    <p class="text-dark"> {{ candidate.recruiter_summary }} </p>
+                </div>
+                <div class="col-4 text-dark text-center">
+                    {%  if candidate.profile_picture %}
+                        <img class="rounded-circle" src="{{ candidate.profile_picture.url }}" alt="{{ candidate.contact.fullname }}" width="50%" height="auto" >
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <div class="row my-1" id="candidate_evaluation_panel_placeholder-{{ candidate.pk }}">
+            </div>
+
+        <div class="row">
+            <div class="col-xl-4 col-sm-12 mx-1" hx-get="{% url 'recruiter:register_candidate_evaluation'  job_posting.jp_id candidate.pk %}" hx-target="this" hx-trigger="load">
+                <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="20" class="htmx-indicator">
+            </div>
+            <div id="interview_notes" class="col-xl-7 col-sm-12 mx-1" hx-get="{% url 'recruiter:register_one_to_one'  job_posting.jp_id candidate.pk %}" hx-target="this" hx-trigger="load">
+                <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="20" class="htmx-indicator">
+            </div>
+        </div>
+
+        </div>
+        <div class="card-footer small">
+            {% include "recruiter/partials/candidate_transition_buttons.html" %}
+        </div>
+    </div>
+</div>
+
+

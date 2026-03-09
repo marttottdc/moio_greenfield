@@ -1,0 +1,33 @@
+{% load static i18n %}
+
+{% for candidate in candidates %}
+    {% if forloop.last and candidates.has_next%}
+            <div  hx-get="{% url 'recruiter:candidates' %}?page_number={{ candidates.next_page_number }}"
+              hx-vals='{"action":"load_more"}'
+              hx-swap="beforeend"
+              hx-trigger="revealed"
+              hx-target="#candidates-list"
+              hx-include="#filter-form"
+              hx-disabled-elt="true"
+              hx-indicator="#page_loader-{{ candidates.next_page_number }}"
+              class="col-xl-4 col-lg-6 col-sm-12 justify-content-evenly" id="page-{{ candidates.number }}">
+    {% else %}
+
+        <div class="col-xl-4 col-lg-6 col-sm-12 justify-content-evenly" id="page-{{ candidates.number }}">
+
+    {% endif %}
+        {% include "recruiter/partials/candidate_card.html" %}
+    </div>
+{% endfor %}
+
+{% if candidates.has_next %}
+<div class="row htmx-indicator" id="page_loader-{{ candidates.next_page_number }}">
+    <div class="col-12 htmx-indicator">
+         <span class="text-center">Cargando Pagina - {{ candidates.next_page_number }} de {{ candidates.paginator.num_pages }}</span> <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" class="htmx-indicator">
+    </div>
+</div>
+{% endif %}
+
+
+
+

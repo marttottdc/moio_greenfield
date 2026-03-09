@@ -1,0 +1,107 @@
+{% load static i18n humanize %}
+
+
+<form>
+    <div class="card-title">
+    <h4>Corregir y agregar los datos necesarios</h4>
+
+    </div>
+    <div class="row pt-1">
+        <div class="col-8 px-2">
+        <div class="row pt-1">
+            <label for="candidate_name" class="small form-label col-2 align-content-end">Nombre:</label>
+            <div class="col-10">
+                <input type="text"  value="{{ candidate.fullname }}" class="form-control" name="candidate_name">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_phone" class="small form-label col-2 align-content-end">Telefono:</label>
+            <div class="col-4">
+                <input type="text"  value="{{ candidate.phone }}" class="form-control" name="candidate_phone">
+            </div>
+
+            <label for="candidate_whatsapp" class="small form-label col-2 align-content-end">Whatsapp:</label>
+            <div class="col-4">
+                <input type="text"  value="{{ candidate.whatsapp }}" class="form-control" name="candidate_whatsapp">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_email" class="small form-label col-2 align-content-end">Email:</label>
+            <div class="col-10">
+            <input type="text"  value="{{ candidate.email }}" class="form-control" name="candidate_email">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_birthdate" class="small form-label col-2 align-content-end">Fecha Nacimiento:</label>
+            <div class="col-4">
+            <input type="date"  value="{{ candidate.date_birth }}" class="form-control" name="candidate_birthdate">
+            </div>
+            <label for="candidate_cedula" class="small form-label col-2 align-content-end">Cédula:</label>
+             <div class="col-4">
+                <input type="text"  value="{{ candidate.document_id }}" class="form-control" name="candidate_cedula">
+             </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_address" class="small inline_label col-2 align-content-center">Dirección:</label>
+            <div class="col-10">
+            <input type="text"  value="{{ candidate.address }}" class="form-control" name="candidate_address">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_city" class="small inline_label col-2 align-content-center">Ciudad:</label>
+            <div class="col-2">
+            <input type="text"  value="{{ candidate.city }}" class="form-control" name="candidate_city">
+            </div>
+
+            <label for="candidate_state" class="small inline_label col-2 align-content-center">Departamento:</label>
+            <div class="col-2">
+            <input type="text"  value="{{ candidate.state }}" class="form-control" name="candidate_state">
+            </div>
+
+            <label for="candidate_postal_code" class="small inline_label col-1 align-content-center">CP:</label>
+            <div class="col-2">
+            <input type="text" id="candidate_postal_code" value="{{ candidate.postal_code }}" class="form-control" name="candidate_postal_code">
+            </div>
+        </div>
+        </div>
+        <div class="col-4 px-2 text-center">
+            {% if profile_img is None %}
+               <img src="{% static 'images/default-avatar.png' %}" class="img-fluid text-center rounded-circle" alt="Preview" width="50%">
+            {% else %}
+                <img src="{{ candidate.profile_picture.url}}" class="img-fluid text-center rounded-circle" alt="Preview" width="50%">
+            {% endif %}
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-12">
+    <div class="row pt-1">
+        <label for="candidate_summary" class="inline_label col-2 align-content-center">Resumen</label>
+        <div class="col-10">
+            <textarea name="candidate_summary" id="candidate_summary" class="form-control">{{ candidate.self_summary }}</textarea>
+        </div>
+    </div>
+    <div class="row pt-1">
+        <label for="candidate_work_experience" class="inline_label col-2 align-content-center">Experiencia Laboral</label>
+        <div class="col-10">
+            <textarea name="candidate_work_experience" id="candidate_work_experience" rows="4" class="form-control">{{ candidate.work_experience}}</textarea>
+        </div>
+    </div>
+    <div class="row pt-1">
+        <label for="candidate_education" class="inline_label col-2 align-content-center">Estudios</label>
+        <div class="col-10">
+            <textarea name="candidate_education" id="candidate_education" rows="4" class="form-control">{{ candidate.education}}</textarea>
+        </div>
+    </div>
+            </div>
+    </div>
+    <div class="btn-group-justified text-end pt-1">
+        <button class="btn btn-secondary rounded-3"
+                data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary rounded-3">Cargar</button>
+        <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="20" class="htmx-indicator">
+    </div>
+</form>
+
+
+

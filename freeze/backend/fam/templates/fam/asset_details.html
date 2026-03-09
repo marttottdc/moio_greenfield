@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% block extra_css %}
+
+
+<div class="container-fluid">
+
+    <form id="locationForm"
+          hx-post="{% url 'fam:asset_details' label.id %}"
+          hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+          hx-trigger="obtained_location"
+          hx-target="#location_feedback">
+        <input type="hidden" name="latitude" id="latitude">
+        <input type="hidden" name="longitude" id="longitude">
+        <input type="hidden" name="error_message" id="error_message">
+    </form>
+
+    </div>
+    <div class="col-lg-6">
+    <p class="card-text">Company Tag: {{label.company_tag}}</p>
+    <div id="location_feedback" class="card">
+
+    </div>
+    {% if not label.asset %}
+            <div class="card">
+               <div class="card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <h3>Asset Details</h3>
+                        {% if asset.status == 'Active' %}
+                            <span class="badge badge-success-lighten" style="font-size: 15px;">{{label.asset.status}}</span>
+                        {% else %}
+                            <span class="badge badge-warning-lighten" style="font-size: 25px;">{{label.asset.status}}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            <div class="row g-0 align-items-center">
+                <div class="col-md-4">
+                    <div class="card-body">
+                            <p class="card-text">Owner: {{label.asset.owner_company}}</p>
+                            <p class="card-text">Brand: {{label.asset.brand}}</p>
+                            <p class="card-text">Model: {{label.asset.model}}</p>
+                            <p class="card-text">Type: {{label.asset.type}}</p>
+
+                    </div> <!-- end card-body -->
+
+                </div> <!-- end col -->
+                <div class="col-md-8">
+                    <div class="card-body">
+                    <img src="{{ label.asset.asset_image.url }}" alt="asset image" class="card-img">
+                    </div>
+                </div> <!-- end col -->
+            <div class="row g-0 align-items-center">
+                <div class="col-md-6">
+                    <div class="card-body">
+                            <p class="card-text">Purchase date:{{label.asset.purchase_date}}</p>
+                            <p class="card-text">Created date:{{label.asset.created_date}}</p>
+                            <p class="card-text">Comment: {{label.asset.comment}}</p>
+
+
+                    </div> <!-- end card-body -->
+                </div> <!-- end col -->
+                <div class="col-md-6">
+                    <div class="card-body">
+                    <p class="card-text">Last seen:{{label.asset.last_seen}}</p>
+                    <p class="card-text">Serial Number: {{label.asset.serial_number}}</p>
+                    </div>
+                </div> <!-- end col -->
+            </div> <!-- end row-->
+        <div class="card-footer text-body-secondary">
+            <p class="card-text text-center"><small class="text-muted">Last updated: {{asset.last_update}}</small></p>
+        </div>
+            </div> <!-- end row-->
+            </div>
+    {% else %}
+        Activo no asociado. Asociar ?
+    {% endif %}
+</div> <!-- end card -->
+
+
+
+{% endblock %}
+
+
+{% block extra_javascript %}
+<script src="https://unpkg.com/htmx.org@1.5.0"></script>
+<script>
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(submitPosition, submitError);
+        } else {
+            document.getElementById('error_message').value = "Geolocation is not supported by this browser.";
+            document.getElementById('locationForm').dispatchEvent(new Event('obtained_location'));
+        }
+    }
+
+    function submitPosition(position) {
+        const latitude = position.coords.latitude.toFixed(6);
+        const longitude = position.coords.longitude.toFixed(6);
+
+        document.getElementById('latitude').value = latitude;
+        document.getElementById('longitude').value = longitude;
+
+        // Trigger form submission
+        document.getElementById('locationForm').dispatchEvent(new Event('obtained_location'));
+    }
+
+    function submitError(error) {
+        let errorMessage = '';
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                errorMessage = "User denied the request for Geolocation.";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMessage = "Location information is unavailable.";
+                break;
+            case error.TIMEOUT:
+                errorMessage = "The request to get user location timed out.";
+                break;
+            case error.UNKNOWN_ERROR:
+                errorMessage = "An unknown error occurred.";
+                break;
+        }
+        document.getElementById('error_message').value = errorMessage;
+        document.getElementById('locationForm').dispatchEvent(new Event('obtained_location'));
+    }
+
+    getLocation();
+</script>
+{% endblock %}
+
+
+
+
+
+
+

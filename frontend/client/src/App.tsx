@@ -9,6 +9,7 @@ import { GlobalFooter } from "@/components/global-footer";
 import { CacheBuster } from "@/components/cache-buster";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import IndexEntryPage from "@/pages/index-entry";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import CRM from "@/pages/crm";
@@ -30,7 +31,11 @@ import MCPConnectionsManager from "@/pages/mcp-connections-manager";
 import JsonSchemasManager from "@/pages/json-schemas-manager";
 import AgentConsole from "@/pages/agent-console";
 import Settings from "@/pages/settings";
-import AdminConsole from "@/pages/admin";
+import PlatformAdmin from "@/pages/admin";
+import PlatformAdminLegacyPage from "@/pages/platform-admin-legacy";
+import TenantAdminLegacyPage from "@/pages/tenant-admin-legacy";
+import DesktopAgentConsoleAccessHubPage from "@/pages/desktop-agent-console-access-hub";
+import DesktopAgentConsoleConsolePage from "@/pages/desktop-agent-console-console";
 import ApiTester from "@/pages/api-tester";
 import Activities from "@/pages/activities";
 import NotFound from "@/pages/not-found";
@@ -81,6 +86,31 @@ function AppRoutes() {
     <Switch>
       <Route path="/login">
         {isAuthenticated ? <Redirect to="/dashboard" /> : <Login />}
+      </Route>
+
+      <Route path="/desktop-agent-console/platform-admin">
+        <PlatformAdminLegacyPage />
+      </Route>
+      <Route path="/desktop-agent-console/platform-admin/">
+        <PlatformAdminLegacyPage />
+      </Route>
+      <Route path="/desktop-agent-console/tenant-admin">
+        <TenantAdminLegacyPage />
+      </Route>
+      <Route path="/desktop-agent-console/tenant-admin/">
+        <TenantAdminLegacyPage />
+      </Route>
+      <Route path="/desktop-agent-console/console">
+        <DesktopAgentConsoleConsolePage />
+      </Route>
+      <Route path="/desktop-agent-console/console/">
+        <DesktopAgentConsoleConsolePage />
+      </Route>
+      <Route path="/desktop-agent-console/">
+        <DesktopAgentConsoleAccessHubPage />
+      </Route>
+      <Route path="/desktop-agent-console">
+        <DesktopAgentConsoleAccessHubPage />
       </Route>
 
       <Route path="/docs/search">
@@ -171,8 +201,17 @@ function AppRoutes() {
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
       </Route>
+      <Route path="/platform-admin">
+        <ProtectedRoute component={PlatformAdmin} />
+      </Route>
+      <Route path="/platform-admin/legacy">
+        <ProtectedRoute component={PlatformAdminLegacyPage} />
+      </Route>
+      <Route path="/tenant-admin/legacy">
+        <ProtectedRoute component={TenantAdminLegacyPage} />
+      </Route>
       <Route path="/admin">
-        <ProtectedRoute component={AdminConsole} />
+        <Redirect to="/platform-admin" />
       </Route>
       <Route path="/api-tester">
         <ProtectedRoute component={ApiTester} />
@@ -218,7 +257,7 @@ function AppRoutes() {
       </Route>
       
       <Route path="/">
-        <ProtectedRoute component={Dashboard} />
+        <IndexEntryPage />
       </Route>
       
       <Route component={NotFound} />
@@ -230,8 +269,14 @@ function AppLayout() {
   const { isAuthenticated } = useAuth();
   const [location] = useLocation();
   const isDocsPage = /^\/docs(\/|$)/.test(location);
+  const isEntrySurface =
+    location === "/" || /^\/desktop-agent-console(\/|$)/.test(location);
 
   if (!isAuthenticated) {
+    return <AppRoutes />;
+  }
+
+  if (isEntrySurface) {
     return <AppRoutes />;
   }
 
@@ -241,6 +286,13 @@ function AppLayout() {
         <AppRoutes />
       </div>
     );
+  }
+
+  const isLegacyAdminPreview =
+    location === "/platform-admin/legacy" || location === "/tenant-admin/legacy";
+
+  if (isLegacyAdminPreview) {
+    return <AppRoutes />;
   }
 
   // Some workspaces need full-bleed layout (no main padding, no page scroll).

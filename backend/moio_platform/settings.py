@@ -103,13 +103,8 @@ TENANT_APPS = [
     "campaigns",
     "chatbot.apps.ChatbotConfig",
     "crm",
-    "fam",
-    "fluidcms.apps.FluidcmsConfig",
-    "fluidcommerce.apps.FluidcommerceConfig",
     "flows",
-    "robots",
     "moio_calendar",
-    "recruiter",
     "websockets_app",
     "datalab.apps.DatalabConfig",
 ]
@@ -145,9 +140,6 @@ INSTALLED_APPS = (
     if DJANGO_TENANTS_ENABLED
     else API_ONLY_APPS
 )
-
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
-CRISPY_TEMPLATE_PACK = "bootstrap4"
 
 MIDDLEWARE = [
     *(
@@ -399,9 +391,6 @@ CELERY_QUEUES = {
 CELERY_TASK_ROUTES = {
     'flows.tasks.*': {
         'queue': FLOWS_Q
-    },
-    'robots.tasks.*': {
-        'queue': FLOWS_Q
     }
 }
 
@@ -481,14 +470,6 @@ CACHEOPS = {
         'ops': 'all',
         'timeout': 3000
     },
-    'recruiter.*': {
-        'ops': 'all',
-        'timeout': 600
-    },
-    'fam.*': {
-        'ops': 'all',
-        'timeout': 600
-    },
 
     # 'your_app.*': {'ops': {'fetch', 'count', 'aggregate'}, 'timeout': 300},
 }
@@ -550,9 +531,6 @@ DJANGO_MCP_GLOBAL_SERVER_CONFIG = {
 # allow up to 20 MB of raw request data
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 
-# ===============
-# django_on_heroku.settings(locals())
-
 SPECTACULAR_SETTINGS = {
     # ─────────────────────────────────────────────────────────────────────────
     # Branding & Metadata
@@ -568,9 +546,6 @@ Moio Platform provides a comprehensive API for:
 - **Flows** - Visual workflow automation engine
 - **Chatbot** - AI conversational agents (WhatsApp, Email, Instagram)
 - **DataLab** - Data import, transformation, and analytics
-- **Recruiter** - Applicant tracking and candidate matching
-- **FluidCMS** - Content management for marketing pages
-- **FluidCommerce** - E-commerce product catalog
 
 ### Authentication
 
@@ -621,13 +596,10 @@ All errors return a consistent JSON structure:
         {"name": "Flow Schedules", "description": "Scheduled flow triggers"},
         {"name": "Scripts", "description": "Python script nodes for flows"},
         {"name": "Chatbot", "description": "AI agents and session management"},
-        {"name": "Robots", "description": "Autonomous robot orchestration and run APIs"},
         {"name": "DataLab - Files", "description": "File upload and management"},
         {"name": "DataLab - Imports", "description": "Data import and transformation"},
         {"name": "DataLab - ResultSets", "description": "Processed data results"},
         {"name": "DataLab - Datasets", "description": "Versioned dataset management"},
-        {"name": "FluidCMS", "description": "CMS pages and content blocks"},
-        {"name": "FluidCommerce", "description": "E-commerce products and orders"},
         {"name": "Integrations", "description": "External service integrations"},
         {"name": "Calendar", "description": "Event and booking management"},
         {"name": "Resources", "description": "WhatsApp templates and resources"},

@@ -90,6 +90,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getApiKeyStatus, createApiKey, revokeApiKey } from "@/lib/auth/apiKeyApi";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { isPlatformAdminRole, isTenantAdminRole } from "@/lib/rbac";
 
 interface OrganizationSummary {
   id?: string;
@@ -296,12 +297,15 @@ export function AppSidebar() {
 
     const userRole = user?.role;
 
-    if (userRole === 'admin' || userRole === 'tenant_admin') {
+    if (isTenantAdminRole(userRole)) {
       items.push({ title: "Settings", url: "/settings", icon: Settings });
     }
 
-    if (userRole === 'admin') {
-      items.push({ title: "Admin Console", url: "/admin", icon: Shield });
+    if (isTenantAdminRole(userRole)) {
+      items.push({ title: "Platform Admin", url: "/platform-admin", icon: Shield });
+    }
+
+    if (isPlatformAdminRole(userRole)) {
       items.push({ title: "API Tester", url: "/api-tester", icon: Sliders });
     }
 

@@ -1,0 +1,63 @@
+{% load static i18n %}
+
+<div class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title">Configuración de Etiquetas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div class="d-flex">
+            <div class="card">
+                <div class="card-body">
+                    <form
+                            enctype="multipart/form-data"
+                            class="needs-validation" novalidate
+                            hx-trigger="change"
+                            hx-post="{% url 'fam:fam_label_template_preview' %}"
+                            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                            hx-target="#label_template_preview"
+                            hx-vals={"sample_label_id":"{{ sample_label_id }}"}
+                            hx-indicator="#template_loader">
+
+                    <label for="custom_message" class="form-label">Leyenda</label>
+                    <input type="text" class="form-control" id="custom_message" name="custom_message">
+                        <input type="hidden" name="labels_to_print" value="{{ labels_to_print }}">
+
+                    <label for="image" class="form-label">Logo</label>
+                    <input type="file" name="image" id="company_image" src="" class="form-control" alt="Submit" width="100" height="50">
+
+                    <label for="show_mac_addr">Mostrar Mac Address</label>
+                    <input type="checkbox" name="show_mac_addr">
+                    <label for="show_mac_addr">Mostrar Fecha Creacion</label>
+                    <input type="checkbox" name="created_date">
+
+                    <label for="template_id" class="form-label">Selecciona el Formato de Etiqueta</label>
+                    <select name = "template_id"
+                            class="form-select">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="1">Opcion 1</option>
+                        <option value="2">Opcion 2</option>
+                        <option value="3">Opcion 3</option>
+                        <option value="4">Opcion 4</option>
+                        <option value="5">Opcion 5</option>
+                    </select>
+
+                    </form>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">Vista Previa de Etiqueta</div> <img src="{% static 'images/svg-loaders/puff.svg' %}" class="htmx-indicator" id="template_loader" width="20"> </div>
+                <div class="card-body"  id="label_template_preview"></div>
+            </div>
+
+    </div>
+        <div class="modal-footer">
+            <div class="btn-group-justified text-end">
+
+                <button type="button" data-bs-dismiss="modal" class="btn btn-secondary rounded-3">Cancelar</button>
+                <button type="button" class="btn btn-warning">Vista Previa</button>
+                <button type="button" class="btn btn-primary">Guardar</button>
+            </div>
+        </div>
+</div>
+</div>

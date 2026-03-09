@@ -11,7 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from moio_platform.authentication import BearerTokenAuthentication
 from portal.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
 from portal.capabilities import get_effective_capabilities
-from portal.rbac import RequireHumanUser
+from portal.rbac import RequireHumanUser, user_has_role
 
 from .serializers import MoioUserReadSerializer, MoioUserWriteSerializer
 
@@ -28,7 +28,7 @@ class HasCapability(BasePermission):
         user = getattr(request, "user", None)
         if not user or not getattr(user, "is_authenticated", False):
             return False
-        if getattr(user, "is_superuser", False):
+        if getattr(user, "is_superuser", False) or user_has_role(user, "platform_admin"):
             return True
         tenant = getattr(user, "tenant", None)
         eff = get_effective_capabilities(user, tenant)
@@ -60,8 +60,8 @@ class UserViewSet(viewsets.ModelViewSet):
         if not user or not getattr(user, "is_authenticated", False):
             return UserModel.objects.none()
 
-        if getattr(user, "is_superuser", False):
-            # Superusers can optionally scope to a tenant via query param.
+        if getattr(user, "is_superuser", False) or user_has_role(user, "platform_admin"):
+            # Platform admins can optionally scope to a tenant via query param.
             tenant_id = self.request.query_params.get("tenant_id")
             if tenant_id:
                 return UserModel.objects.filter(tenant_id=tenant_id).order_by("id")
@@ -105,4 +105,3 @@ class UserViewSet(viewsets.ModelViewSet):
         if instance.pk == getattr(request.user, "pk", None):
             raise PermissionDenied("You cannot delete your own user")
         return super().destroy(request, *args, **kwargs)
-

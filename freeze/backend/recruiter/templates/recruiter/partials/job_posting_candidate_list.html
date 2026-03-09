@@ -1,0 +1,78 @@
+{% load static i18n %}
+
+<!-- Start Content-->
+
+    <div id="candidate_list_panel" class="row mx-1">
+            {% if job_posting.status in "NSIGFC" %}
+                <table id="candidate-table" class="table table-hover" style="width:100%">
+                    <thead class="table-primary">
+                        <tr>
+                            <th class="w-auto">Candidato</th>
+                            <th class="w-auto">Datos</th>
+                            <th class="w-auto">Status</th>
+                            <th style="width: 65%">Resumen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for candidate in candidates %}
+                        {% include 'recruiter/partials/candidate_card_row.html' %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+
+            {% else %}
+                {% for candidate in candidates %}
+                    {% include "recruiter/partials/candidate_card_thin.html" %}
+                {% endfor %}
+            {% endif %}
+    </div>
+
+
+<script>
+    if (!$.fn.dataTable.isDataTable('#candidate-table')) {
+    let table = new DataTable('#candidate-table',{
+        paging: false,
+        responsive: true,
+        language: {
+            search: "Buscar:"
+        },
+        layout: {
+        topEnd: 'buttons',
+        topStart: 'search'
+    },
+        buttons:[
+            {extend: 'excel',text:'Exportar a Excel',  className: 'btn btn-sm btn-primary rounded-3'}
+        ]
+
+    });}
+
+</script>
+
+<script>
+   document.body.addEventListener('htmx:afterSettle', function(evt) {
+
+    if (evt.target.matches('tr')) {
+        // Only respond to clicks on elements with class 'filter-class'
+        console.log('Clicked on an element with filter-class');
+        console.log(evt.target)
+
+        // Extract the target ID from hx-target attribute
+        let targetId = evt.detail.target.id;
+        var table = $('#candidate-table').DataTable();
+
+        var swappedTdArray = getTdArrayFromTr(evt.target.id);
+        var trSelector = '#'+evt.target.id;
+        table.row(trSelector).data(swappedTdArray);
+        table.draw();  //i.e. stay on page
+    }
+   });
+
+   function getTdArrayFromTr(trId) {
+    var trDom = document.getElementById(trId);
+    var tdNodeList = trDom.querySelectorAll('td');
+    var tdArray = Array.from(tdNodeList).map(function(td) {
+      return td.innerHTML.trim();
+    });
+    return tdArray;
+  }
+</script>

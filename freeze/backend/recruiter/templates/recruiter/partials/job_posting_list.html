@@ -1,0 +1,9 @@
+{% load static i18n %}
+
+{% for job_posting in postings %}
+    <div id="dashboard-posting-{{ job_posting.jp_id }}" class="mb-2 col-md-6 col-xxl-4 col-sm-12">
+
+        {% include 'recruiter/partials/job_posting_card.html' %}
+
+    </div> <!-- end col -->
+{% endfor %}

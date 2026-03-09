@@ -1,0 +1,33 @@
+{% load static i18n %}
+<div class="modal-content">
+    <div class="modal-header">
+        Descartar Candidato
+    </div>
+    <div class="modal-body">
+        <div class="btn-outline-primary text-center">
+
+             <button class="btn rounded-3 btn-danger"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                hx-vals='{"action":"hard_discard"}'
+                x-tooltip="Descartar definitivamente"
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-swap="delete">
+            <i class="mdi mdi-close big"></i><img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" class="htmx-indicator">
+            </button>
+
+            <button class="btn rounded-3 btn-outline-danger"
+                hx-post='{% url "recruiter:candidate_status" job_posting.jp_id candidate.pk %}'
+                hx-trigger="click"
+                hx-vals='{"action":"discard"}'
+                x-tooltip="Descartar por ahora"
+                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                hx-target = "#candidate-{{ candidate.pk }}"
+                hx-swap="delete">
+                 <i class="mdi mdi-recycle big"></i><img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" class="htmx-indicator">
+            </button>
+
+        </div>
+    </div>
+</div>

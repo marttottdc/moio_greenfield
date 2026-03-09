@@ -1,0 +1,24 @@
+{% load static i18n humanize %}
+
+
+<div class="row text-start">
+    <p class="mb-0">
+        <span class="pe-2 mb-1 d-inline-block text-nowrap">
+            <i class="mdi mdi-format-list-bulleted-type"></i>
+            <b>{{vacantes}}</b> Vacantes
+        </span>
+        <span class="text-nowrap mb-2 d-inline-block">
+            <i class="mdi mdi-comment-multiple-outline"></i>
+            <b>{{ total_candidates }}</b> Candidatos
+        </span>
+    </p>
+</div>
+
+
+<ul class="nav">
+{% for item in stats %}
+    <li class="nav-item">
+        <div class="badge bg-primary me-1 text-white"> {{ item.status.label.title}}:{{ item.value }} </div>
+    </li>
+{% endfor %}
+</ul>

@@ -1,0 +1,70 @@
+{% load static i18n %}
+<div class="tab-pane fade show active" id="assets" role="tabpanel">
+        <!-- Filters -->
+        <div class="card mb-2">
+          <div class="card-body bg-secondary-lighten">
+            <form hx-get="{% url 'fam:list_assets' %}"
+                  hx-target="#assets-list"
+                  hx-trigger="input changed delay:300ms, submit">
+              <div class="d-flex justify-content-between g-2">
+                <div class="col-md-4">
+                  <input type="text" name="search" class="form-control"
+                         placeholder="{% trans 'Search assets...' %}"
+                         value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                  <select name="status" class="form-select">
+                    <option value="">{% trans 'All Statuses' %}</option>
+                    {% for status in statuses %}
+                      <option value="{{ status }}" {% if request.GET.status == status %}selected{% endif %}>
+                        {{ status|capfirst }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <select name="channel" class="form-select">
+                    <option value="">{% trans 'All Channels' %}</option>
+                    {% for channel in channels %}
+                      <option value="{{ channel }}" {% if request.GET.channel == channel %}selected{% endif %}>
+                        {{ channel|capfirst }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-1">
+                  <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-search"></i>
+                  </button>
+                </div>
+                <div class="align-self-end">
+                <!-- Open New Campaign Modal #dialog -->
+                  <button class="btn btn-primary"
+                          hx-get="{% url 'fam:create_asset' %}"
+                          hx-target="#dialog"
+                          hx-swap="innerHTML"
+                          hx-indicator="[data-modal-loader]">
+                      <i class="bi bi-pc-display-horizontal"></i> {% trans 'Create' %}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Assets List -->
+        <div id="assets-list" hx-get="{% url 'fam:list_assets' %}" hx-trigger="revealed, click from:#assets-tab">
+            <!-- Campaigns List Loader -->
+            <div class="col-12 htmx-indicator">
+                <div class="text-center py-5">
+                    <div class="pulsating-icon">
+                        <i class="bi bi-pc-display-horizontal text-muted"></i>
+                    </div>
+                    <h5 class="mt-3">{% trans 'Loading Assets' %}</h5>
+                    <p class="text-muted">{% trans 'Wait while we load your assets' %}</p>
+                </div>
+            </div>
+        </div>
+
+</div>
+

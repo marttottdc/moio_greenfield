@@ -1,0 +1,61 @@
+{% load static i18n humanize%}
+
+<div class="card h-100 border border shadow-sm rounded-3">
+        {% comment %}
+        {% if job_posting.image %}
+            <img class="card-img h-25" src="{{job_posting.image.url}}" alt="project image cap">
+        {% endif %}
+        {% endcomment %}
+
+    <div class="card-header">
+         <div class="row">
+             <div class="col-8">
+                <h4 class="card-title">{{job_posting.name}}</h4>
+             </div>
+             <div class="col-4">
+                <div class="card-widgets">
+                    {% if job_posting.status == "N" %}
+                    <div class="badge small bg-info text-light">{{ job_posting.get_status_display }}</div>
+                    {% elif job_posting.status == "S" %}
+                    <div class="badge small badge-outline-success text-success">{{ job_posting.get_status_display }}</div>
+                    {% elif job_posting.status == "I" %}
+                    <div class="badge small badge-outline-warning text-warning">{{ job_posting.get_status_display }}</div>
+                    {% else %}
+                    <div class="badge small badge-outline-primary text-primary">{{ job_posting.get_status_display }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+
+
+    </div>
+    <div class="card-body">
+        <div class="row pb-1">
+            <p class="text-black-50">{{job_posting.description |slice:":200"}}... </p>
+        </div>
+        {% comment %}
+        <div hx-get="{% url 'recruiter:job_posting_statistics' job_posting.jp_id %}" hx-trigger="load"></div>
+        {% endcomment %}
+
+    </div> <!-- end card-body-->
+    <div class="card-footer">
+        <div class="hstack gap-2">
+            <div class="card-text small">{{ job_posting.updated|naturaltime }} </div>
+            <div class="card-text small">{{ job_posting.user|default:"" }} </div>
+             <div class="btn-group ms-auto" role="group">
+                <button hx-get="{% url 'recruiter:job_posting_details' job_posting.jp_id %}"
+                        hx-trigger="click"
+                        x-tooltip="Entrar"
+                        hx-target="#moio-full-content"
+                        hx-swap="innerHTML" style="cursor: pointer;"
+                        hx-disabled-elt="this"
+                        class="btn btn-primary btn-sm rounded-3"> <i class="mdi mdi-open-in-app htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="15" alt="loader" class="htmx-indicator">
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div> <!-- end card-->

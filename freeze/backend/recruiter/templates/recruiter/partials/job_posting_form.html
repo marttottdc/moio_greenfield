@@ -1,0 +1,66 @@
+{% load static i18n humanize%}
+
+<form id="jp_frm_add"
+      hx-post="{% url 'recruiter:job_posting_add' %}"
+      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+      hx-target="#moio-full-content"
+      hx-indicator="#form-loader" enctype="multipart/form-data">
+    <div class="row g-1">
+        <div class="col-12 g-1">
+            <h6>Nombre:</h6>{{ create_posting_form.name }}
+        </div>
+    </div>
+    <div class="row g-1">
+        <div class="col-6">
+            <h6>Descripcion:</h6>{{ create_posting_form.description }}
+        </div>
+        <div class="col-6">
+            <h6>Sucursal:</h6>{{ create_posting_form.branch}}
+        </div>
+    </div>
+    <div class="row g-1">
+        <div class="col-3">
+            <h6>Fecha Entrevista Grupal:</h6> {{ create_posting_form.group_interview_date}}
+        </div>
+        <div class="col-3">
+            <h6>Fecha Cierre:</h6>{{ create_posting_form.closure_date }}
+        </div>
+        <div class="col-3">
+            <h6>Vacantes:</h6>{{ create_posting_form.vacantes }}
+        </div>
+        <div class="col-3">
+            <h6>Salario:</h6>{{ create_posting_form.salary }}
+        </div>
+        <div class="col-3">
+            <h6>Antigüedad Máxima de CV (días):</h6>{{ create_posting_form.max_age_cv }}
+        </div>
+    </div>
+
+    <div class="row g-1">
+        <div class="col-6">
+            <h6>URL Prueba Ser:</h6> {{ create_posting_form.psigma_link }}
+        </div>
+        <div class="col-6">
+            <h6>Publicar en Portal:</h6> {{ create_posting_form.publish }}
+        </div>
+    </div>
+    <div class="row g-1">
+        <div class="col-6">
+            <h6>Solo incluir candidatos con estos tags:</h6> {{ create_posting_form.include_tags }}
+        </div>
+        <div class="col-6">
+            <h6>Excluir candidatos con estos tags:</h6> {{ create_posting_form.exclude_tags }}
+        </div>
+    </div>
+    {{ create_posting_form.tenant }}
+    {{ create_posting_form.user }}
+
+    <div class="btn-group-justified pt-1 text-end">
+        <button id="jp_frm_cancel" type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">Cancelar</button>
+        <button id="jp_frm_submit" type="submit" class="btn btn-primary rounded-3">Enviar
+            <img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="20" id="form-loader" class="htmx-indicator">
+        </button>
+
+    </div>
+</form>
+

@@ -1,0 +1,76 @@
+{% load static i18n %}
+<div class="tab-pane fade" id="qr-tags" role="tabpanel">
+
+    <div class="card mb-2">
+          <div class="card-body bg-secondary-lighten">
+            <form hx-get="{% url 'fam:list_assets' %}"
+                  hx-target="#assets-list"
+                  hx-trigger="input changed delay:300ms, submit">
+              <div class="d-flex justify-content-between g-2">
+                <div class="col-md-4">
+                  <input type="text" name="search" class="form-control"
+                         placeholder="{% trans 'Search assets...' %}"
+                         value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                  <select name="status" class="form-select">
+                    <option value="">{% trans 'All Statuses' %}</option>
+                    {% for status in statuses %}
+                      <option value="{{ status }}" {% if request.GET.status == status %}selected{% endif %}>
+                        {{ status|capfirst }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <select name="channel" class="form-select">
+                    <option value="">{% trans 'All Channels' %}</option>
+                    {% for channel in channels %}
+                      <option value="{{ channel }}" {% if request.GET.channel == channel %}selected{% endif %}>
+                        {{ channel|capfirst }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-1">
+                  <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-search"></i>
+                  </button>
+                </div>
+                <div class="d-flex align-self-end">
+                <!-- Open New Campaign Modal #dialog -->
+
+                  <button class="btn btn-primary"
+                          hx-get="{% url 'fam:batch_create_labels' %}"
+                          hx-target="#dialog"
+                          hx-swap="innerHTML"
+                          hx-indicator="[data-modal-loader]">
+                      <i class="bi bi-qr-code"></i> {% trans 'Create' %}
+                  </button>
+                    <button type="submit"
+                            hx-post="{% url 'fam:print_labels' %}"
+                            hx-include ="#fam_labels_table_form"
+                            hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                            id="btn_print_labels"
+                            hx-target="#dialog"
+                            class="btn btn-primary rounded-3"> <i class="mdi mdi-printer-pos htmx-hide"></i>
+                        <img src="{% static 'images/svg-loaders/puff_light.svg' %}" width="20" alt="loader" id="loader" class="htmx-indicator">
+                    </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+    <div class="row js-fill-remaining scroll-y" id="fam-qr-tags-list" hx-get="{% url 'fam:tag_admin' %}" hx-trigger="load, revealed">
+        <div class="empty-state text-center htmx-indicator">
+            <div class="pulsating-icon">
+                <i class="bi bi-qr-code display-1 text-muted"></i>
+            </div>
+          <h5>{% trans 'Loading QR Code Tags' %}</h5>
+          <p class="text-muted">{% trans 'QR Tags management.' %}</p>
+        </div>
+    </div>
+
+
+</div>

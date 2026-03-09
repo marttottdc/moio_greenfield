@@ -1,0 +1,71 @@
+{% load i18n %}
+<div class="modal-header">
+  <h5 class="modal-title">{% trans "Choose a Layout" %}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+</div>
+
+<div class="modal-body">
+  <div class="row">
+    <div class="col-5">
+      <div class="list-group" id="layout-list">
+        {% for key, elems in layouts %}
+          <label class="list-group-item d-flex align-items-center">
+            <input class="form-check-input me-2" type="radio" name="layout_key" value="{{ key }}" {% if key == current %}checked{% endif %} onchange="updateLayoutPreview()">
+            <code class="small">{{ key }}</code>
+          </label>
+        {% endfor %}
+      </div>
+      <div class="mt-3">
+        <label class="form-label">Sample code</label>
+        <input class="form-control form-control-sm" id="lp_code" value="{{ sample_code }}" oninput="updateLayoutPreview()">
+        <label class="form-label mt-2">Main text</label>
+        <input class="form-control form-control-sm" id="lp_main" value="{{ main_text }}" oninput="updateLayoutPreview()">
+        <label class="form-label mt-2">Code text ({{ "{{ code " }}}})</label>
+        <input class="form-control form-control-sm" id="lp_code_text" value="{{ code_text|default:'{{ code }}' }}" oninput="updateLayoutPreview()">
+        <div class="row mt-2 g-2">
+          <div class="col-4"><label class="form-label">W (mm)</label><input class="form-control form-control-sm" id="lp_w" value="{{ width_mm }}" oninput="updateLayoutPreview()"></div>
+          <div class="col-4"><label class="form-label">H (mm)</label><input class="form-control form-control-sm" id="lp_h" value="{{ height_mm }}" oninput="updateLayoutPreview()"></div>
+          <div class="col-4"><label class="form-label">DPI</label><input class="form-control form-control-sm" id="lp_dpi" value="{{ dpi }}" oninput="updateLayoutPreview()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-7">
+      <div class="text-center">
+        <img id="lp_preview" class="img-fluid border shadow-sm" alt="preview">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-footer">
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Close' %}</button>
+  <button type="button" class="btn btn-primary" onclick="applySelectedLayout('{{ target_input_id }}')">{% trans 'Use this layout' %}</button>
+</div>
+
+<script>
+function getSelectedLayoutKey(){
+  const r = document.querySelector('input[name="layout_key"]:checked'); return r ? r.value : '';
+}
+function updateLayoutPreview(){
+  const key = getSelectedLayoutKey();
+  const w = document.getElementById('lp_w').value || 60;
+  const h = document.getElementById('lp_h').value || 60;
+  const dpi = document.getElementById('lp_dpi').value || 300;
+  const code = document.getElementById('lp_code').value || 'SAMPLE-001';
+  const main = encodeURIComponent(document.getElementById('lp_main').value || 'Control de Activos');
+  const codeTxt = encodeURIComponent(document.getElementById('lp_code_text').value || '{{ code }}'.replace('{{ code }}', code));
+  const url = "{% url 'fam:layout_preview_png' %}"
+            + `?layout=${encodeURIComponent(key)}&width_mm=${w}&height_mm=${h}&dpi=${dpi}&code=${encodeURIComponent(code)}&main_text=${main}&code_text=${codeTxt}`;
+  document.getElementById('lp_preview').src = url;
+}
+function applySelectedLayout(targetId){
+  const key = getSelectedLayoutKey();
+  if(!key) return;
+  const el = window.document.getElementById(targetId);
+  if (el) { el.value = key; el.dispatchEvent(new Event('change', {bubbles:true})); }
+  // close modal
+  const btn = document.querySelector('[data-bs-dismiss="modal"]'); if(btn) btn.click();
+}
+document.addEventListener('DOMContentLoaded', updateLayoutPreview);
+</script>

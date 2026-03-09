@@ -1,0 +1,28 @@
+{% load static i18n %}
+<div class="row mt-1">
+    <div class="col-6">
+        <div class="card border">
+            <div class="card-body">
+                {% if pdf_count %}
+                <h1 class="card-title text-center"> {{ pdf_count}} </h1>
+                {% else %}
+                <h1 class="text-center"><img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="30" ></h1>
+                {% endif %}
+                <h6 class="card-subtitle text-center">PDFs Pendientes</h6>
+            </div> <!-- end card-body-->
+        </div>
+    </div>
+    <div class="col-6">
+        <div class="card border">
+            <div class="card-body">
+                {% if pdf_count %}
+                <h1 class="card-title text-center"> {{ zip_count }} </h1>
+                {% else %}
+                <h1 class="text-center"><img src="{% static 'images/svg-loaders/puff.svg' %}" alt="loader" width="30" ></h1>
+                {% endif %}
+                <h6 class="card-subtitle text-center">ZIPs Pendientes</h6>
+            </div> <!-- end card-body-->
+        </div>
+    </div>
+</div>
+

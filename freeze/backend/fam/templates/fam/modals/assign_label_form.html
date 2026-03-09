@@ -1,0 +1,36 @@
+{% load static i18n %}
+<div class="modal-header">
+    <h5 class="modal-title">{% trans "Tags Assignation" %}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+  </div>
+<div class="card">
+<div class="row">
+    <div class="col-4">
+        <img src="{{ label.qr_code.url }}" alt="{{ label.id }}" class="img-fluid">
+    </div>
+    <div class="col-8">
+    <div class="card-body">
+        <form>
+            <div class="mb-2">
+                <label for="label-id" class="form-label">{% trans "QR Tag id" %}</label>
+                <input type="text" id="label-id" readonly name="label-id" class="form-control" value="{{ label.id }}">
+            </div>
+            <div class="mb-2">
+                <label for="asset-to-assign" class="form-label">{% trans 'Select the asset' %}</label>
+                <select class="form-select" id="asset-to-assign" name="asset-to-assign">
+                    {% for asset in vacant_assets %}
+                        <option value="asset.serial_number">{{ asset.name }} - {{ asset.serial_number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>
+</div>
+<div class="modal-footer">
+    <div class="btn-group-justified text-end">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans 'Cancel' %}</button>
+        <button type="button" class="btn btn-primary">{% trans 'Confirm' %}</button>
+    </div>
+</div>

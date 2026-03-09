@@ -1,0 +1,56 @@
+{% load static i18n humanize%}
+
+    <div id="candidate-{{ candidate.pk }}" class="card rounded-3 border h-100" >
+        <div class="card-body">
+            <div class="row">
+                <div class="col-8">
+                <h4 class="card-title">{{ candidate.contact.fullname.title }}</h4>
+                </div>
+                 <div class="col-4">
+                     {% if candidate.recruiter_status in "DW" %}
+                        <div class="card-widgets badge bg-warning text-light small">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                    {% elif candidate.recruiter_status == "G" %}
+                        <div class="card-widgets badge bg-success text-light small">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                    {% else %}
+                        <div class="card-widgets badge badge-outline-primary small">{{ candidate.get_recruiter_status_display.title }}</div><br>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    <a class="link-primary small" href="https://wa.me/{{ candidate.contact.phone }}?text={{ candidate.contact.fullname | urlencode}}" target="_blank"> {{ candidate.contact.phone }}</a>
+                    <p class="text-dark small">
+                        Cédula: {{ candidate.document_id }} <br>
+                        Fecha Nac.: {{ candidate.date_birth }}<br>
+                        SER Score: {{ candidate.psicotest_score }}<br>
+                        Tags:   {% for tag in candidate.tags.all  %}
+                                <span class="badge badge-outline-info">{{ tag }}</span>
+                                {% endfor %}
+                        <br>
+                    </p>
+                </div>
+                <div class="col-4 text-center">
+                    <div class="row">
+                    {%  if candidate.profile_picture %}
+                        <img class="rounded-circle" src="{{ candidate.profile_picture.url }}" alt="{{ candidate.contact.fullname }}" width="80%" height="auto" >
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="row gy-1">
+                <a href="{{ candidate.cv_file_doc.file.url }}" class="link-primary small" target="_blank"><i class="mdi mdi-file-document"></i> {{ candidate.cv_file_doc|default:"CV no disponible"}} </a>
+
+                <hr>
+            </div>
+            <div class="row gy-1" id="candidate_evaluation_panel_placeholder-{{ candidate.pk }}">
+                <div class="col-12">
+                    <p class="text-dark"> {{ candidate.recruiter_summary }} </p>
+                </div>
+            </div>
+
+        </div>
+        <div class="card-footer small">
+             {{ candidate.source }} - {{ candidate.created | naturalday }}
+        </div>
+
+    </div>

@@ -1,0 +1,8 @@
+{% load static i18n humanize %}
+{% if latitude %}
+<p>Scan Recibido desde {{ latitude }}, {{ longitude }}</p>
+
+{% else %}
+
+<p>{{ error_message }}</p>
+{% endif %}

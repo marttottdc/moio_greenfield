@@ -24,7 +24,7 @@ export const AppRoute = {
   Workflows:        "/workflows",
   Tickets:          "/tickets",
   Settings:         "/settings",
-  Admin:            "/admin",
+  Admin:            "/platform-admin",
   DataLab:          "/datalab",
   FlowNew:          "/flows/new",
   ScriptNew:        "/scripts/new",

@@ -1,0 +1,142 @@
+{% load static i18n humanize %}
+<div id="candidate_add_form">
+{% if step == 1 %}
+    <div class="card-title">
+       <h5>Ingresar Cédula del Candidato</h5>
+        <p>Si el candidato ya existe se pueden actualizar sus datos</p>
+    </div>
+    <form hx-post="{% url 'recruiter:candidate_add' %}"
+          hx-vals='{"step":"1"}'
+          hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+          hx-target="#candidate_add_form">
+          <div class="row pt-1">
+            <div class="col-8 px-2">
+
+            <input type="search" class="form-control" placeholder="Cedula sin puntos ni guiones" name="cedula" id="cedula">
+
+            <div class="btn-group-justified text-end pt-1">
+                <button class="btn btn-primary rounded-3">Buscar
+                    <img src="{% static 'images/svg-loaders/puff_light.svg' %}" class="htmx-indicator" width="20">
+                </button>
+            </div>
+            </div>
+          </div>
+    </form>
+
+{% else %}
+<div class="card-title">
+   <h5>Ingresar los datos del Candidato</h5>
+</div>
+<form enctype="multipart/form-data"
+      hx-post="{% url 'recruiter:candidate_add' %}"
+      {% if candidate is None %}
+            hx-vals='{"step":"2", "action": "create"}'
+      {% else %}
+            hx-vals='{"step":"2", "action": "update"}'
+      {% endif %}
+      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+      hx-target="#candidate_add_form">
+    <div class="row pt-1">
+        <div class="col-8 px-2">
+        <div class="row pt-1">
+            <label for="candidate_name" class="small form-label col-2 align-content-end">Nombre:</label>
+            <div class="col-xl-10 col-lg-10 col-sm-12">
+                <input type="text" placeholder="Nombre Completo" class="form-control" id="candidate_name" name="candidate_name" value="{{ candidate.contact.fullname |default:"" }}">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_phone" class="small form-label col-2 align-content-end">Telefono:</label>
+            <div class="col-xl-4">
+                <input type="text"  placeholder="+5981234567" class="form-control" id="candidate_phone" name="candidate_phone" value="{{ candidate.contact.phone |default:""}}">
+            </div>
+
+            <label for="candidate_whatsapp" class="small form-label col-2 align-content-end">Whatsapp:</label>
+            <div class="col-4">
+                <input type="text"  placeholder="+5981234567" class="form-control" id="candidate_whatsapp" name="candidate_whatsapp" value="{{ candidate.contact.phone |default:""}}">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_email" class="small form-label col-2 align-content-end">Email:</label>
+            <div class="col-10">
+            <input type="text"  placeholder="nombre@dominio.com" class="form-control" id="candidate_email" name="candidate_email" value="{{ candidate.contact.email |default:"" }}">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_birthdate" class="small form-label col-2 align-content-end">Fecha Nacimiento:</label>
+            <div class="col-4">
+            <input type="date" placeholder="25/12/0000" class="form-control" id="candidate_birthdate" name="candidate_birthdate" value="{{ candidate.date_birth | date:"Y-m-d" }}">
+            </div>
+            <label for="candidate_cedula" class="small form-label col-2 align-content-end">Cédula:</label>
+             <div class="col-4">
+                <input type="text"  placeholder="12345678" class="form-control" id="candidate_cedula" name="candidate_cedula" readonly value="{{ candidate.document_id | default:cedula }}">
+             </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_address" class="small inline_label col-2 align-content-center">Dirección:</label>
+            <div class="col-10">
+            <input type="text"  placeholder="18 de Julio 1234 ap 123" class="form-control" id="candidate_address" name="candidate_address" value="{{ candidate.address | default:""}}">
+            </div>
+        </div>
+        <div class="row pt-1">
+            <label for="candidate_city" class="small inline_label col-xl-2 col-sm-6 align-content-center">Ciudad:</label>
+            <div class=" col-xl-2 col-sm-6">
+            <input type="text"  placeholder="Centro" class="form-control" id="candidate_city" name="candidate_city" value="{{ candidate.city | default:"" }}">
+            </div>
+
+            <label for="candidate_state" class="small inline_label  col-xl-2 col-sm-6 align-content-center">Departamento:</label>
+            <div class=" col-xl-3 col-sm-6">
+            <input type="text" placeholder="Montevideo" class="form-control" id="candidate_state" name="candidate_state" value="{{ candidate.state | default:"" }}">
+            </div>
+
+            <label for="candidate_postal_code" class="small inline_label col-xl-1 col-sm-6 align-content-center">CP:</label>
+            <div class="col-xl-2 col-sm-6">
+            <input type="text" id="candidate_postal_code" placeholder="11100" class="form-control" name="candidate_postal_code" value="{{ candidate.postal_code |default:"" }}">
+            </div>
+        </div>
+    </div> <!-- Personal Data Form -->
+        <div class="col-4 px-2 text-center">
+
+            {% if candidate.profile_picture %}
+                <img src="{{ candidate.profile_picture.url }}" class="img-fluid text-center rounded-circle" alt="Preview" width="50%">
+            {% else %}
+                <img src="{% static 'images/default-avatar.png' %}" class="img-fluid text-center rounded-circle" alt="Preview" width="50%">
+            {% endif %}
+            <label for="profile_pic_input" class="edit-icon"><i class="mdi mdi-image-edit"></i> </label>
+            <input type="file" name="profile_pic_input" id="profile_pic_input" accept="image/*" style="display: none;">
+
+        </div> <!-- Profile Pic -->
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-12">
+            <div class="row pt-1">
+                <label for="candidate_self_summary" class="small inline_label col-2 align-content-center">Resumen</label>
+                <div class="col-10">
+                    <textarea name="candidate_self_summary" id="candidate_self_summary" class="form-control">{{ candidate.self_summary }}</textarea>
+                </div>
+            </div>
+            <div class="row pt-1">
+                <label for="candidate_work_experience" class="small inline_label col-2 align-content-center">Experiencia Laboral</label>
+                <div class="col-10">
+                    <textarea name="candidate_work_experience" id="candidate_work_experience" rows="4" class="form-control">{{ candidate.work_experience}}</textarea>
+                </div>
+            </div>
+            <div class="row pt-1">
+                <label for="candidate_education" class="small inline_label col-2 align-content-center">Estudios</label>
+                <div class="col-10">
+                    <textarea name="candidate_education" id="candidate_education" rows="4" class="form-control">{{candidate.education}}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="btn-group-justified text-end pt-1">
+        <button class="btn btn-secondary rounded-3"
+                data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary rounded-3">Cargar <i class="mdi mdi-upload htmx-hide"></i>
+            <img src="{% static 'images/svg-loaders/puff.svg' %}" width="20" class="htmx-indicator">
+        </button>
+
+    </div>
+</form>
+{% endif %}
+</div>
