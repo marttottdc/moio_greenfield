@@ -7,7 +7,7 @@ from agents import set_default_openai_key
 
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
 from chatbot.models.chatbot_session import ChatbotSession
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 import logging
 
 logger = logging.getLogger(__name__)

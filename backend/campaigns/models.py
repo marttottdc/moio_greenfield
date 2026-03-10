@@ -3,7 +3,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from portal.models import Tenant, TenantScopedModel
+from central_hub.models import Tenant, TenantScopedModel
 
 
 # Create your models here.

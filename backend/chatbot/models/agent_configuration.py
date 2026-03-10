@@ -1,6 +1,6 @@
 import uuid
 from django.db import models
-from portal.models import Tenant, TenantScopedModel
+from central_hub.models import Tenant, TenantScopedModel
 from django.db.models import Q, UniqueConstraint
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _

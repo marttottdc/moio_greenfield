@@ -10,8 +10,8 @@ from django.utils import translation
 from django.utils.text import slugify
 
 from flows.models import FlowScript, FlowScriptLog, FlowScriptRun, FlowScriptVersion
-from portal.models import MoioUser, Tenant, TenantConfiguration
-from portal.signals import create_internal_contact
+from central_hub.models import MoioUser, Tenant, TenantConfiguration
+from central_hub.signals import create_internal_contact
 
 
 class FlowScriptViewsTests(TestCase):

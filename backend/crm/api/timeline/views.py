@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from crm.api.activities.views import _serialize_activity_record
 from crm.api.mixins import ProtectedAPIView, _error
 from crm.models import ActivityCaptureEntry, ActivityRecord, CaptureAnchorModel
-from portal.rbac import user_has_role
+from central_hub.rbac import user_has_role
 
 
 def _parse_cursor(raw: Optional[str]) -> Optional[Tuple[datetime, str]]:

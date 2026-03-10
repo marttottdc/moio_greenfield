@@ -18,8 +18,8 @@ from jwt import decode as jwt_decode, InvalidTokenError
 from moio_platform import settings
 from moio_platform.lib.openai_gpt_api import MoioOpenai
 from moio_platform.settings import AUTH_USER_MODEL
-from portal.context_utils import current_tenant
-from portal.models import Tenant, TenantScopedModel
+from central_hub.context_utils import current_tenant
+from central_hub.models import Tenant, TenantScopedModel
 
 import phonenumbers
 from phonenumbers import carrier, parse, NumberParseException, format_number
@@ -106,7 +106,7 @@ class Contact(TenantScopedModel):
     source = models.CharField(max_length=40, null=True, default='', blank=True)
     ctype = models.ForeignKey(ContactType, on_delete=models.SET_NULL, null=True, default=None)
     linked_user = models.OneToOneField(
-        'portal.MoioUser',
+        AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -545,7 +545,7 @@ class Ticket(TenantScopedModel):
         On any failure (invalid ID, no match, etc.), returns None (ticket saves unassigned).
         """
         from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
-        from portal.models import MoioUser
+        from central_hub.models import MoioUser
         
         if value is None:
             return None

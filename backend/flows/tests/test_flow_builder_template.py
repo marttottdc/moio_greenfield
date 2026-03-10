@@ -14,8 +14,8 @@ from flows.models import Flow, FlowGraphVersion
 from flows.views import flow_builder, flow_builder_react, whatsapp_templates
 from flows.registry import palette_by_category
 from flows.core.registry import NodeDefinition, registry as runtime_registry
-from portal.models import MoioUser, Tenant, TenantConfiguration
-from portal.signals import create_internal_contact
+from central_hub.models import MoioUser, Tenant, TenantConfiguration
+from central_hub.signals import create_internal_contact
 
 
 class FlowBuilderTemplateTests(TestCase):

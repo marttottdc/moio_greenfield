@@ -8,8 +8,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from crm.api.tests.utils import ensure_schema
-from portal.models import Tenant, UserApiKey
-from portal.signals import create_internal_contact, create_tenant_configurations
+from central_hub.models import Tenant, UserApiKey
+from central_hub.signals import create_internal_contact, create_tenant_configurations
 
 ensure_schema()
 

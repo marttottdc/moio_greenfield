@@ -18,12 +18,11 @@ from chatbot.core.email_utils import sync_email_account
 from crm.models import Contact
 
 from moio_platform.lib.openai_gpt_api import whisper_to_text, image_reader
-from portal.models import TenantConfiguration, PortalConfiguration
+from central_hub.models import TenantConfiguration, PlatformConfiguration
 from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.wa_payloads import WaPayloads
 from moio_platform.lib.tools import check_elapsed_time, has_time_passed
 
-from portal.models import ConversationHandler
 from chatbot.models.chatbot_session import ChatbotSession
 from chatbot.core.moio_agent import MoioAgent
 from crm.services.contact import get_contact_by_phone, is_blacklisted_contact
@@ -564,9 +563,9 @@ def whatsapp_webhook_handler(self, body: dict):
     logger.info(f'Processing whatsapp webhook ---> {task_id} from {q_name}')
 
     try:
-        portal_config = PortalConfiguration.objects.first()
+        portal_config = PlatformConfiguration.objects.first()
 
-    except PortalConfiguration.DoesNotExist:
+    except PlatformConfiguration.DoesNotExist:
         raise ImproperlyConfigured("No Portal config present")
 
     print(body)
@@ -643,17 +642,17 @@ def whatsapp_webhook_handler(self, body: dict):
 
         # TODO: match assistant with the incomming channel so we can have more than 1 channel.
 
-        if config.conversation_handler == ConversationHandler.CHATBOT:
+        if config.conversation_handler == 'chatbot':
 
             process_message_with_chatbot(received_whatsapp=received_whatsapp,
                                          config=config)
 
-        elif config.conversation_handler == ConversationHandler.ASSISTANT and config.assistants_enabled:
+        elif config.conversation_handler == 'assistant' and config.assistants_enabled:
             logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Asistente"))
             process_message_with_assistant(received_whatsapp=received_whatsapp,
                                            config=config)
 
-        elif config.conversation_handler == ConversationHandler.AGENT:
+        elif config.conversation_handler == 'agent':
 
             logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Agente"))
             process_message_with_agent(received_whatsapp=received_whatsapp, config=config)
@@ -873,7 +872,7 @@ def sync_single_tenant_tools_task(self, tenant_id: int):
     Called when a new tenant is created.
     """
     try:
-        from portal.models import Tenant
+        from central_hub.models import Tenant
         from chatbot.models.sync_tools import get_all_available_tools
         from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
         from django.db import transaction

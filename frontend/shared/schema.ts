@@ -446,7 +446,7 @@ export const WidgetTypeEnum = z.enum([
   "kpi_card",
   "recent_campaigns",
   "recent_audiences",
-  "crm_assistant",
+  "crm_assistant", // deprecated, kept for backward compat with saved prefs
   "favorites",
   "frequently_used",
   "activity_chart",
@@ -528,12 +528,11 @@ export const DEFAULT_DASHBOARD_PREFERENCES: UserDashboardPreferences = {
   layout_version: 1,
   widgets: [
     { id: "kpi-ribbon", type: "kpi_card", enabled: true, size: "full", order: 0 },
-    { id: "crm-assistant", type: "crm_assistant", enabled: true, size: "full", order: 1 },
-    { id: "recent-campaigns", type: "recent_campaigns", enabled: true, size: "large", order: 2 },
-    { id: "recent-audiences", type: "recent_audiences", enabled: true, size: "medium", order: 3 },
-    { id: "favorites", type: "favorites", enabled: true, size: "medium", order: 4 },
-    { id: "activity-chart", type: "activity_chart", enabled: true, size: "full", order: 5 },
-    { id: "global-timeline", type: "global_timeline", enabled: true, size: "large", order: 6 },
+    { id: "recent-campaigns", type: "recent_campaigns", enabled: true, size: "large", order: 1 },
+    { id: "recent-audiences", type: "recent_audiences", enabled: true, size: "medium", order: 2 },
+    { id: "favorites", type: "favorites", enabled: true, size: "medium", order: 3 },
+    { id: "activity-chart", type: "activity_chart", enabled: true, size: "full", order: 4 },
+    { id: "global-timeline", type: "global_timeline", enabled: true, size: "large", order: 5 },
   ],
   kpis: {
     enabled: true,

@@ -2,7 +2,7 @@
 from django.test import TestCase
 
 from flows.scripts.param_hydration import resolve_datalab_param_refs
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 try:
     from datalab.core.models import ResultSet, ResultSetOrigin, ResultSetStorage

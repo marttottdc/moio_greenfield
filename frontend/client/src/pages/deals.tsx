@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from "@dnd-kit/core";
@@ -360,7 +360,9 @@ function DroppableStageColumn({ stage, children }: { stage: PipelineStage; child
 
 export default function Deals() {
   const { toast } = useToast();
-  const isEmbedded = new URLSearchParams(window.location.search).get("embed") === "true";
+  const searchParams = new URLSearchParams(window.location.search);
+  const isEmbedded = searchParams.get("embed") === "true";
+  const urlDealId = searchParams.get("dealId");
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -399,6 +401,31 @@ export default function Deals() {
     },
     retry: false,
   });
+
+  const dealByIdQuery = useQuery<Deal>({
+    queryKey: [apiV1("/crm/deals/"), "by-id", urlDealId],
+    queryFn: () => fetchJson<Deal>(apiV1(`/crm/deals/${urlDealId}/`)),
+    enabled: !!urlDealId,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (urlDealId && dealByIdQuery.data && !editingDeal) {
+      const deal = dealByIdQuery.data;
+      setEditingDeal({
+        ...deal,
+        value: typeof deal.value === "string" ? parseFloat(deal.value) : (deal.value ?? 0),
+      });
+      if (deal.pipeline_id || deal.pipeline) {
+        setSelectedPipelineId((deal.pipeline_id ?? deal.pipeline) ?? null);
+      }
+      const params = new URLSearchParams(window.location.search);
+      params.delete("dealId");
+      const q = params.toString();
+      const url = q ? `${window.location.pathname}?${q}` : window.location.pathname;
+      window.history.replaceState({}, "", url);
+    }
+  }, [urlDealId, dealByIdQuery.data]);
 
   const pipelines = Array.isArray(pipelinesQuery.data?.pipelines) ? pipelinesQuery.data.pipelines : [];
   

@@ -4,8 +4,8 @@ celery -A moio_platform worker -E -l info --pool=threads -Q moio-bot-LOW,moio-bo
 celery -A moio_platform worker -E -l info --pool=threads -Q moio-bot-FLOWS
 
 
-hypercorn -c hypercorn_dev.py moio_platform.asgi:application
-ngrok http http://127.0.0.1:9000 --url=moio.ngrok.dev
+hypercorn -c file:hypercorn_dev.py moio_platform.asgi:application
+ngrok http http://127.0.0.1:5177 --url=moio.ngrok.dev
 
 pip freeze | grep -v '^pyobjc' > requirements.txt
 

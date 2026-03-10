@@ -29,8 +29,8 @@ from crm.models import Shipment, Branch, Ticket, EcommerceOrder, Contact, Custom
 from crm.tasks import woocommerce_webhook_processor, create_smart_order, import_frontend_skus
 from moio_platform.lib.json_schema_tools import _load_schema, _infer_schema, merge_schemas, _save_schema
 from moio_platform.lib.openai_gpt_api import analyze_file
-from portal.context_utils import current_tenant
-from portal.models import Tenant, TenantConfiguration
+from central_hub.context_utils import current_tenant
+from central_hub.models import Tenant, TenantConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -984,7 +984,7 @@ def products(request):
 
 
 # ============================== WEBHOOK CONFIGURATION =================================================
-from portal.webhooks.utils import available_handlers
+from central_hub.webhooks.utils import available_handlers
 
 
 @login_required

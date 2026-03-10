@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from crm.api.mixins import PaginationMixin, ProtectedAPIView
 from moio_platform.core.events import emit_event
 from moio_platform.core.events.snapshots import snapshot_contact, snapshot_deal
-from crm.models import Deal, Pipeline, PipelineStage, DealStatusChoices
+from crm.models import Deal, Pipeline, PipelineStage, DealStatusChoices, Customer
 from crm.api.deals.serializers import (
     DealSerializer, DealCreateSerializer, DealUpdateSerializer,
     PipelineSerializer, PipelineCreateSerializer, PipelineStageSerializer,
@@ -43,6 +43,22 @@ class DealsView(PaginationMixin, ProtectedAPIView):
         owner_id = request.query_params.get('owner')
         if owner_id:
             deals = deals.filter(owner_id=owner_id)
+
+        customer_id = request.query_params.get('customer_id')
+        if customer_id:
+            customer = Customer.objects.filter(tenant=tenant, id=customer_id).first()
+            if customer:
+                deals = deals.filter(
+                    Q(customer_id=customer_id)
+                    | Q(contact__customer_contacts__customer_id=customer_id)
+                    | Q(contact__company__iexact=customer.name)
+                ).distinct()
+            else:
+                deals = deals.filter(customer_id=customer_id)
+
+        contact_id = request.query_params.get('contact_id')
+        if contact_id:
+            deals = deals.filter(contact_id=contact_id)
 
         sort_by = request.query_params.get('sort_by', 'created_at')
         order = request.query_params.get('order', 'desc')

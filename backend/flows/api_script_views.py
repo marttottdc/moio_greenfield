@@ -21,7 +21,7 @@ from flows.scripts.param_hydration import resolve_datalab_param_refs
 from flows.scripts.serializers import FlowScriptCreateSerializer
 from flows.scripts.tasks import execute_script_run
 from moio_platform.settings import FLOWS_Q
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 
 from .views import (
     _ensure_script_for_request,

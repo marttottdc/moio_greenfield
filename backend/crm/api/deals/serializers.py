@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from crm.models import Deal, Pipeline, PipelineStage, Contact, Customer, DealStatusChoices, DealPriorityChoices
-from portal.models import MoioUser
+from central_hub.models import MoioUser
 
 
 class TenantScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):

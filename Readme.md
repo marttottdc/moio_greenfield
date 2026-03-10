@@ -99,6 +99,12 @@ The platform supports multiple organizations with:
 - Role-based access control
 - Scalable architecture
 
+### **Test Tenant (Development)**
+Para tests (API y frontend), usa el tenant de prueba. Ver [backend/docs/TEST_TENANT.md](backend/docs/TEST_TENANT.md).
+
+**Credenciales:** `test@moio.ai` / `test123`  
+**Crear tenant:** `./backend/scripts/create_test_tenant.sh` (con backend en http://127.0.0.1:8093)
+
 ## 📱 **Supported Platforms**
 
 ### **Communication Channels**

@@ -20,7 +20,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from portal.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
+from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
 from security.authentication import ServiceJWTAuthentication
 from flows.models import ScheduledTask, TaskExecution
 from flows.scheduled_task_service import ScheduledTaskService

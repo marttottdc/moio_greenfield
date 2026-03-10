@@ -2,7 +2,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 User = get_user_model()
 

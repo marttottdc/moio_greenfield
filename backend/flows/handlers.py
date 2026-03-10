@@ -5,7 +5,7 @@ from typing import Dict, Any
 from django.db.models import Q
 from django.utils.timezone import now
 from moio_platform.settings import FLOWS_Q
-from portal.webhooks.registry import webhook_handler
+from central_hub.webhooks.registry import webhook_handler
 
 logger = logging.getLogger(__name__)
 

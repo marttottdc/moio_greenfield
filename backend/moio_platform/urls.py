@@ -15,7 +15,7 @@ from crm.views import generic_webhook_receiver
 
 from moio_platform.core import core_views
 from moio_platform.core.health import health_check, probe_health
-from portal.api.bootstrap import BootstrapView
+from central_hub.api.bootstrap import BootstrapView
 from crm.api.auth.views import AuthViewSet
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -63,10 +63,10 @@ urlpatterns = [
 
     path("api/v1/health/", health_check, name="health_check"),
     path("api/v1/bootstrap/", BootstrapView.as_view(), name="bootstrap"),
-    path("api/v1/tenants/", include("portal.api.tenants.urls")),
-    path("api/v1/users/", include("portal.api.users.urls")),
+    path("api/v1/tenants/", include("central_hub.api.tenants.urls")),
+    path("api/v1/users/", include("central_hub.api.users.urls")),
     path("api/v1/settings/", include("crm.api.settings.urls")),
-    path("api/v1/integrations/", include("portal.integrations.urls")),
+    path("api/v1/integrations/", include("central_hub.integrations.urls")),
     path("api/v1/crm/", include("crm.api.public_urls")),
     path("api/v1/activities/", include("crm.api.activities.urls")),
     path("api/v1/capture/", include("crm.api.capture.urls")),

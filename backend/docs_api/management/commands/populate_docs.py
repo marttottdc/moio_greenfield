@@ -107,7 +107,7 @@ class Command(BaseCommand):
             "flows": "flows",
             "chatbot": "chatbot",
             "datalab": "datalab",
-            "portal": "integrations",
+            "central_hub": "integrations",
             "recruiter": "crm",
             "assessments": "crm",
             "fluidcms": "integrations",

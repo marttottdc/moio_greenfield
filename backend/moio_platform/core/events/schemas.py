@@ -43,6 +43,11 @@ CONTACT_SNAPSHOT_SCHEMA: Dict[str, Any] = {
     "additionalProperties": True,
 }
 
+# Contact snapshot or null (deals can have no contact)
+CONTACT_SNAPSHOT_OR_NULL: Dict[str, Any] = {
+    "oneOf": [CONTACT_SNAPSHOT_SCHEMA, {"type": "null"}],
+}
+
 DEAL_SNAPSHOT_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -58,8 +63,8 @@ DEAL_SNAPSHOT_SCHEMA: Dict[str, Any] = {
         "stage_id": {"type": ["string", "null"]},
         "stage_name": {"type": ["string", "null"]},
         "contact_id": {"type": ["string", "null"]},
-        # Some snapshots include embedded contact
-        "contact": CONTACT_SNAPSHOT_SCHEMA,
+        # Some snapshots include embedded contact (optional when deal has no contact)
+        "contact": CONTACT_SNAPSHOT_OR_NULL,
     },
     "additionalProperties": True,
 }
@@ -68,6 +73,39 @@ DEAL_SNAPSHOT_SCHEMA: Dict[str, Any] = {
 # NOTE: Keep this in sync with the platform event contract.
 EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
     # CRM
+    "crm.activity.created": {
+        "type": "object",
+        "properties": {
+            "activity_id": {"type": "string"},
+            "activity_type": {"type": ["string", "null"]},
+            "status": {"type": ["string", "null"]},
+            "kind": {"type": ["string", "null"]},
+            "title": {"type": ["string", "null"]},
+            "content": {"type": ["object", "null"]},
+        },
+        "required": ["activity_id"],
+        "additionalProperties": True,
+    },
+    "crm.activity.updated": {
+        "type": "object",
+        "properties": {
+            "activity_id": {"type": "string"},
+            "activity_type": {"type": ["string", "null"]},
+            "status": {"type": ["string", "null"]},
+        },
+        "required": ["activity_id"],
+        "additionalProperties": True,
+    },
+    "crm.activity.status_changed": {
+        "type": "object",
+        "properties": {
+            "activity_id": {"type": "string"},
+            "old_status": {"type": "string"},
+            "new_status": {"type": "string"},
+        },
+        "required": ["activity_id", "old_status", "new_status"],
+        "additionalProperties": True,
+    },
     "deal.created": {
         "type": "object",
         "properties": {
@@ -91,8 +129,9 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
             # Nested snapshots (full-internal, best-effort)
             # Important: must allow nested properties so flows can read
             # `input.body.deal.contact.email`, `input.body.contact.email`, etc.
-            "deal": {"type": ["object", "null"], **DEAL_SNAPSHOT_SCHEMA},
-            "contact": {"type": ["object", "null"], **CONTACT_SNAPSHOT_SCHEMA},
+            # contact can be None when deal has no contact
+            "deal": {**DEAL_SNAPSHOT_SCHEMA, "type": ["object", "null"]},
+            "contact": CONTACT_SNAPSHOT_OR_NULL,
         },
         "required": ["deal_id", "title"],
         "additionalProperties": True,
@@ -105,8 +144,8 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "previous_values": {"type": "object"},
             "new_values": {"type": "object"},
             # Optional snapshots (full-internal, best-effort)
-            "deal": {"type": ["object", "null"], **DEAL_SNAPSHOT_SCHEMA},
-            "contact": {"type": ["object", "null"], **CONTACT_SNAPSHOT_SCHEMA},
+            "deal": {**DEAL_SNAPSHOT_SCHEMA, "type": ["object", "null"]},
+            "contact": CONTACT_SNAPSHOT_OR_NULL,
         },
         "required": ["deal_id", "changed_fields"],
         "additionalProperties": True,
@@ -131,8 +170,8 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "value": {"type": ["number", "null"]},
             "deal_value": {"type": ["number", "null"]},
             "currency": {"type": ["string", "null"]},
-            "deal": {"type": ["object", "null"], **DEAL_SNAPSHOT_SCHEMA},
-            "contact": {"type": ["object", "null"], **CONTACT_SNAPSHOT_SCHEMA},
+            "deal": {**DEAL_SNAPSHOT_SCHEMA, "type": ["object", "null"]},
+            "contact": CONTACT_SNAPSHOT_OR_NULL,
         },
         "required": ["deal_id", "title", "to_stage_id"],
         "additionalProperties": True,
@@ -150,8 +189,8 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "currency": {"type": ["string", "null"]},
             "won_by": {"type": ["string", "null"]},
             "contact_id": {"type": ["string", "null"]},
-            "deal": {"type": ["object", "null"], **DEAL_SNAPSHOT_SCHEMA},
-            "contact": {"type": ["object", "null"], **CONTACT_SNAPSHOT_SCHEMA},
+            "deal": {**DEAL_SNAPSHOT_SCHEMA, "type": ["object", "null"]},
+            "contact": CONTACT_SNAPSHOT_OR_NULL,
         },
         "required": ["deal_id", "title"],
         "additionalProperties": True,
@@ -169,8 +208,8 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "currency": {"type": ["string", "null"]},
             "lost_reason": {"type": ["string", "null"]},
             "competitor": {"type": ["string", "null"]},
-            "deal": {"type": ["object", "null"], **DEAL_SNAPSHOT_SCHEMA},
-            "contact": {"type": ["object", "null"], **CONTACT_SNAPSHOT_SCHEMA},
+            "deal": {**DEAL_SNAPSHOT_SCHEMA, "type": ["object", "null"]},
+            "contact": CONTACT_SNAPSHOT_OR_NULL,
         },
         "required": ["deal_id", "title"],
         "additionalProperties": True,

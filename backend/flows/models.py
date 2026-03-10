@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from viewflow import fsm
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 User = get_user_model()
 

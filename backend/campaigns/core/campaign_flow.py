@@ -4,7 +4,7 @@ import time
 import logging
 
 from viewflow import fsm, this
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 from campaigns.models import Status, Campaign
 from celery.result import AsyncResult

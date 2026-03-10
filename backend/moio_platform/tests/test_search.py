@@ -2,7 +2,7 @@ from django.contrib.postgres.search import SearchVector
 
 from crm.models import Tag, Product
 from moio_platform.lib.openai_gpt_api import MoioOpenai
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from moio_platform.lib.moio_assistant_functions import MoioAssistantTools
 from pgvector.django import L2Distance, CosineDistance
 from crm.lib.crm_search import search_text, search_by_product, search_by_tag

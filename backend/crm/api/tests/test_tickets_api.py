@@ -7,8 +7,8 @@ from rest_framework.test import APITestCase
 
 from crm.api.tests.utils import ensure_schema
 from crm.models import Contact, Ticket, TicketComment
-from portal.models import Tenant, TenantConfiguration
-from portal.signals import create_internal_contact, create_tenant_configurations
+from central_hub.models import Tenant, TenantConfiguration
+from central_hub.signals import create_internal_contact, create_tenant_configurations
 
 ensure_schema()
 

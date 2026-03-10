@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 
 def connect_to_imap(server, port, user, password):

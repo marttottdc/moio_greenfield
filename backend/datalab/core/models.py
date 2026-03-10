@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
 
-from portal.models import Tenant, TenantScopedModel
+from central_hub.models import Tenant, TenantScopedModel
 
 User = get_user_model()
 

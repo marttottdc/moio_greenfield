@@ -23,7 +23,7 @@ from crm.models import (
     FaceDetection,
     Face,
 )
-from portal.webhooks.utils import generate_auth_config
+from central_hub.webhooks.utils import generate_auth_config
 from django.utils.html import format_html
 
 

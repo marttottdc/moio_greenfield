@@ -2,7 +2,7 @@ import datetime
 
 from crm.models import Branch, Contact, Company
 from crm.lib.dac_api import DacApi
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 import phonenumbers
 from django.core.exceptions import ValidationError
 from phonenumbers import geocoder, PhoneNumberFormat, parse, format_number

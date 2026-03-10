@@ -1,6 +1,5 @@
 import { 
   LayoutDashboard, 
-  MessageSquare, 
   Megaphone, 
   Users, 
   Star, 
@@ -47,14 +46,6 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetMeta> = {
     icon: Users,
     defaultSize: "medium",
     category: "content",
-  },
-  crm_assistant: {
-    type: "crm_assistant",
-    name: "CRM Assistant",
-    description: "AI-powered assistant for your CRM tasks",
-    icon: MessageSquare,
-    defaultSize: "full",
-    category: "tools",
   },
   favorites: {
     type: "favorites",

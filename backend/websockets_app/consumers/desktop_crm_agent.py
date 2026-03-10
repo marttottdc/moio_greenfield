@@ -11,7 +11,7 @@ from agents import Runner, set_default_openai_key
 from websockets_app.consumers.base import TenantAwareConsumer
 from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
 from chatbot.models.agent_configuration import AgentConfiguration, CHANNEL_DESKTOP
-from portal.models import TenantConfiguration, MoioUser
+from central_hub.models import TenantConfiguration, MoioUser
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
 
 logger = logging.getLogger(__name__)

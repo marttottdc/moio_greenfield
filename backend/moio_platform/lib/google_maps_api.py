@@ -4,7 +4,7 @@ import logging
 import googlemaps
 import requests
 from django.utils import timezone
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 logger = logging.getLogger(__name__)
 

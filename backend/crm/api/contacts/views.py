@@ -13,7 +13,7 @@ from rest_framework import status, serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from crm.models import Contact
+from crm.models import Contact, Customer
 
 from crm.api.contacts.serializers import ContactCreateSerializer
 from crm.api.mixins import ContactAPIMixin, ProtectedAPIView, _UNSET, _error
@@ -99,6 +99,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         tags=[Tags.CRM_CONTACTS],
         parameters=[
             OpenApiParameter("search", OpenApiTypes.STR, description="Search in name, email, phone, WhatsApp name"),
+            OpenApiParameter("account_id", OpenApiTypes.UUID, description="Filter by account/customer ID (contacts linked to this customer)"),
             OpenApiParameter("type", OpenApiTypes.STR, description="Filter by contact type (ID or name)"),
             OpenApiParameter("sort_by", OpenApiTypes.STR, description="Sort field: fullname, email, phone, created_at, updated_at", default="created_at"),
             OpenApiParameter("order", OpenApiTypes.STR, description="Sort order: asc or desc", default="desc"),
@@ -124,6 +125,24 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
     )
     def get(self, request):
         queryset = self._base_queryset(request)
+        account_id = request.query_params.get("account_id")
+        if account_id:
+            try:
+                uuid.UUID(str(account_id))
+                tenant = getattr(request.user, "tenant", None)
+                if tenant:
+                    customer = Customer.objects.filter(tenant=tenant, id=account_id).first()
+                    if customer:
+                        conditions = Q(customer_contacts__customer_id=account_id)
+                        if customer.name and len(str(customer.name).strip()) > 0:
+                            conditions |= Q(company__iexact=customer.name.strip())
+                        queryset = queryset.filter(conditions).distinct()
+                    else:
+                        queryset = queryset.filter(customer_contacts__customer_id=account_id).distinct()
+                else:
+                    queryset = queryset.filter(customer_contacts__customer_id=account_id).distinct()
+            except (ValueError, TypeError):
+                return _error("invalid_account_id", "account_id must be a valid UUID", status.HTTP_400_BAD_REQUEST)
         search = (request.query_params.get("search") or "").strip()
         if search:
             queryset = queryset.filter(

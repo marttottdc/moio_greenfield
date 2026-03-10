@@ -8,9 +8,9 @@ from collections import defaultdict
 
 from django.utils.module_loading import import_string
 
-from portal.event_bus import event_bus
-from portal.webhooks.utils import get_handler
-from portal.events import EventTypes
+from central_hub.event_bus import event_bus
+from central_hub.webhooks.utils import get_handler
+from central_hub.events import EventTypes
 
 from .agent_runtime import AgentFlowExecutor, FlowAgentExecutionError
 

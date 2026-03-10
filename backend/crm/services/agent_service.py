@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List
 from django.db import transaction
 
 from chatbot.models.agent_configuration import AgentConfiguration
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 
 
 class AgentService:

@@ -5,7 +5,7 @@ import inspect
 from typing import Dict, Set, List
 
 from chatbot.models.agent_configuration import AgentConfiguration
-from portal.models import Tenant
+from central_hub.models import Tenant
 from agents import Agent, ModelSettings
 
 from agents.tool import FunctionTool, WebSearchTool, ComputerTool, FileSearchTool, CodeInterpreterTool

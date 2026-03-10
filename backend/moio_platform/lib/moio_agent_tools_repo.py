@@ -31,7 +31,7 @@ from crm.models import Stock, ProductVariant, Product, Tag, EcommerceOrder, Acti
 from moio_platform.lib.google_maps_api import GoogleMapsApi, haversine
 from moio_platform.lib.wordpress_api import WordPressAPIClient
 from moio_platform.lib.openai_gpt_api import MoioOpenai
-from portal.models import TenantConfiguration, PortalConfiguration
+from central_hub.models import TenantConfiguration, PlatformConfiguration
 from django.dispatch import receiver
 from django.dispatch import Signal
 from chatbot.core.messenger import Messenger
@@ -500,7 +500,7 @@ def create_ticket(ctx: RunContextWrapper,
     ticket.save()
 
     if ticket:
-        portal_config = PortalConfiguration.objects.first()
+        portal_config = PlatformConfiguration.objects.first()
 
         response = {
             "ticket_created": "true",
@@ -576,7 +576,7 @@ def create_or_update_ticket(ctx: RunContextWrapper,
             existing_ticket.status = status
         existing_ticket.save()
 
-        portal_config = PortalConfiguration.objects.first()
+        portal_config = PlatformConfiguration.objects.first()
 
         response = {
             "action": "updated",
@@ -599,7 +599,7 @@ def create_or_update_ticket(ctx: RunContextWrapper,
         )
         ticket.save()
 
-        portal_config = PortalConfiguration.objects.first()
+        portal_config = PlatformConfiguration.objects.first()
 
         response = {
             "action": "created",
@@ -665,7 +665,7 @@ def update_ticket(ctx: RunContextWrapper,
         ticket.status = status
     ticket.save()
 
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     return json.dumps({
         "action": "updated",
         "ticket_id": str(ticket.pk),

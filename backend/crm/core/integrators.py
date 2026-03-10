@@ -14,7 +14,7 @@ from crm.models import Shipment, EcommerceOrder, EcommerceOrderLine, Address, Pr
 from crm.lib.woocommerce_api import WooCommerceAPI, get_product_brand, get_product_category, get_product_price, \
     get_product_sale_price, get_product_tags, get_product_main_image
 from crm.lib.zetasoftware_api import ZetaSoftwareAPI
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 import logging
 
 # Configure a logger for this module

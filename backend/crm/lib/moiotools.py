@@ -5,7 +5,7 @@ import pandas as pd
 from django.utils import timezone
 
 from crm.lib.dac_api import DacApi
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 
 def generate_fecha_levante():

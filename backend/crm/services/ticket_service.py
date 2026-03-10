@@ -3,7 +3,7 @@ from typing import Optional, List
 from django.db import transaction
 
 from crm.models import Ticket, Contact
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 
 
 class TicketService:

@@ -6,7 +6,7 @@ import logging
 import phonenumbers
 from phonenumbers import carrier, parse, NumberParseException, format_number
 from django.db.models import Q
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 class WaMessageLog(models.Model):

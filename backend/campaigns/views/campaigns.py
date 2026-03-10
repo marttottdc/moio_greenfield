@@ -21,8 +21,8 @@ from campaigns.tasks import validate_campaign, send_outgoing_messages, execute_c
 from moio_platform.celery_app import app
 from moio_platform.core.core_views import handler500
 from moio_platform.lib.tools import remove_keys
-from portal.context_utils import current_tenant
-from portal.models import Tenant, TenantConfiguration
+from central_hub.context_utils import current_tenant
+from central_hub.models import Tenant, TenantConfiguration
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, template_requirements, replace_template_placeholders, compose_template_based_message
 from campaigns.models import Audience, AudienceKind, Campaign, CampaignDataStaging, Status, CampaignData
 from campaigns.forms import CampaignBasicForm

@@ -12,7 +12,7 @@ from datetime import timedelta
 
 from flows.models import Flow, FlowExecution, FlowGraphVersion
 from flows.core.registry import NodeDefinition, registry as runtime_registry
-from portal.signals import create_internal_contact
+from central_hub.signals import create_internal_contact
 
 GRAPH_PAYLOAD = {
     "nodes": [

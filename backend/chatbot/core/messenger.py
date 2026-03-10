@@ -6,7 +6,7 @@ from chatbot.core.smart_reply_prompts import smart_composer_instructions, whatsa
 from django.conf import settings
 
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, WhatsappMessage, WaMessageLog, compose_text_message, compose_image_message, compose_audio_message, compose_video_message, compose_document_message, compose_location_message, compose_reply_2button_message, compose_reply_1button_message, compose_reply_3button_message, compose_require_location, compose_list_message, auto_compose
 import logging
 

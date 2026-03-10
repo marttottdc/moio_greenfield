@@ -387,7 +387,7 @@ def route_event(event_id: UUID) -> list:
     event_envelope = _build_event_envelope(event)
     # EventLog.tenant_id is stored as a UUID (Tenant.tenant_code), but Flow.tenant_id is an int FK.
     # Resolve tenant_code -> Tenant.pk before filtering flows.
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     tenant = Tenant.objects.filter(tenant_code=event.tenant_id).only("id").first()
     if not tenant:
         logger.warning(

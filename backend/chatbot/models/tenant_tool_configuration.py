@@ -1,6 +1,6 @@
 import uuid
 from django.db import models
-from portal.models import Tenant, TenantScopedModel
+from central_hub.models import Tenant, TenantScopedModel
 
 
 class TenantToolConfiguration(TenantScopedModel):

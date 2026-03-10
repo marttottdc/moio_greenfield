@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 from flows.models import FlowScriptLog, FlowScriptRun
 from flows.scripts import FlowScriptSerializer
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 def test_flow_script_latest_and_published(flow_script_factory, flow_script_version_factory):

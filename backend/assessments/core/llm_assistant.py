@@ -4,7 +4,7 @@ from django.utils import timezone
 import json
 
 from ..models import AssessmentInstance, LLMInteraction, LLMAssistantConfig
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 
 class LLMAssessmentAssistant:

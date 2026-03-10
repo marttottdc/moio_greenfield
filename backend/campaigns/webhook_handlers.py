@@ -1,4 +1,4 @@
-from portal.webhooks.registry import webhook_handler
+from central_hub.webhooks.registry import webhook_handler
 
 
 @webhook_handler()

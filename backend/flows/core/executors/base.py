@@ -391,7 +391,7 @@ def get_tenant_config(tenant_id: Optional[str]):
         return None, None
     
     try:
-        from portal.models import Tenant, TenantConfiguration
+        from central_hub.models import Tenant, TenantConfiguration
         tenant = Tenant.objects.get(id=tenant_id)
         config = TenantConfiguration.objects.filter(tenant=tenant).first()
         return tenant, config
@@ -405,7 +405,7 @@ def get_tenant_by_id(tenant_id: Optional[str]):
     if not tenant_id:
         return None
     try:
-        from portal.models import Tenant
+        from central_hub.models import Tenant
         return Tenant.objects.get(id=tenant_id)
     except Exception as e:
         logger.error(f"Failed to get tenant {tenant_id}: {e}")

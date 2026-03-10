@@ -224,7 +224,7 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
     
     @database_sync_to_async
     def get_tenant(self, tenant_id, tenant_schema=None):
-        from portal.models import Tenant
+        from central_hub.models import Tenant
         try:
             if tenant_schema:
                 tenant = Tenant.objects.filter(schema_name=tenant_schema).first()

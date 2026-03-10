@@ -25,8 +25,8 @@ from chatbot.tasks import whatsapp_webhook_handler, archive_conversation, instag
 from crm.models import Contact
 from moio_platform.lib.tools import check_elapsed_time
 from moio_platform.lib.openai_gpt_api import get_simple_response
-from portal.context_utils import current_tenant
-from portal.models import TenantConfiguration, PortalConfiguration, AppMenu
+from central_hub.context_utils import current_tenant
+from central_hub.models import TenantConfiguration, PlatformConfiguration
 
 from chatbot.core.assessment_manager import AssessmentManager
 import logging
@@ -39,7 +39,7 @@ def whatsapp_webhook_receiver(request):
 
     if request.method == "GET":
         try:
-            portal_config = PortalConfiguration.objects.first()
+            portal_config = PlatformConfiguration.objects.first()
             access_token = portal_config.whatsapp_webhook_token
             token = request.GET.get("hub.verify_token")
             challenge = request.GET.get("hub.challenge")
@@ -73,7 +73,7 @@ def instagram_webhook_receiver(request):
 
     if request.method == "GET":
         try:
-            portal_config = PortalConfiguration.objects.first()
+            portal_config = PlatformConfiguration.objects.first()
             access_token = portal_config.whatsapp_webhook_token
             token = request.GET.get("hub.verify_token")
             challenge = request.GET.get("hub.challenge")
@@ -107,7 +107,7 @@ def messenger_webhook_receiver(request):
 
     if request.method == "GET":
         try:
-            portal_config = PortalConfiguration.objects.first()
+            portal_config = PlatformConfiguration.objects.first()
             access_token = portal_config.whatsapp_webhook_token
             token = request.GET.get("hub.verify_token")
             challenge = request.GET.get("hub.challenge")
@@ -141,7 +141,7 @@ def messenger_webhook_receiver(request):
 def list_whatsapp_templates(request):
     tenant = current_tenant.get()
     config = TenantConfiguration.objects.get(tenant=tenant)
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     templates = []
 
     if config.whatsapp_integration_enabled:
@@ -559,10 +559,8 @@ def assessment(request, campaign_id):
 
 @login_required()
 def app(request):
-    menu = AppMenu.objects.filter(app="chatbot")
-
     context = {
-        "menu": menu,
+        "menu": [],
         "menu_title": "Chatbot",
         "menu_icon": "mdi mdi-chat",
         "default_screen": "dashboard",

@@ -1,7 +1,7 @@
 # models.py
 from django.db import models
 from django.conf import settings
-from portal.models import TenantScopedModel, Tenant  # Assuming your multi-tenant base
+from central_hub.models import TenantScopedModel, Tenant  # Assuming your multi-tenant base
 
 # Assuming a Tenant model exists in your project
 # from your_tenant_app.models import Tenant

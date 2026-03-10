@@ -21,7 +21,7 @@ def sync_tenant_tools(
     - soft sync (default): preserves tenant customizations
     - hard resync: overwrites tenant customizations
     """
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
     from chatbot.agents.moio_agents_loader import get_available_tools
 

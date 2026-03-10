@@ -15,8 +15,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from campaigns.models import Audience, Campaign, Channel, Kind, Status
-from portal.context_utils import current_tenant
-from portal.models import Tenant
+from central_hub.context_utils import current_tenant
+from central_hub.models import Tenant
 
 
 class CampaignApiTests(APITestCase):

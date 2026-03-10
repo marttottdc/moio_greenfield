@@ -21,7 +21,7 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-APPS_DIR = BASE_DIR / 'portal'
+APPS_DIR = BASE_DIR / 'central_hub'
 
 
 def _env_bool(key, default=False):
@@ -49,8 +49,8 @@ DATABASE_URL = get_config_value('DATABASE_URL') or _build_database_url_from_part
 USE_LOCAL_DEV_DEFAULTS = _env_bool('USE_LOCAL_DEV_DEFAULTS', default=not DATABASE_URL)
 DJANGO_TENANTS_ENABLED = _env_bool('DJANGO_TENANTS_ENABLED', default=False)
 PUBLIC_SCHEMA_NAME = str(get_config_value('PUBLIC_SCHEMA_NAME', 'public') or 'public').strip() or 'public'
-TENANT_MODEL = "portal.Tenant"
-TENANT_DOMAIN_MODEL = "portal.TenantDomain"
+TENANT_MODEL = "tenancy.Tenant"
+TENANT_DOMAIN_MODEL = "tenancy.TenantDomain"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -93,12 +93,14 @@ SHARED_APPS = [
     "django_celery_results",
     "django_celery_beat",
     "mcp_server",
-    "portal",
+    "tenancy",
+    "central_hub",
     "security",
     "docs_api.apps.DocsApiConfig",
 ]
 
 TENANT_APPS = [
+    "notifications",
     "assessments",
     "campaigns",
     "chatbot.apps.ChatbotConfig",
@@ -129,7 +131,8 @@ API_ONLY_APPS = [
     "django_celery_results",
     "django_celery_beat",
     "mcp_server",
-    "portal",
+    "tenancy",
+    "central_hub",
     "security",
     "docs_api.apps.DocsApiConfig",
     *TENANT_APPS,
@@ -143,7 +146,10 @@ INSTALLED_APPS = (
 
 MIDDLEWARE = [
     *(
-        ["django_tenants.middleware.main.TenantMainMiddleware"]
+        [
+            "tenancy.host_rewrite.HostRewriteFromJWTMiddleware",
+            "django_tenants.middleware.main.TenantMainMiddleware",
+        ]
         if DJANGO_TENANTS_ENABLED
         else []
     ),
@@ -155,13 +161,13 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'portal.middleware.TenantMiddleware',
+    'tenancy.middleware.TenantMiddleware',
 ]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "portal.authentication.UserApiKeyAuthentication",
-        "portal.authentication.TenantJWTAAuthentication",
+        "tenancy.authentication.UserApiKeyAuthentication",
+        "tenancy.authentication.TenantJWTAAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "security.authentication.ServiceJWTAuthentication",
     ],
@@ -182,7 +188,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION":
     True,
     "TOKEN_OBTAIN_SERIALIZER":
-    "portal.authentication.TenantTokenObtainPairSerializer",
+    "tenancy.authentication.TenantTokenObtainPairSerializer",
 }
 
 SERVICE_TOKEN_SECRET = get_config_value('SERVICE_TOKEN_SECRET',
@@ -257,7 +263,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.template.context_processors.media',
-                'portal.context_processor.site_configuration',
+                'central_hub.context_processor.site_configuration',
             ],
         },
     },
@@ -267,7 +273,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-AUTH_USER_MODEL = 'portal.MoioUser'
+AUTH_USER_MODEL = "tenancy.MoioUser"
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = get_config_value('EMAIL_HOST', '')
@@ -299,8 +305,8 @@ if DJANGO_TENANTS_ENABLED:
         raise RuntimeError("DJANGO_TENANTS_ENABLED requires PostgreSQL; SQLite is not supported.")
     DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
     DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
-    TENANT_MODEL = "portal.Tenant"
-    TENANT_DOMAIN_MODEL = "portal.TenantDomain"
+    TENANT_MODEL = "tenancy.Tenant"
+    TENANT_DOMAIN_MODEL = "tenancy.TenantDomain"
     TENANT_LIMIT_SET_CALLS = True
     SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
     PG_EXTRA_SEARCH_PATHS = []
@@ -458,7 +464,7 @@ CACHEOPS_REDIS = REDIS_URL
 CACHEOPS_DEGRADE_ON_FAILURE = True
 CACHEOPS = {
     # Cache all queries for Product for 10 minutes (600 sec)
-    'portal.*': {
+    'central_hub.*': {
         'ops': 'all',
         'timeout': 6000
     },

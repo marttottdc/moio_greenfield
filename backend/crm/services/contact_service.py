@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.http import HttpRequest
 
 from crm.models import Contact, ContactType
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 import logging
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class ContactService:
         Returns:
             (user, message) tuple - user is None on failure
         """
-        from portal.models import MoioUser
+        from central_hub.models import MoioUser
         
         try:
             contact = Contact.objects.get(user_id=contact_id, tenant=tenant)

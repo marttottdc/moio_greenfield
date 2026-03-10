@@ -11,8 +11,8 @@ from rest_framework.test import APITestCase
 from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
 from crm.api.tests.utils import ensure_schema
 from crm.models import Contact, ContactType
-from portal.models import Tenant
-from portal.signals import create_internal_contact, create_tenant_configurations
+from central_hub.models import Tenant
+from central_hub.signals import create_internal_contact, create_tenant_configurations
 
 ensure_schema()
 
@@ -89,7 +89,7 @@ class CommunicationsApiTests(APITestCase):
         payload = {"content": "single message"}
         url = f"/api/v1/public/communications/conversations/{self.session.pk}/messages/"
 
-        with patch("portal.models.TenantConfiguration.objects.get") as tenant_config_get, patch(
+        with patch("central_hub.models.TenantConfiguration.objects.get") as tenant_config_get, patch(
             "chatbot.core.messenger.Messenger"
         ) as messenger_cls:
             tenant_config_get.return_value = object()

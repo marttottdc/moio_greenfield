@@ -24,8 +24,8 @@ try:  # guardrails are optional depending on the agents SDK version
 except ImportError:  # pragma: no cover - fallback for older SDKs
     InputGuardrail = OutputGuardrail = Any  # type: ignore
 
-from portal.models import Tenant
-from portal.models import TenantConfiguration
+from central_hub.models import Tenant
+from central_hub.models import TenantConfiguration
 
 import moio_platform.lib.moio_agent_tools_repo as tool_repo
 

@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 
 from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
 from chatbot.api.serializers.tenant_tool_config import TenantToolConfigurationSerializer
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 from resources.api.views import BUILTIN_TOOLS
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ def _get_tenant(ctx: dict):
     tenant_id = ctx.get("tenant_id")
     if not tenant_id:
         raise ValueError("Missing tenant_id in flow context")
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     return Tenant.objects.get(id=tenant_id)
 
 

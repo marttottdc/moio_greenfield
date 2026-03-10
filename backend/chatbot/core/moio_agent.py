@@ -16,7 +16,7 @@ from moio_platform.lib.moio_assistant_functions import MoioAssistantTools
 
 from moio_platform.lib.tools import has_time_passed
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 import logging
 from chatbot.lib.whatsapp_client_api import WhatsappMessage
 from chatbot.core.agents import OrchestratorAgent

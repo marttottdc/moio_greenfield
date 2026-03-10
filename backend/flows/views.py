@@ -43,7 +43,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 from .core.compiler import (
     FlowCompilationError,
     compile_flow_graph,

@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from datalab.crm_sources.models import CRMView
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 class CRMViewRegistry:

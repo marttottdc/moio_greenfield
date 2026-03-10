@@ -12,10 +12,10 @@ from rest_framework.test import APITestCase
 
 from chatbot.models.agent_configuration import AgentConfiguration
 from crm.models import WebhookConfig
-from portal.models import Tenant, TenantConfiguration
-from portal.signals import create_internal_contact, create_tenant_configurations
-from portal.webhooks.utils import available_handlers
-from portal.webhooks.registry import webhook_handler
+from central_hub.models import Tenant, TenantConfiguration
+from central_hub.signals import create_internal_contact, create_tenant_configurations
+from central_hub.webhooks.utils import available_handlers
+from central_hub.webhooks.registry import webhook_handler
 
 
 @override_settings(ROOT_URLCONF="crm.api.tests.urls")

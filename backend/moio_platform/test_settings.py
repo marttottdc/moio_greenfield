@@ -16,7 +16,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
-    "portal",
+    "tenancy",
+    "central_hub",
     "chatbot",
     "crm",
     "flows",
@@ -54,7 +55,7 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
 
-AUTH_USER_MODEL = "portal.MoioUser"
+AUTH_USER_MODEL = "tenancy.MoioUser"
 
 SILENCED_SYSTEM_CHECKS = ["fields.E120"]
 

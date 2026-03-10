@@ -36,8 +36,8 @@ from campaigns.core.service import fetch_whatsapp_template_requirements
 from campaigns.models import Audience, Campaign, CampaignData, CampaignDataStatus
 from campaigns.tasks import execute_campaign
 from moio_platform.core.events import emit_event
-from portal.context_utils import current_tenant
-from portal.utils.tenants import TenantScopedViewSet
+from central_hub.context_utils import current_tenant
+from central_hub.utils.tenants import TenantScopedViewSet
 
 logger = logging.getLogger(__name__)
 

@@ -28,7 +28,7 @@ from crm.models import Contact
 from moio_platform.lib.tools import remove_keys
 from campaigns.tasks import execute_campaign, validate_campaign
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, template_requirements
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from chatbot.models.wa_message_log import WaMessageLog
 
 

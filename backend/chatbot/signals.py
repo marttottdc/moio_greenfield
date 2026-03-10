@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
 from crm.serializers import ContactSerializer
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from moio_platform.lib.email import send_email
 from cacheops.signals import cache_read
 from websockets_app.services.publisher import WebSocketEventPublisher
@@ -110,7 +110,7 @@ def log_cache_access(sender, func, hit, **kwargs):
 
 
 # Import Tenant for signal registration
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 @receiver(post_save, sender=Tenant)

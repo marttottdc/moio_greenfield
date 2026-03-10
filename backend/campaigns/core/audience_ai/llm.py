@@ -17,7 +17,7 @@ function.
 from __future__ import annotations
 from typing import Mapping, Sequence, Optional, Any, Dict
 from openai import OpenAI, Client
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 
 

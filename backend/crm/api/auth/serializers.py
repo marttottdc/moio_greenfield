@@ -6,8 +6,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from crm.api.settings.preferences import build_user_preferences
-from portal.models import TenantConfiguration
-from portal.rbac import ROLE_ORDER, _role_rank, _user_group_names
+from central_hub.models import TenantConfiguration
+from central_hub.rbac import ROLE_ORDER, _role_rank, _user_group_names
 
 UserModel = get_user_model()
 

@@ -52,13 +52,8 @@ def _ensure_migrated() -> None:
             from django.contrib.auth.models import Group, Permission
             from django.contrib.contenttypes.models import ContentType
             from django.contrib.sessions.models import Session
-            from portal.models import (
-                AppConfig,
-                AppMenu,
-                Document,
-                Instruction,
+            from central_hub.models import (
                 MoioUser,
-                Notification,
                 Tenant,
                 TenantConfiguration,
             )
@@ -81,11 +76,6 @@ def _ensure_migrated() -> None:
                 Tenant,
                 TenantConfiguration,
                 MoioUser,
-                Document,
-                Instruction,
-                Notification,
-                AppConfig,
-                AppMenu,
                 ContactType,
                 Flow,
                 FlowExecution,
@@ -117,7 +107,7 @@ def client() -> Client:
 
 @pytest.fixture
 def tenant():
-    from portal.models import Tenant
+    from central_hub.models import Tenant
 
     tenant, _ = Tenant.objects.get_or_create(
         id=1,

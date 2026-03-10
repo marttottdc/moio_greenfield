@@ -16,7 +16,7 @@ from chatbot.services.moio_runtime_service import (
     get_runtime_backend_for_user,
     runtime_initiator_from_user,
 )
-from portal.models import MoioUser
+from central_hub.models import MoioUser
 
 logger = logging.getLogger(__name__)
 

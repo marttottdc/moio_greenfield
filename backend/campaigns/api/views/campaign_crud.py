@@ -30,9 +30,9 @@ from campaigns.core.service import add_static_contacts, remove_static_contacts
 from campaigns.models import Audience, AudienceKind, Campaign, Status
 from chatbot.models.wa_message_log import WaMessageLog
 from crm.models import Contact
-from portal.context_utils import current_tenant
-from portal.utils.tenants import TenantScopedViewSet
-from portal.models import Tenant
+from central_hub.context_utils import current_tenant
+from central_hub.utils.tenants import TenantScopedViewSet
+from central_hub.models import Tenant
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
 
 

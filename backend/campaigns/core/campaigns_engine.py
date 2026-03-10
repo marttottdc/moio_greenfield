@@ -9,7 +9,7 @@ from campaigns.models import Campaign, Channel, Kind, CampaignDataStaging
 from django.conf import settings
 
 from chatbot.lib.whatsapp_client_api import replace_template_placeholders, compose_template_based_message
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from typing import Any, Dict, List, Literal, Optional
 from openai import OpenAI, OpenAIError
 

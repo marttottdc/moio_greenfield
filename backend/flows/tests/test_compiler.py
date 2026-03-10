@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from flows.core.compiler import FlowCompilationError, compile_flow_graph
 from flows.models import Flow, FlowGraphVersion
-from portal.models import Tenant, TenantConfiguration
+from central_hub.models import Tenant, TenantConfiguration
 
 
 class CompilerTests(TestCase):

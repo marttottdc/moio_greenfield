@@ -7,8 +7,8 @@ from rest_framework import serializers
 
 from chatbot.models.agent_configuration import AgentConfiguration
 from crm.models import WebhookConfig
-from portal.models import TenantConfiguration
-from portal.webhooks.utils import available_handlers
+from central_hub.models import TenantConfiguration
+from central_hub.webhooks.utils import available_handlers
 
 
 class BaseTenantConfigurationSerializer(serializers.ModelSerializer):

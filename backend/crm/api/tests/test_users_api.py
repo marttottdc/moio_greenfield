@@ -8,8 +8,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from crm.api.tests.utils import ensure_schema
-from portal.models import Tenant
-from portal.signals import (
+from central_hub.models import Tenant
+from central_hub.signals import (
     create_internal_contact,
     create_tenant_configurations,
     create_user_profile,

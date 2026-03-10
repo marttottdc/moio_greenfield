@@ -13,9 +13,9 @@ from rest_framework import status  # noqa: E402
 from rest_framework.test import APITestCase  # noqa: E402
 
 from crm.models import Contact  # noqa: E402
-from portal.context_utils import current_tenant  # noqa: E402
-from portal.models import Tenant, TenantConfiguration  # noqa: E402
-from portal.signals import create_internal_contact, create_tenant_configurations  # noqa: E402
+from central_hub.context_utils import current_tenant  # noqa: E402
+from central_hub.models import Tenant, TenantConfiguration  # noqa: E402
+from central_hub.signals import create_internal_contact, create_tenant_configurations  # noqa: E402
 
 
 @override_settings(ROOT_URLCONF="crm.api.tests.urls")

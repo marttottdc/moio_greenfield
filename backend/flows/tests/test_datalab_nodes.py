@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from flows.core.registry import get_executor
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 # DataLab models (optional: skip tests if datalab not installed)
 try:

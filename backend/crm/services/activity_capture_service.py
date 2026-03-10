@@ -11,8 +11,8 @@ from django.db.models import Q
 from datetime import timezone as dt_timezone
 from django.utils import timezone
 
-from portal.integrations.models import IntegrationConfig
-from portal.integrations.registry import get_integration
+from central_hub.integrations.models import IntegrationConfig
+from central_hub.integrations.registry import get_integration
 
 from crm.core.activity_capture_contract import ClassificationOutput
 from crm.models import (
@@ -425,9 +425,9 @@ def has_calendar_conflicts(*, user, start_at: datetime, end_at: datetime) -> boo
     - Treats any event returned in the range as a conflict
     """
     try:
-        from portal.integrations.v1.services.accounts import visible_calendar_accounts
-        from portal.integrations.v1.services import calendar_service
-        from portal.rbac import user_has_role
+        from central_hub.integrations.v1.services.accounts import visible_calendar_accounts
+        from central_hub.integrations.v1.services import calendar_service
+        from central_hub.rbac import user_has_role
     except Exception:
         return False
 

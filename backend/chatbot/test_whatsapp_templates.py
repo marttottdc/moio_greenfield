@@ -1,6 +1,6 @@
 import json
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, get_template, compose_template_based_message, template_requirements
 
 

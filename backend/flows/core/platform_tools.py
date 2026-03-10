@@ -43,7 +43,7 @@ def create_crm_contact(
         Dict with contact details including ID
     """
     from crm.services.contact_service import create_contact
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     
     try:
         tenant = Tenant.objects.get(id=tenant_id) if tenant_id else None
@@ -98,7 +98,7 @@ def create_crm_ticket(
         Dict with ticket details including ID
     """
     from crm.core.tickets import create_ticket
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     from crm.models import Contact
     
     try:
@@ -158,7 +158,7 @@ def send_whatsapp_message(
         Dict with send status and message ID
     """
     from chatbot.lib.whatsapp_client_api import send_text_message
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     
     try:
         tenant = Tenant.objects.get(id=tenant_id) if tenant_id else None
@@ -212,7 +212,7 @@ def update_candidate_status(
         Dict with update status
     """
     from recruiter.models import Candidate
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     
     try:
         tenant = Tenant.objects.get(id=tenant_id) if tenant_id else None

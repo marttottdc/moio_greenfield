@@ -7,7 +7,7 @@ from io import BytesIO
 from django.core.files.storage import default_storage
 from openai import OpenAI, BaseModel
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 import logging
 
 try:

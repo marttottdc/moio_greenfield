@@ -1,5 +1,5 @@
 from django.db import models
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 class ChatbotConfiguration (models.Model):

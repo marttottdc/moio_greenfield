@@ -17,8 +17,8 @@ from campaigns.core.service import (
 )
 from campaigns.models import Campaign
 from moio_platform.celery_app import app
-from portal.context_utils import current_tenant
-from portal.utils.tenants import TenantScopedViewSet
+from central_hub.context_utils import current_tenant
+from central_hub.utils.tenants import TenantScopedViewSet
 from campaigns.tasks import execute_campaign
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
 

@@ -13,7 +13,6 @@ import {
   KPIRibbonWidget,
   RecentCampaignsWidget,
   RecentAudiencesWidget,
-  CRMAssistantWidget,
   FavoritesWidget,
   FrequentlyUsedWidget,
   ActivityChartWidget,
@@ -44,8 +43,6 @@ function WidgetRenderer({ widget }: { widget: WidgetConfig }) {
       return <RecentCampaignsWidget />;
     case "recent_audiences":
       return <RecentAudiencesWidget />;
-    case "crm_assistant":
-      return <CRMAssistantWidget />;
     case "favorites":
       return <FavoritesWidget />;
     case "frequently_used":
@@ -106,7 +103,9 @@ export default function Dashboard() {
   const isLoading = prefsLoading || dataLoading;
 
   const kpiWidget = enabledWidgets.find((w) => w.type === "kpi_card");
-  const otherWidgets = enabledWidgets.filter((w) => w.type !== "kpi_card");
+  const otherWidgets = enabledWidgets.filter(
+    (w) => w.type !== "kpi_card" && w.type !== "crm_assistant"
+  );
 
   return (
     <PageLayout

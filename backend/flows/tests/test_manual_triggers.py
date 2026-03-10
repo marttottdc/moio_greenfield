@@ -12,7 +12,7 @@ from flows.core.compiler import compile_flow_graph, register_definition
 from flows.core.connector import flow_connector, trigger_manual_flow
 from flows.models import Flow, FlowExecution, FlowGraphVersion
 from flows.views import manual_run
-from portal.signals import create_internal_contact
+from central_hub.signals import create_internal_contact
 
 
 SIMPLE_MANUAL_GRAPH = {

@@ -4,7 +4,7 @@ import uuid
 from django.test import TestCase
 from django.urls import reverse
 
-from portal.models import MoioUser, Tenant, TenantConfiguration
+from central_hub.models import MoioUser, Tenant, TenantConfiguration
 from flows.models import Flow, FlowVersion, FlowVersionStatus
 
 

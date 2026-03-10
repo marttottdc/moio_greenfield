@@ -9,7 +9,7 @@ from typing import Dict, List, Set
 
 from agents import Agent
 from chatbot.models.agent_configuration import AgentConfiguration
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 logger = logging.getLogger(__name__)
 

@@ -17,9 +17,9 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.forms import modelform_factory
 from campaigns.models import Audience
 from campaigns.forms import ConditionFormSet  # your existing formset
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 from campaigns.core.audience_filters import compute_audience_preview, compute_audience, FIELD_MAP
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 
 BasicAudienceForm = modelform_factory(

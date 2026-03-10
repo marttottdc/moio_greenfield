@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from portal.models import Tenant, TenantConfiguration
+from central_hub.models import Tenant, TenantConfiguration
 from .models import Flow, FlowVersion
 
 

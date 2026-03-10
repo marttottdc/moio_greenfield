@@ -16,7 +16,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from crm.models import Contact, ContactType, Ticket, TicketComment
 from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
 from moio_platform.authentication import BearerTokenAuthentication
-from portal.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
+from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
 
 
 def _error(code: str, message: str, http_status: int) -> Response:

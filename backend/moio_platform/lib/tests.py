@@ -1,4 +1,4 @@
-from portal.models import TenantConfiguration, Tenant
+from central_hub.models import TenantConfiguration, Tenant
 from moio_platform.lib.google_maps_api import GoogleMapsApi, haversine
 from moio_platform.lib.wordpress_api import WordPressAPIClient
 

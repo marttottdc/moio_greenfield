@@ -36,7 +36,7 @@ from datalab.core.models import (
 )
 from datalab.core.serialization import serialize_for_json
 from datalab.core.storage import get_storage
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 logger = logging.getLogger(__name__)
 

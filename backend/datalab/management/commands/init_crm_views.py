@@ -2,7 +2,7 @@
 Management command to initialize default CRM Views for tenants.
 """
 from django.core.management.base import BaseCommand
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 from datalab.crm_sources.registry import CRMViewRegistry
 

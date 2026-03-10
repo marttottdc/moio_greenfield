@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 DEFAULT_NOTIFICATIONS: Dict[str, bool] = {
     "email": True,

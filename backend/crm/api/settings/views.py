@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 
 from crm.models import WebhookConfig
 from crm.services.agent_service import AgentService
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 from .serializers import (
     AgentConfigurationSerializer,
@@ -108,7 +108,7 @@ class AgentConfigurationViewSet(viewsets.ViewSet):
 
     def _ensure_tenant_context(self, tenant):
         """Ensure tenant context is set for TenantManager filtering."""
-        from portal.context_utils import current_tenant
+        from central_hub.context_utils import current_tenant
         context_tenant = current_tenant.get()
         if context_tenant != tenant:
             logger.debug(f"Setting tenant context: {tenant.id} (was: {context_tenant})")
@@ -228,7 +228,7 @@ class WebhookConfigViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="handlers")
     def handlers(self, request):
-        from portal.webhooks.registry import get_available_handlers
+        from central_hub.webhooks.registry import get_available_handlers
         handlers = get_available_handlers()
         return Response({"handlers": handlers})
 

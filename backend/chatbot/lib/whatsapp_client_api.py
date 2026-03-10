@@ -11,8 +11,8 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 from chatbot.models.wa_message_log import WaMessageLog
 from moio_platform.lib.openai_gpt_api import whisper_to_text, image_reader
-from portal.models import TenantConfiguration, PortalConfiguration
-from portal.config import get_portal_configuration
+from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.config import get_platform_configuration
 from celery import shared_task
 from django.conf import settings
 import logging
@@ -248,7 +248,7 @@ class WhatsappBusinessClient:
     def __init__(self, config: TenantConfiguration):
 
         if config.whatsapp_integration_enabled:
-            portal_configuration = get_portal_configuration()
+            portal_configuration = get_platform_configuration()
 
             self.whatsapp_business_account_id = config.whatsapp_business_account_id
             self.media_url = config.whatsapp_url
@@ -1788,7 +1788,7 @@ def get_template(templates, name):
 
 
 def get_waba_customer_account(customer_waba_id):
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
 
     request_data = {
         "fields": "id, name, currency, owner_business_info",
@@ -1810,7 +1810,7 @@ def waba_temp_token_swap(auth_token: str, portal_config) -> str:
     # ─── Validate portal_config ─────────────────────────────────────────
     for attr in ("fb_moio_bot_app_id", "fb_moio_bot_app_secret", "my_url"):
         if not getattr(portal_config, attr, None):
-            raise ImproperlyConfigured(f"Missing PortalConfiguration.{attr}")
+            raise ImproperlyConfigured(f"Missing PlatformConfiguration.{attr}")
 
     url = "https://graph.facebook.com/v21.0/oauth/access_token"
     params = {
@@ -1845,9 +1845,9 @@ def get_customers_waba_id(user_token: str) -> str:
     from granular_scopes → target_ids.
     Raises on HTTP errors or missing data.
     """
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     if not portal_config or not portal_config.fb_system_token:
-        raise ImproperlyConfigured("Missing PortalConfiguration.fb_system_token")
+        raise ImproperlyConfigured("Missing PlatformConfiguration.fb_system_token")
 
     url = "https://graph.facebook.com/debug_token/"
     params = {
@@ -1879,9 +1879,9 @@ def get_customer_waba_phone_numbers(customer_waba_id: str) -> list[dict]:
     Fetch all phone-number objects for a given WABA customer.
     Raises HTTPError on bad status or ValueError if response schema is unexpected.
     """
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     if not portal_config or not portal_config.fb_system_token:
-        raise ImproperlyConfigured("Missing PortalConfiguration.fb_system_token")
+        raise ImproperlyConfigured("Missing PlatformConfiguration.fb_system_token")
 
     url = f"https://graph.facebook.com/v21.0/{customer_waba_id}/phone_numbers"
     params = {
@@ -1927,9 +1927,9 @@ def unsubscribe_from_webhooks(customer_waba_id: str) -> dict:
     Unsubscribe the given WABA customer from app webhooks.
     Raises HTTPError on non-2xx responses or ImproperlyConfigured if token is missing.
     """
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     if not portal_config or not portal_config.fb_system_token:
-        raise ImproperlyConfigured("Missing PortalConfiguration.fb_system_token")
+        raise ImproperlyConfigured("Missing PlatformConfiguration.fb_system_token")
 
     url = f"https://graph.facebook.com/v21.0/{customer_waba_id}/subscribed_apps"
     params = {"access_token": portal_config.fb_system_token}
@@ -1949,9 +1949,9 @@ def register_waba_phone_number(phone_waba_id: str, fb_system_token) -> dict:
     Register a WABA phone number by PIN.
     Raises HTTPError on non-2xx responses or ImproperlyConfigured if token is missing.
     """
-    portal_config = PortalConfiguration.objects.first()
+    portal_config = PlatformConfiguration.objects.first()
     if not portal_config or not portal_config.fb_system_token:
-        raise ImproperlyConfigured("Missing PortalConfiguration.fb_system_token")
+        raise ImproperlyConfigured("Missing PlatformConfiguration.fb_system_token")
 
     url = f"https://graph.facebook.com/v21.0/{phone_waba_id}/register"
     payload = {

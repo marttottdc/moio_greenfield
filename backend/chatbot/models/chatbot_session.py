@@ -4,12 +4,12 @@ from django.db import models
 from django.utils import timezone
 
 from crm.models import Contact
-from portal.models import Tenant, TenantScopedModel
+from central_hub.models import Tenant, TenantScopedModel
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from portal.models import Tenant
+from central_hub.models import Tenant
 from moio_platform.core.events import emit_event
 
 

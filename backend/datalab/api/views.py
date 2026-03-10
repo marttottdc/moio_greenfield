@@ -25,7 +25,7 @@ from datalab.imports.analyzers.pdf_shape import PdfShapeAnalyzer, PdfShapeAnalyz
 from datalab.imports.services import ImportExecutor, ImportExecutorError, ImportProcessService
 from datalab.imports.validators import ImportContractValidationError
 from datalab.imports.interpreters import ShapeInterpreter, ShapeInterpretationError
-from portal.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
+from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
 from moio_platform.authentication import BearerTokenAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
@@ -644,7 +644,7 @@ class ImportProcessViewSet(AuthenticatedDataLabView, viewsets.ModelViewSet):
             )
 
         try:
-            from portal.models import TenantConfiguration
+            from central_hub.models import TenantConfiguration
             from django.shortcuts import get_object_or_404
             
             tenant_config = get_object_or_404(TenantConfiguration, tenant=tenant)

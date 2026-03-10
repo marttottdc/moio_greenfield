@@ -23,8 +23,8 @@ from chatbot.lib.whatsapp_client_api import (
     template_requirements,
 )
 from crm.models import Contact
-from portal.context_utils import current_tenant
-from portal.models import TenantConfiguration
+from central_hub.context_utils import current_tenant
+from central_hub.models import TenantConfiguration
 
 
 class ContactSearchView(APIView):

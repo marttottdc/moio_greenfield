@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from flows.core.registry import get_executor
 from flows.models import Flow, FlowScript, FlowScriptRun, FlowScriptVersion
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 class FlowScriptExecutorTemplateRoutingTests(TestCase):

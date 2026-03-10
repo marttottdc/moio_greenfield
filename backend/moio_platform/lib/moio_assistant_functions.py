@@ -17,8 +17,8 @@ from moio_platform.lib.tools import function_to_spec
 from moio_platform.lib.google_maps_api import GoogleMapsApi, haversine
 from moio_platform.lib.wordpress_api import WordPressAPIClient
 from moio_platform.lib.openai_gpt_api import MoioOpenai
-from portal.context_utils import current_tenant
-from portal.models import TenantConfiguration, PortalConfiguration
+from central_hub.context_utils import current_tenant
+from central_hub.models import TenantConfiguration, PlatformConfiguration
 from django.dispatch import receiver
 from django.dispatch import Signal
 from chatbot.core.messenger import Messenger
@@ -330,7 +330,7 @@ class MoioAssistantTools:
             except Exception as e:
                 logger.warning(f"Failed to emit ticket creation event: {e}")
             
-            portal_config = PortalConfiguration.objects.first()
+            portal_config = PlatformConfiguration.objects.first()
 
             response = {
                 "ticket_created": "true",

@@ -1,5 +1,5 @@
 import requests
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 from bs4 import BeautifulSoup
 
 

@@ -11,7 +11,7 @@ from django.utils import timezone
 from crm.models import ActivityRecord, Contact, Deal, Pipeline, PipelineStage, Ticket
 from crm.services.event_activity_ingestion import create_activities_from_event
 from flows.models import EventLog
-from portal.models import Tenant
+from central_hub.models import Tenant
 
 
 def _get_tenant():

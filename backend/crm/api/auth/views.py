@@ -13,9 +13,9 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework.authtoken.models import Token
 
-from portal.authentication import TenantTokenObtainPairSerializer
-from portal.authentication import TenantJWTAAuthentication
-from portal.models import UserApiKey
+from central_hub.authentication import TenantTokenObtainPairSerializer
+from central_hub.authentication import TenantJWTAAuthentication
+from central_hub.models import UserApiKey
 
 try:
     from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken

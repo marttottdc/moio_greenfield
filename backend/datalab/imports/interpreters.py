@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from portal.models import TenantConfiguration
+from central_hub.models import TenantConfiguration
 
 logger = logging.getLogger(__name__)
 

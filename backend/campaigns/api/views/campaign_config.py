@@ -24,8 +24,8 @@ from campaigns.core.service import (
     update_template,
 )
 from campaigns.models import Audience, Campaign
-from portal.context_utils import current_tenant
-from portal.utils.tenants import TenantScopedViewSet
+from central_hub.context_utils import current_tenant
+from central_hub.utils.tenants import TenantScopedViewSet
 
 
 class CampaignConfigViewSet(TenantScopedViewSet):

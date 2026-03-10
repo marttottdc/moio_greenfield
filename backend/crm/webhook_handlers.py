@@ -10,8 +10,8 @@ from pgvector.django import L2Distance
 from chatbot.lib.whatsapp_client_api import compose_template_based_message, replace_template_placeholders, \
     WhatsappBusinessClient, template_requirements
 
-from portal.webhooks.registry import webhook_handler
-from portal.models import TenantConfiguration
+from central_hub.webhooks.registry import webhook_handler
+from central_hub.models import TenantConfiguration
 from crm.models import KnowledgeItem, Face, WebhookPayload
 from moio_platform.lib.openai_gpt_api import MoioOpenai
 import json
@@ -190,7 +190,7 @@ def email_back(payload, headers, content_type, cfg):
     tenant_slug = cfg.tenant.slug if hasattr(cfg.tenant, "slug") else str(cfg.tenant_id)
     template_names = [
 
-        "portal/templates/email/payload.html",
+        "central_hub/templates/email/payload.html",
         "templates/email/payload.html",
         "email/payload.html",
     ]
@@ -270,7 +270,7 @@ def email_template_sender(payload, headers, content_type, cfg):
     #  A prettified JSON version is passed in `data_json` (handy for <pre> blocks).
 
     template_names = [
-        f"portal/templates/email/{template_id}.html",
+        f"central_hub/templates/email/{template_id}.html",
         f"templates/email/{template_id}.html",
         f"email/{template_id}.html",
     ]

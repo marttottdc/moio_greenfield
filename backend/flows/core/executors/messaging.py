@@ -445,7 +445,7 @@ def send_email_template(
         
         # ────────────── 3. subject & body ──────────────
         template_names = [
-            f"portal/templates/email/{template_id}.html",
+            f"central_hub/templates/email/{template_id}.html",
             f"templates/email/{template_id}.html",
             f"email/{template_id}.html",
         ]

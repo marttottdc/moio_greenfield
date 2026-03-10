@@ -54,7 +54,7 @@ def extract_contact_ids_from_payload(payload: dict) -> Set[str]:
 
 
 def _resolve_tenant(tenant_id: UUID):
-    from portal.models import Tenant
+    from central_hub.models import Tenant
     return Tenant.objects.filter(tenant_code=tenant_id).first()
 
 

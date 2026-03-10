@@ -2750,7 +2750,7 @@ def _out_event(node, payload, ctx):
     
     try:
         from moio_platform.core.events.emitter import emit_event
-        from portal.models import Tenant
+        from central_hub.models import Tenant
         
         entity_type = event_name.split(".")[0] if "." in event_name else "flow"
         entity_id = ctx.get("entity_id") or ctx.get("$input", {}).get("id")
@@ -3089,7 +3089,7 @@ def _agent_executor(node, payload, ctx):
 
     from .agent_runtime import FlowAgentRuntime, FlowAgentConfig
     from .context_service import FlowAgentContextService
-    from portal.models import Tenant
+    from central_hub.models import Tenant
 
     config = node.get("config", {})
     tenant_id = ctx.get("tenant_id")
@@ -3236,7 +3236,7 @@ def _agent_executor(node, payload, ctx):
         # Tools in moio_agent_tools_repo often expect ctx.context["session"], ["contact"], ["config"].
         # Provide lightweight, dot-accessible wrappers here (runner context only).
         from flows.core.lib import DotAccessDict
-        from portal.models import TenantConfiguration
+        from central_hub.models import TenantConfiguration
 
         # Tenant configuration (used by multiple tools for API keys / catalog ids / tenant pointer).
         try:

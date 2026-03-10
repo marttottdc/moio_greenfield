@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from django.forms import modelform_factory
 from campaigns.models import Audience
 from campaigns.forms import ConditionFormSet  # your existing formset
-from portal.context_utils import current_tenant
+from central_hub.context_utils import current_tenant
 
 
 @login_required

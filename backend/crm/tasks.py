@@ -19,9 +19,9 @@ from crm.lib.moiotools import create_dac_delivery
 from moio_platform.lib.google_maps_api import get_geocode
 
 from moio_platform.lib.openai_gpt_api import get_json_response
-from portal.models import TenantConfiguration, Tenant, Instruction
+from central_hub.models import TenantConfiguration, Tenant
 
-from portal.webhooks.utils import get_handler
+from central_hub.webhooks.utils import get_handler
 logger = logging.getLogger(__name__)
 
 
@@ -146,8 +146,8 @@ def fix_order_addresses(self):
     for tenant_config in TenantConfiguration.objects.all():
         if tenant_config.openai_integration_enabled:
             try:
-                instructions_data = Instruction.objects.get(key="fix_address_prompt")
-                instructions = instructions_data.prompt
+                # Instruction model removed - use default prompt
+                instructions = "Clean and normalize this delivery address:"
 
                 for order in EcommerceOrder.objects.filter(tenant=tenant_config.tenant, order_clean_delivery_address__exact=""):
 
