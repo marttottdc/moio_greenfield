@@ -31,9 +31,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from drf_spectacular.utils import extend_schema
 
 from moio_platform.authentication import BearerTokenAuthentication
-from portal.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
+from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
 
-from crm.models import Contact, ContactType, Ticket, TicketComment
+from crm.models import Contact, ContactType, Ticket, TicketComment, Customer, CustomerContact
 from crm.services.contact import normalize_phone_e164, sync_whatsapp_blocklist
 from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
 from chatbot.core.human_mode_context import append_context_message
@@ -432,6 +432,9 @@ class ContactAPIMixin:
                 contact.last_contacted_at or contact.last_seen_at or contact.updated
             )
 
+        account_ids = [
+            str(cc.customer_id) for cc in contact.customer_contacts.all()
+        ] if hasattr(contact, "customer_contacts") else []
         return {
             "id": str(contact.pk),
             "name": contact.fullname or contact.display_name or contact.whatsapp_name or contact.email,
@@ -443,6 +446,7 @@ class ContactAPIMixin:
             "tags": tags,
             "custom_fields": custom_fields,
             "activity_summary": summary,
+            "account_ids": account_ids,
             "created_at": self._isoformat(contact.created),
             "updated_at": self._isoformat(contact.updated),
         }
@@ -533,6 +537,33 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
             contact.save(update_fields=fields_to_update)
             if "is_blacklisted" in fields_to_update:
                 sync_whatsapp_blocklist(contact, enabled=contact.is_blacklisted)
+        if "account_ids" in payload:
+            tenant = getattr(request.user, "tenant", None)
+            if tenant is not None:
+                desired = set()
+                for cid in payload.get("account_ids") or []:
+                    try:
+                        cust_id = uuid.UUID(str(cid))
+                    except (ValueError, TypeError):
+                        continue
+                    if Customer.objects.filter(tenant=tenant, id=cust_id).exists():
+                        desired.add(cust_id)
+                existing_ids = set(
+                    CustomerContact.objects.filter(contact=contact).values_list("customer_id", flat=True)
+                )
+                for cust_id in desired:
+                    if cust_id not in existing_ids:
+                        CustomerContact.objects.get_or_create(
+                            tenant=tenant,
+                            customer_id=cust_id,
+                            contact=contact,
+                            defaults={"role": ""},
+                        )
+                for cust_id in existing_ids:
+                    if cust_id not in desired:
+                        CustomerContact.objects.filter(
+                            contact=contact, customer_id=cust_id
+                        ).delete()
         return Response(self._serialize_contact(contact))
 
     def delete(self, request, contact_id):
@@ -623,6 +654,24 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
 
     def get(self, request):
         queryset = self._base_queryset(request)
+        account_id = request.query_params.get("account_id")
+        if account_id:
+            try:
+                uuid.UUID(str(account_id))
+                tenant = getattr(request.user, "tenant", None)
+                if tenant:
+                    customer = Customer.objects.filter(tenant=tenant, id=account_id).first()
+                    if customer:
+                        conditions = Q(customer_contacts__customer_id=account_id)
+                        if customer.name and len(str(customer.name).strip()) > 0:
+                            conditions |= Q(company__iexact=customer.name.strip())
+                        queryset = queryset.filter(conditions).distinct()
+                    else:
+                        queryset = queryset.filter(customer_contacts__customer_id=account_id).distinct()
+                else:
+                    queryset = queryset.filter(customer_contacts__customer_id=account_id).distinct()
+            except (ValueError, TypeError):
+                return _error("invalid_account_id", "account_id must be a valid UUID", status.HTTP_400_BAD_REQUEST)
         search = (request.query_params.get("search") or "").strip()
         if search:
             queryset = queryset.filter(
@@ -709,6 +758,20 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
             contact.save(update_fields=["brief_facts"])
         if contact.is_blacklisted:
             sync_whatsapp_blocklist(contact, enabled=True)
+        account_ids = payload.get("account_ids")
+        if isinstance(account_ids, (list, tuple)) and len(account_ids) > 0:
+            for cid in account_ids:
+                try:
+                    cust_id = uuid.UUID(str(cid))
+                except (ValueError, TypeError):
+                    continue
+                if Customer.objects.filter(tenant=tenant, id=cust_id).exists():
+                    CustomerContact.objects.get_or_create(
+                        tenant=tenant,
+                        customer_id=cust_id,
+                        contact=contact,
+                        defaults={"role": ""},
+                    )
         return Response(self._serialize_contact(contact), status=status.HTTP_201_CREATED)
 
 
@@ -1009,7 +1072,7 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
         if session.human_mode:
             try:
                 from chatbot.core.messenger import Messenger
-                from portal.models import TenantConfiguration
+                from central_hub.models import TenantConfiguration
 
                 config = TenantConfiguration.objects.get(tenant=session.tenant)
                 messenger = Messenger(channel=session.channel, config=config, client_name="human_mode")

@@ -61,6 +61,8 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorDisplay } from "@/components/error-display";
 import { ContactEditorModal } from "@/components/crm/contact-editor-modal";
 import { ContactDetailsModal, type ContactDetailsContact } from "@/components/crm/contact-details-modal";
+import { AccountDetailsModal } from "@/components/crm/account-details-modal";
+import { AccountEditorModal } from "@/components/crm/account-editor-modal";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { apiV1, getAuthHeaders } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -90,6 +92,24 @@ interface ContactsPagination {
 
 interface ContactsResponse {
   contacts: any[];
+  pagination: ContactsPagination;
+}
+
+interface CRMAccount {
+  id: string;
+  name: string;
+  legal_name?: string | null;
+  type?: string;
+  status?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  tax_id?: string | null;
+  addresses?: Array<Record<string, unknown>>;
+  created_at?: string | null;
+}
+
+interface AccountsResponse {
+  customers: CRMAccount[];
   pagination: ContactsPagination;
 }
 
@@ -501,6 +521,11 @@ export default function CRM() {
     return raw ? String(raw).trim() : null;
   }, [queryParams]);
 
+  const openAccountId = useMemo(() => {
+    const raw = queryParams.get("accountId");
+    return raw ? String(raw).trim() : null;
+  }, [queryParams]);
+
   const setActiveTab = (tab: CRMTabType) => {
     const newUrl = `/crm?tab=${tab}`;
     window.history.pushState({ tab }, '', newUrl);
@@ -517,6 +542,16 @@ export default function CRM() {
     const params = new URLSearchParams(window.location.search);
     if (id) params.set("contactId", id);
     else params.delete("contactId");
+    const query = params.toString();
+    const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.pushState({}, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, []);
+
+  const setOpenAccountId = useCallback((id: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (id) params.set("accountId", id);
+    else params.delete("accountId");
     const query = params.toString();
     const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.pushState({}, '', url);
@@ -588,9 +623,20 @@ export default function CRM() {
     }
     
     switch (activeTab) {
-      case "overview": return <OverviewTab />;
+      case "overview": return (
+        <OverviewTab
+          setActiveTab={setActiveTab}
+          onViewContact={(id) => {
+            const params = new URLSearchParams();
+            params.set("tab", "contacts");
+            params.set("contactId", id);
+            window.history.pushState({}, "", `/crm?${params.toString()}`);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }}
+        />
+      );
       case "contacts": return <ContactsTab searchQuery={searchQuery} openContactId={openContactId} setOpenContactId={setOpenContactId} />;
-      case "accounts": return <AccountsTab searchQuery={searchQuery} />;
+      case "accounts": return <AccountsTab searchQuery={searchQuery} openAccountId={openAccountId} setOpenAccountId={setOpenAccountId} />;
       case "analytics": return <AnalyticsTab />;
       default: return <OverviewTab />;
     }
@@ -651,7 +697,10 @@ export default function CRM() {
 }
 
 
-function OverviewTab() {
+function OverviewTab({ setActiveTab, onViewContact }: {
+  setActiveTab: (tab: CRMTabType) => void;
+  onViewContact: (contactId: string) => void;
+}) {
   const contactsQuery = useQuery<ContactsResponse>({
     queryKey: [apiV1("/crm/contacts/"), 1, 10],
     queryFn: () => fetchJson<ContactsResponse>(apiV1("/crm/contacts/"), { page: "1", page_size: "10" }),
@@ -681,7 +730,11 @@ function OverviewTab() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <GlassPanel className="p-4">
+        <GlassPanel
+          className="p-4 cursor-pointer hover-elevate transition-shadow"
+          onClick={() => setActiveTab("contacts")}
+          data-testid="kpi-total-contacts"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10">
               <Users className="h-5 w-5 text-blue-500" />
@@ -699,47 +752,51 @@ function OverviewTab() {
           </div>
         </GlassPanel>
 
-        <GlassPanel className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <Briefcase className="h-5 w-5 text-green-500" />
+        <Link href="/deals">
+          <GlassPanel className="p-4 cursor-pointer hover-elevate transition-shadow" data-testid="kpi-active-deals">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Briefcase className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active Deals</p>
+                {dealsQuery.isLoading ? (
+                  <Skeleton className="h-7 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold" data-testid="text-active-deals">
+                    {deals.length}
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Active Deals</p>
-              {dealsQuery.isLoading ? (
-                <Skeleton className="h-7 w-16" />
-              ) : (
-                <p className="text-2xl font-bold" data-testid="text-active-deals">
-                  {deals.length}
-                </p>
-              )}
-            </div>
-          </div>
-        </GlassPanel>
+          </GlassPanel>
+        </Link>
 
-        <GlassPanel className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-500/10">
-              <TrendingUp className="h-5 w-5 text-purple-500" />
+        <Link href="/deals">
+          <GlassPanel className="p-4 cursor-pointer hover-elevate transition-shadow" data-testid="kpi-pipeline-value">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <TrendingUp className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pipeline Value</p>
+                {dealsQuery.isLoading ? (
+                  <Skeleton className="h-7 w-24" />
+                ) : pipelineValuesByCurrency.length === 0 ? (
+                  <p className="text-2xl font-bold" data-testid="text-pipeline-value">$0</p>
+                ) : (
+                  <div className="space-y-0.5" data-testid="text-pipeline-value">
+                    {pipelineValuesByCurrency.map(({ currency, total }) => (
+                      <p key={currency} className="text-lg font-bold">
+                        {total.toLocaleString(undefined, { style: "currency", currency, maximumFractionDigits: 0 })}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Pipeline Value</p>
-              {dealsQuery.isLoading ? (
-                <Skeleton className="h-7 w-24" />
-              ) : pipelineValuesByCurrency.length === 0 ? (
-                <p className="text-2xl font-bold" data-testid="text-pipeline-value">$0</p>
-              ) : (
-                <div className="space-y-0.5" data-testid="text-pipeline-value">
-                  {pipelineValuesByCurrency.map(({ currency, total }) => (
-                    <p key={currency} className="text-lg font-bold">
-                      {total.toLocaleString(undefined, { style: "currency", currency, maximumFractionDigits: 0 })}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </GlassPanel>
+          </GlassPanel>
+        </Link>
 
         <GlassPanel className="p-4">
           <div className="flex items-center gap-3">
@@ -768,7 +825,12 @@ function OverviewTab() {
           ) : (
             <div className="space-y-3">
               {contacts.slice(0, 5).map((contact: any) => (
-                <div key={contact.id} className="flex items-center gap-3 p-2 rounded-lg hover-elevate">
+                <div
+                  key={contact.id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover-elevate cursor-pointer"
+                  onClick={() => onViewContact(contact.id)}
+                  data-testid={`overview-contact-${contact.id}`}
+                >
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
                     {contact.name?.charAt(0).toUpperCase() || "?"}
                   </div>
@@ -798,18 +860,20 @@ function OverviewTab() {
           ) : (
             <div className="space-y-3">
               {deals.slice(0, 5).map((deal) => (
-                <div key={deal.id} className="flex items-center gap-3 p-2 rounded-lg hover-elevate">
-                  <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <Briefcase className="h-4 w-4 text-green-500" />
+                <Link key={deal.id} href={`/deals?dealId=${encodeURIComponent(deal.id)}`}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg hover-elevate cursor-pointer" data-testid={`overview-deal-${deal.id}`}>
+                    <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                      <Briefcase className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{deal.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{deal.company || "No company"}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-green-600">
+                      {typeof deal.value === "number" ? deal.value.toLocaleString(undefined, { style: "currency", currency: "USD" }) : "--"}
+                    </p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{deal.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{deal.company || "No company"}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-green-600">
-                    {typeof deal.value === "number" ? deal.value.toLocaleString(undefined, { style: "currency", currency: "USD" }) : "--"}
-                  </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -819,27 +883,34 @@ function OverviewTab() {
   );
 }
 
-function ContactsTab({ searchQuery, openContactId, setOpenContactId }: { searchQuery: string; openContactId?: string | null; setOpenContactId: (id: string | null) => void }) {
+function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
+  searchQuery: string;
+  openContactId?: string | null;
+  setOpenContactId: (id: string | null) => void;
+}) {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
+  const [accountIdFilter, setAccountIdFilter] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editorContact, setEditorContact] = useState<CRMContact | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, accountIdFilter]);
 
   const { data, isLoading, isError, error, refetch } = useQuery<ContactsResponse>({
-    queryKey: [apiV1("/crm/contacts"), page, pageSize, searchQuery],
+    queryKey: [apiV1("/crm/contacts"), page, pageSize, searchQuery, accountIdFilter],
     queryFn: async () => {
       const params: Record<string, string | number> = {
-        page: page,
-        page_size: pageSize,
+        page,
+        limit: pageSize,
       };
       if (searchQuery) params.search = searchQuery;
+      if (accountIdFilter) params.account_id = accountIdFilter;
       return fetchJson<ContactsResponse>(apiV1("/crm/contacts"), params);
     },
+    staleTime: accountIdFilter ? 0 : undefined,
   });
 
   const contacts = data?.contacts || [];
@@ -877,14 +948,39 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: { searchQ
     openEdit(contact as CRMContact);
   };
 
+  const accountsForFilter = useQuery<AccountsResponse>({
+    queryKey: [apiV1("/crm/customers/"), "list-for-filter"],
+    queryFn: () => fetchJson<AccountsResponse>(apiV1("/crm/customers/"), { page: 1, limit: 200 }),
+  });
+  const accountOptions = accountsForFilter.data?.customers ?? [];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-muted-foreground" data-testid="text-contacts-count">
-          {totalItems === 0 
-            ? "No contacts" 
-            : `Showing ${startItem}-${endItem} of ${totalItems} contact${totalItems !== 1 ? "s" : ""}`}
-        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground" data-testid="text-contacts-count">
+            {totalItems === 0 
+              ? "No contacts" 
+              : `Showing ${startItem}-${endItem} of ${totalItems} contact${totalItems !== 1 ? "s" : ""}`}
+          </p>
+          <Select
+            value={accountIdFilter ?? "all"}
+            onValueChange={(v) => {
+              const id = v === "all" ? null : v;
+              setAccountIdFilter(id);
+            }}
+          >
+            <SelectTrigger className="w-[200px] h-8" data-testid="select-account-filter">
+              <SelectValue placeholder="All accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All accounts</SelectItem>
+              {accountOptions.map((a: CRMAccount) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button onClick={openCreate} data-testid="button-add-contact">
           <Plus className="h-4 w-4 mr-2" />
           Add Contact
@@ -982,25 +1078,143 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: { searchQ
   );
 }
 
-function AccountsTab({ searchQuery }: { searchQuery: string }) {
+function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
+  searchQuery: string;
+  openAccountId?: string | null;
+  setOpenAccountId: (id: string | null) => void;
+}) {
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(50);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const { data, isLoading, isError, error, refetch } = useQuery<AccountsResponse>({
+    queryKey: [apiV1("/crm/customers/"), page, pageSize, searchQuery],
+    queryFn: async () => {
+      const params: Record<string, string | number> = {
+        page,
+        limit: pageSize,
+      };
+      if (searchQuery) params.search = searchQuery;
+      return fetchJson<AccountsResponse>(apiV1("/crm/customers/"), params);
+    },
+  });
+
+  const customers = data?.customers || [];
+  const pagination = data?.pagination;
+  const totalItems = pagination?.total_items ?? customers.length;
+  const totalPages = pagination?.total_pages ?? 1;
+  const currentPage = pagination?.current_page ?? page;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  const handleAccountClick = (account: CRMAccount) => {
+    setOpenAccountId(account.id);
+  };
+
+  const handleAddSuccess = () => {
+    refetch();
+    queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Manage organization-level customer accounts
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-muted-foreground" data-testid="text-accounts-count">
+          {totalItems === 0
+            ? "No accounts"
+            : `Showing ${startItem}-${endItem} of ${totalItems} account${totalItems !== 1 ? "s" : ""}`}
         </p>
-        <Button data-testid="button-add-account">
+        <Button data-testid="button-add-account" onClick={() => setIsEditorOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Account
         </Button>
       </div>
 
-      <GlassPanel className="p-8">
-        <EmptyState
-          title="Accounts coming soon"
-          description="Organization-level customer management will be available here. Track accounts, subsidiaries, and organization hierarchies."
-        />
+      <GlassPanel className="p-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : isError ? (
+          <ErrorDisplay error={error as Error} endpoint="api/v1/crm/customers" />
+        ) : customers.length === 0 ? (
+          <EmptyState
+            title="No accounts found"
+            description={searchQuery ? "Try adjusting your search." : "Add your first account (customer) to get started."}
+          />
+        ) : (
+          <div className="space-y-2">
+            {customers.map((account: CRMAccount) => (
+              <div
+                key={account.id}
+                className="flex items-center gap-4 p-3 rounded-lg border bg-card hover-elevate cursor-pointer"
+                onClick={() => handleAccountClick(account)}
+                data-testid={`card-account-${account.id}`}
+              >
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{account.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {account.email || account.phone || (account.legal_name && account.legal_name !== account.name ? account.legal_name : "No contact info")}
+                  </p>
+                </div>
+                {account.type && (
+                  <Badge variant="secondary" className="capitalize">{account.type}</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </GlassPanel>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1 || isLoading}
+              data-testid="button-accounts-prev"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages || isLoading}
+              data-testid="button-accounts-next"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <AccountDetailsModal
+        open={Boolean(openAccountId)}
+        onOpenChange={(open) => !open && setOpenAccountId(null)}
+        accountId={openAccountId ?? null}
+      />
+      <AccountEditorModal
+        open={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        onSaved={handleAddSuccess}
+      />
     </div>
   );
 }

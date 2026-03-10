@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,10 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 import { useToast } from "@/hooks/use-toast";
-import { fetchJson } from "@/lib/queryClient";
+import { fetchJson, apiRequest } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
+import { ChevronsUpDown, Check, Building2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   createContact,
   normalizeTags,
@@ -44,6 +48,7 @@ export interface ContactLike {
   tags?: string[] | null;
   custom_fields?: Record<string, unknown> | null;
   activity_summary?: Record<string, unknown> | null;
+  account_ids?: string[] | null;
 }
 
 interface ContactTypeOption {
@@ -86,6 +91,11 @@ function safeTrim(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(s: string): boolean {
+  return UUID_REGEX.test(s);
+}
+
 function isJsonObjectOrEmpty(value: unknown) {
   if (value == null) return true;
   if (typeof value !== "string") return true;
@@ -105,7 +115,8 @@ const contactEditorSchema = z
     name: z.string().optional(),
     email: z.string().email("Invalid email").optional().or(z.literal("")),
     phone: z.string().optional(),
-    company: z.string().optional(),
+    account: z.string().optional(), // Account: uuid (existing) or free text (create new)
+
     type: z.string().optional(),
 
     // Advanced
@@ -173,14 +184,40 @@ export function ContactEditorModal(props: {
     enabled: props.open,
   });
 
+  const [accountPopoverOpen, setAccountPopoverOpen] = useState(false);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(accountSearch), 200);
+    return () => clearTimeout(t);
+  }, [accountSearch]);
+
+  const accountsSearchQuery = useQuery<{ customers?: Array<{ id: string; name: string }> }>({
+    queryKey: [apiV1("/crm/customers/"), "search", debouncedSearch],
+    queryFn: () =>
+      fetchJson<{ customers?: Array<{ id: string; name: string }> }>(apiV1("/crm/customers/"), {
+        page: 1,
+        limit: 30,
+        search: debouncedSearch || undefined,
+      }),
+    enabled: accountPopoverOpen,
+  });
+
+  const accountByIdQuery = useQuery<{ id: string; name: string }>({
+    queryKey: [apiV1("/crm/customers/"), "by-id", (contact?.account_ids ?? [])[0]],
+    queryFn: () => fetchJson<{ id: string; name: string }>(apiV1(`/crm/customers/${(contact?.account_ids ?? [])[0]}/`)),
+    enabled: Boolean(props.open && (contact?.account_ids ?? [])[0]),
+  });
+
   const contactTypes = extractContactTypeOptions(contactTypesQuery.data);
+  const accountSearchResults = accountsSearchQuery.data?.customers ?? [];
 
   const defaultValues: ContactEditorValues = useMemo(
     () => ({
       name: contact?.name ?? "",
       email: contact?.email ?? "",
       phone: contact?.phone ?? "",
-      company: contact?.company ?? "",
+      account: (contact?.account_ids ?? [])[0] ?? "__none__", // uuid or __none__
       type: contact?.type ?? "",
 
       fullname: contact?.fullname ?? "",
@@ -212,6 +249,7 @@ export function ContactEditorModal(props: {
     form.reset(defaultValues);
     setShowAdvanced(false);
     setAdvancedEditEnabled(props.mode === "create");
+    setAccountSearch("");
   }, [props.open, props.mode, defaultValues, form]);
 
   const tagsValue = watch("tags");
@@ -231,6 +269,35 @@ export function ContactEditorModal(props: {
     }
   }, [activitySummaryJson, contact]);
 
+  const accountValue = watch("account");
+  const accountDisplayName = useMemo(() => {
+    if (!accountValue || accountValue === "__none__") return "";
+    if (isUuid(accountValue)) {
+      const found = accountSearchResults.find((a) => a.id === accountValue);
+      if (found) return found.name;
+      if (accountByIdQuery.data && accountByIdQuery.data.id === accountValue) return accountByIdQuery.data.name;
+      return accountByIdQuery.isLoading ? "…" : accountValue.slice(0, 8) + "…";
+    }
+    return accountValue; // free text = new account name
+  }, [accountValue, accountSearchResults, accountByIdQuery.data, accountByIdQuery.isLoading]);
+
+  const resolveAccount = useCallback(
+    async (value: string): Promise<{ account_ids: string[]; company?: string }> => {
+      if (!value || value === "__none__") return { account_ids: [], company: "" };
+      if (isUuid(value)) {
+        const customer = await fetchJson<{ name: string }>(apiV1(`/crm/customers/${value}/`));
+        return { account_ids: [value], company: customer?.name };
+      }
+      const name = value.trim();
+      if (!name) return { account_ids: [] };
+      const created = await apiRequest("POST", apiV1("/crm/customers/"), {
+        data: { name, legal_name: name, type: "Business" },
+      }).then((r) => r.json());
+      return { account_ids: [created.id], company: created.name };
+    },
+    []
+  );
+
   const handleSubmit = async (values: ContactEditorValues) => {
     try {
       const tags = normalizeTags(values.tags);
@@ -238,13 +305,14 @@ export function ContactEditorModal(props: {
       if (props.mode === "create") {
         const custom_fields = parseJsonObject(values.custom_fields_json);
         const activity_summary = parseJsonObject(values.activity_summary_json);
+        const { account_ids, company } = await resolveAccount(values.account ?? "__none__");
         const payload = sanitizeCreatePayload({
           name: values.name,
           fullname: values.fullname,
           whatsapp_name: values.whatsapp_name,
           email: values.email,
           phone: values.phone,
-          company: values.company,
+          company,
           source: values.source,
           type: values.type,
           tags,
@@ -252,6 +320,7 @@ export function ContactEditorModal(props: {
           activity_summary,
           is_blacklisted: values.is_blacklisted,
           do_not_contact: values.do_not_contact,
+          account_ids,
         });
 
         const created = await createContact(payload);
@@ -281,8 +350,12 @@ export function ContactEditorModal(props: {
       if (dirty.name) patchInput.name = values.name;
       if (dirty.email) patchInput.email = values.email;
       if (dirty.phone) patchInput.phone = values.phone;
-      if (dirty.company) patchInput.company = values.company;
       if (dirty.type) patchInput.type = values.type;
+      if (dirty.account) {
+        const { account_ids, company } = await resolveAccount(values.account ?? "__none__");
+        patchInput.account_ids = account_ids;
+        patchInput.company = company;
+      }
 
       if (dirty.tags) patchInput.tags = tags;
 
@@ -390,13 +463,89 @@ export function ContactEditorModal(props: {
 
                   <FormField
                     control={form.control}
-                    name="company"
+                    name="account"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Company name" {...field} data-testid="input-contact-company" />
-                        </FormControl>
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Account</FormLabel>
+                        <Popover open={accountPopoverOpen} onOpenChange={setAccountPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={accountPopoverOpen}
+                                className={cn(
+                                  "w-full justify-between font-normal",
+                                  !field.value || field.value === "__none__" ? "text-muted-foreground" : ""
+                                )}
+                                data-testid="select-contact-account"
+                              >
+                                {accountDisplayName || "Buscar o escribir nombre de cuenta…"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder="Buscar cuentas…"
+                                value={accountSearch}
+                                onValueChange={setAccountSearch}
+                              />
+                              <CommandList>
+                                {accountsSearchQuery.isFetching && (
+                                  <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Buscando…
+                                  </div>
+                                )}
+                                <CommandGroup>
+                                  <CommandItem
+                                    value="__none__"
+                                    onSelect={() => {
+                                      field.onChange("__none__");
+                                      setAccountPopoverOpen(false);
+                                      setAccountSearch("");
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", (!field.value || field.value === "__none__") ? "opacity-100" : "opacity-0")} />
+                                    <span className="text-muted-foreground">Ninguna</span>
+                                  </CommandItem>
+                                  {accountSearchResults.map((acc) => (
+                                    <CommandItem
+                                      key={acc.id}
+                                      value={acc.id}
+                                      onSelect={() => {
+                                        field.onChange(acc.id);
+                                        setAccountPopoverOpen(false);
+                                        setAccountSearch("");
+                                      }}
+                                    >
+                                      <Check className={cn("mr-2 h-4 w-4", field.value === acc.id ? "opacity-100" : "opacity-0")} />
+                                      {acc.name}
+                                    </CommandItem>
+                                  ))}
+                                  {accountSearch.trim() && !accountsSearchQuery.isFetching && (
+                                    <CommandItem
+                                      value={`__create__${accountSearch.trim()}`}
+                                      onSelect={() => {
+                                        field.onChange(accountSearch.trim());
+                                        setAccountPopoverOpen(false);
+                                        setAccountSearch("");
+                                      }}
+                                    >
+                                      <Building2 className="mr-2 h-4 w-4" />
+                                      Crear cuenta &quot;{accountSearch.trim()}&quot;
+                                    </CommandItem>
+                                  )}
+                                </CommandGroup>
+                                {!accountSearch.trim() && accountSearchResults.length === 0 && (
+                                  <CommandEmpty>Escribe para buscar o crear</CommandEmpty>
+                                )}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}

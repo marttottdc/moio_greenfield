@@ -17,6 +17,7 @@ export interface CreateContactPayload {
   activity_summary?: JsonObject;
   is_blacklisted?: boolean;
   do_not_contact?: boolean;
+  account_ids?: string[];
 }
 
 export interface PatchContactPayload {
@@ -30,6 +31,7 @@ export interface PatchContactPayload {
   activity_summary?: JsonObject;
   is_blacklisted?: boolean;
   do_not_contact?: boolean;
+  account_ids?: string[];
 }
 
 function trimOrUndefined(value: unknown): string | undefined {
@@ -86,6 +88,7 @@ export function sanitizeCreatePayload(input: CreateContactPayload): CreateContac
     activity_summary: input.activity_summary,
     is_blacklisted: typeof input.is_blacklisted === "boolean" ? input.is_blacklisted : undefined,
     do_not_contact: typeof input.do_not_contact === "boolean" ? input.do_not_contact : undefined,
+    account_ids: Array.isArray(input.account_ids) ? input.account_ids.filter((id): id is string => typeof id === "string").filter(Boolean) : undefined,
   };
 
   // Drop empty identity keys; backend requires at least one non-empty anyway.
@@ -100,6 +103,7 @@ export function sanitizeCreatePayload(input: CreateContactPayload): CreateContac
   if (!payload.tags || payload.tags.length === 0) delete payload.tags;
   if (!payload.custom_fields || Object.keys(payload.custom_fields).length === 0) delete payload.custom_fields;
   if (!payload.activity_summary || Object.keys(payload.activity_summary).length === 0) delete payload.activity_summary;
+  if (payload.account_ids && Array.isArray(payload.account_ids) && payload.account_ids.length === 0) delete payload.account_ids;
   // Important: do NOT delete boolean flags when false; backend expects explicit false to clear.
 
   return payload;
@@ -107,27 +111,30 @@ export function sanitizeCreatePayload(input: CreateContactPayload): CreateContac
 
 export function sanitizePatchPayload(input: PatchContactPayload): PatchContactPayload {
   const tags = normalizeTags(input.tags);
+  const companyValue = input.company !== undefined ? (typeof input.company === "string" ? input.company : trimOrUndefined(input.company)) : undefined;
   const payload: PatchContactPayload = {
     name: trimOrUndefined(input.name),
     email: trimOrUndefined(input.email),
     phone: trimOrUndefined(input.phone),
-    company: trimOrUndefined(input.company),
+    company: companyValue,
     type: trimOrUndefined(input.type),
     tags,
     custom_fields: input.custom_fields,
     activity_summary: input.activity_summary,
     is_blacklisted: typeof input.is_blacklisted === "boolean" ? input.is_blacklisted : undefined,
     do_not_contact: typeof input.do_not_contact === "boolean" ? input.do_not_contact : undefined,
+    account_ids: Array.isArray(input.account_ids) ? input.account_ids.filter((id): id is string => typeof id === "string").filter(Boolean) : undefined,
   };
 
   if (!payload.name) delete payload.name;
   if (!payload.email) delete payload.email;
   if (!payload.phone) delete payload.phone;
-  if (!payload.company) delete payload.company;
+  if (payload.company === undefined) delete payload.company;
   if (!payload.type) delete payload.type;
   if (!payload.tags || payload.tags.length === 0) delete payload.tags;
   if (!payload.custom_fields || Object.keys(payload.custom_fields).length === 0) delete payload.custom_fields;
   if (!payload.activity_summary || Object.keys(payload.activity_summary).length === 0) delete payload.activity_summary;
+  // account_ids: [] valid for PATCH to clear vinculación
   // Important: do NOT delete boolean flags when false; backend expects explicit false to clear.
 
   return payload;

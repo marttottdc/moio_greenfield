@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from django.db import IntegrityError
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -11,6 +12,12 @@ from rest_framework.response import Response
 
 from crm.models import Customer, Address
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
+
+try:
+    from django.contrib.postgres.search import TrigramSimilarity, TrigramWordSimilarity
+    TRIGRAM_AVAILABLE = True
+except ImportError:
+    TRIGRAM_AVAILABLE = False
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -71,13 +78,50 @@ class CustomersView(PaginationMixin, ProtectedAPIView):
 
         search = (request.query_params.get("search") or "").strip()
         if search:
-            queryset = queryset.filter(
-                Q(name__icontains=search)
-                | Q(legal_name__icontains=search)
-                | Q(email__icontains=search)
-                | Q(phone__icontains=search)
-                | Q(tax_id__icontains=search)
-            )
+            # Full-text style: split into words, each word must match (AND)
+            # Uses trigram similarity (threshold 0.2) for typo tolerance when pg_trgm available
+            words = [w.strip() for w in search.split() if w.strip()]
+            if words:
+                search_fields = [
+                    "name",
+                    "legal_name",
+                    "email",
+                    "phone",
+                    "tax_id",
+                ]
+                # TrigramWordSimilarity compares against each word in the text, so "tinda"
+                # matches "Tienda" in "Tienda Inglesa" (TrigramSimilarity fails on full string)
+                TRIGRAM_THRESHOLD = 0.2
+                if TRIGRAM_AVAILABLE:
+                    try:
+                        from django.db.models.functions import Coalesce, Greatest
+
+                        for i, word in enumerate(words):
+                            # TrigramWordSimilarity(search_term, field) - word-aware
+                            sim_exprs = [
+                                Coalesce(
+                                    TrigramWordSimilarity(word, field),
+                                    0.0,
+                                )
+                                for field in search_fields
+                            ]
+                            annot_key = f"_ws{i}"
+                            queryset = queryset.annotate(
+                                **{annot_key: Greatest(*sim_exprs)}
+                            ).filter(**{f"{annot_key}__gt": TRIGRAM_THRESHOLD})
+                    except Exception:
+                        # Fallback if pg_trgm not enabled or other error
+                        for word in words:
+                            word_filter = Q()
+                            for field in search_fields:
+                                word_filter |= Q(**{f"{field}__icontains": word})
+                            queryset = queryset.filter(word_filter)
+                else:
+                    for word in words:
+                        word_filter = Q()
+                        for field in search_fields:
+                            word_filter |= Q(**{f"{field}__icontains": word})
+                        queryset = queryset.filter(word_filter)
 
         type_filter = request.query_params.get("type")
         if type_filter:
@@ -108,24 +152,34 @@ class CustomersView(PaginationMixin, ProtectedAPIView):
         if not name:
             return _error("invalid_request", "name is required", status.HTTP_400_BAD_REQUEST)
 
-        customer = Customer.objects.create(
-            tenant=tenant,
-            name=name,
-            legal_name=payload.get("legal_name") or name,
-            type=payload.get("type", Customer.PERSON),
-            status=payload.get("status", ""),
-            enabled=payload.get("enabled", True),
-            tax_id=payload.get("tax_id"),
-            first_name=payload.get("first_name", ""),
-            last_name=payload.get("last_name", ""),
-            date_of_birth=payload.get("date_of_birth"),
-            national_document=payload.get("national_document"),
-            passport=payload.get("passport"),
-            gender=payload.get("gender"),
-            phone=payload.get("phone"),
-            email=payload.get("email"),
-            external_id=payload.get("external_id"),
-        )
+        try:
+            customer = Customer.objects.create(
+                tenant=tenant,
+                name=name,
+                legal_name=payload.get("legal_name") or name,
+                type=payload.get("type", Customer.PERSON),
+                status=payload.get("status", ""),
+                enabled=payload.get("enabled", True),
+                tax_id=payload.get("tax_id"),
+                first_name=payload.get("first_name", ""),
+                last_name=payload.get("last_name", ""),
+                date_of_birth=payload.get("date_of_birth"),
+                national_document=payload.get("national_document"),
+                passport=payload.get("passport"),
+                gender=payload.get("gender"),
+                phone=payload.get("phone"),
+                email=payload.get("email"),
+                external_id=payload.get("external_id"),
+            )
+        except IntegrityError as e:
+            err = str(e).lower()
+            if "phone" in err:
+                return _error("duplicate_phone", "A customer with this phone already exists.", status.HTTP_400_BAD_REQUEST)
+            if "email" in err:
+                return _error("duplicate_email", "A customer with this email already exists.", status.HTTP_400_BAD_REQUEST)
+            if "external_id" in err:
+                return _error("duplicate_external_id", "A customer with this external_id already exists.", status.HTTP_400_BAD_REQUEST)
+            return _error("duplicate", "A customer with conflicting unique field already exists.", status.HTTP_400_BAD_REQUEST)
         return Response(self._serialize_customer(customer), status=status.HTTP_201_CREATED)
 
 
