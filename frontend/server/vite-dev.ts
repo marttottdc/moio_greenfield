@@ -31,19 +31,6 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
-  app.use("/api", (req, res) => {
-    const target = req.originalUrl || req.url;
-    log(
-      `${req.method} ${target} hit the frontend dev server fallback. This request was not proxied to Django.`,
-      "proxy",
-    );
-    res.status(502).json({
-      error: "frontend_dev_server_api_miss",
-      detail:
-        "This /api request was handled by the frontend dev server instead of the Django backend. Check the backend host override or dev proxy configuration.",
-      path: target,
-    });
-  });
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 

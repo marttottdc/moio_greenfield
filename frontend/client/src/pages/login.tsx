@@ -173,11 +173,14 @@ export default function Login() {
       const message = error instanceof Error ? error.message : String(error);
       logLoginSubmitError(status, message);
       persistLastAuthError(message, { status });
-      setErrorMessage(
-        error instanceof ApiError
-          ? error.message || "Invalid credentials. Please try again."
-          : "An unexpected error occurred. Please try again."
-      );
+      // Network error (status 0) = "Failed to fetch", connection refused, CORS, etc.
+      const friendlyMessage =
+        status === 0
+          ? "No se pudo conectar al servidor. Verifica que el frontend esté en http://localhost:5177, que el backend esté corriendo (puerto 8093) y que no haya override de API en localStorage."
+          : error instanceof ApiError
+            ? error.message || "Invalid credentials. Please try again."
+            : "An unexpected error occurred. Please try again.";
+      setErrorMessage(friendlyMessage);
     } finally {
       setIsLoading(false);
     }

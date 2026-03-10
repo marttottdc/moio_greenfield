@@ -50,6 +50,50 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+  // Proxy /api to Django backend (catches /api not handled by Express routes above)
+  const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8093";
+  app.use('/api', async (req, res) => {
+    const targetPath = `/api${req.url}`;
+    const targetUrl = `${BACKEND_URL}${targetPath}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const headers: Record<string, string> = {
+        'Accept': req.headers.accept || 'application/json',
+        'Content-Type': req.headers['content-type'] || 'application/json',
+      };
+      ['authorization', 'x-moio-client-version', 'x-moio-tenant', 'x-csrftoken'].forEach((h) => {
+        const v = req.headers[h];
+        if (v && typeof v === 'string') headers[h] = v;
+      });
+
+      const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+      const body = hasBody ? (req.rawBody ?? (req.body ? JSON.stringify(req.body) : undefined)) : undefined;
+
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers,
+        body,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      const data = await response.text();
+      const contentType = response.headers.get('content-type');
+      if (contentType) res.set('Content-Type', contentType);
+      res.status(response.status).send(data);
+    } catch (error) {
+      clearTimeout(timeout);
+      const msg = error instanceof Error ? error.message : String(error);
+      log(`Proxy error [${targetUrl}]: ${msg}`);
+      res.status(502).json({
+        error: 'Backend unavailable',
+        details: msg.includes('abort') ? 'Timeout' : msg,
+      });
+    }
+  });
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -68,11 +112,10 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5005 if not specified.
+  // Serve on PORT (default 5177)
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5005', 10);
+  const port = parseInt(process.env.PORT || '5177', 10);
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });

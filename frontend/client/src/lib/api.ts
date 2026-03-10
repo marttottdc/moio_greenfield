@@ -150,6 +150,8 @@ export function clearWebSocketBaseOverride() {
 }
 
 export function getApiBaseUrl() {
+  // In dev, always use same-origin /api (proxied by Express) to avoid "failed to fetch"
+  if (import.meta.env.DEV) return DEFAULT_API_BASE;
   return getStoredApiBaseOverride() ?? getEnvApiBaseUrl();
 }
 

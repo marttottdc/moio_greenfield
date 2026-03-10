@@ -1,4 +1,7 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -21,6 +24,7 @@ except Exception:  # pragma: no cover
     OutstandingToken = None
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class AuthViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]  # 🔹 Let DRF’s JWTAuthentication handle this
 
@@ -44,15 +48,31 @@ class AuthViewSet(viewsets.ViewSet):
         """
         UserModel = get_user_model()
         username = (request.data.get("username") or request.data.get("email") or "").strip()
-        password = request.data.get("password") or ""
+        raw_pw = request.data.get("password")
+        password = (raw_pw if isinstance(raw_pw, str) else str(raw_pw or "")).strip()
         if not username or not password:
             return Response({"error": "invalid_request"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = (
-            UserModel.objects.filter(email__iexact=username).first()
-            or UserModel.objects.filter(username__iexact=username).first()
-        )
-        if not user or not user.check_password(password):
+        def _find_user():
+            return (
+                UserModel.objects.filter(email__iexact=username).first()
+                or UserModel.objects.filter(username__iexact=username).first()
+            )
+
+        # With django_tenants, ensure we query the public schema (users live there)
+        if getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            try:
+                from django_tenants.utils import schema_context
+                with schema_context("public"):
+                    user = _find_user()
+            except Exception:
+                user = _find_user()
+        else:
+            user = _find_user()
+
+        if not user:
+            return Response({"error": "invalid_credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.check_password(password):
             return Response({"error": "invalid_credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = TenantTokenObtainPairSerializer.get_token(user)
