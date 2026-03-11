@@ -4,7 +4,7 @@ from django.utils import timezone
 import json
 
 from ..models import AssessmentInstance, LLMInteraction, LLMAssistantConfig
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 
 class LLMAssessmentAssistant:
@@ -15,7 +15,7 @@ class LLMAssessmentAssistant:
     def __init__(self, assessment_instance: AssessmentInstance):
         self.assessment_instance = assessment_instance
         self.campaign = assessment_instance.campaign
-        self.tenant_config = TenantConfiguration.objects.get(tenant=self.campaign.tenant)
+        self.tenant_config = get_tenant_config(self.campaign.tenant)
         
         try:
             self.llm_config = LLMAssistantConfig.objects.get(campaign=self.campaign)

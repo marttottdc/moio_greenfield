@@ -30,7 +30,8 @@ from crm.tasks import woocommerce_webhook_processor, create_smart_order, import_
 from moio_platform.lib.json_schema_tools import _load_schema, _infer_schema, merge_schemas, _save_schema
 from moio_platform.lib.openai_gpt_api import analyze_file
 from central_hub.context_utils import current_tenant
-from central_hub.models import Tenant, TenantConfiguration
+from central_hub.models import Tenant
+from central_hub.tenant_config import get_tenant_config, get_tenant_config_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +295,7 @@ def branch_list(request):
     context = {
         "branches": branch_records,
         'markers': get_branch_markers(tenant=tenant),
-        'GOOGLE_MAPS_API_KEY': TenantConfiguration.objects.get(tenant=tenant).google_api_key,
+        'GOOGLE_MAPS_API_KEY': get_tenant_config(tenant).google_api_key,
         # 'candidate_clusters': get_candidate_clusters(tenant=tenant)
     }
 
@@ -402,7 +403,7 @@ def customers_list(request):
 
 @login_required
 def add_order(request):
-    tenant_configuration = TenantConfiguration.objects.get(tenant=current_tenant.get())
+    tenant_configuration = get_tenant_config(current_tenant.get())
 
     if request.method == "POST":
 
@@ -825,15 +826,9 @@ def deals(request):
 @login_required
 def dashboard(request):
     tenant = current_tenant.get()
-    try:
-        config = TenantConfiguration.objects.get(tenant=tenant)
-
-    except TenantConfiguration.DoesNotExist:
-
-        return HttpResponse(content= f"Tenant not found: {tenant}", status=500)
-
-    except TenantConfiguration.MultipleObjectsReturned:
-        raise ValueError("Too many configurations")
+    if not tenant:
+        return HttpResponse(content="Tenant not found", status=500)
+    config = get_tenant_config(tenant)
 
     contacts_with_session_count = Contact.objects.annotate(
         session_count=Count('chatbot_session')
@@ -1367,7 +1362,7 @@ def face_search(request):
         raw = request.GET.get("embedding")
         emb = [float(x) for x in raw.split(",") if x]
 
-        cfg = TenantConfiguration.objects.get(tenant_id=request.GET.get("tenant_id"))
+        cfg = get_tenant_config_by_id(int(request.GET.get("tenant_id")))
         face = Face.objects.filter(tenant=cfg.tenant).exclude(embedding__isnull=True).annotate(dist=L2Distance("embedding", emb)).order_by("dist").first()
 
         name = "Desconocido"
@@ -1404,7 +1399,7 @@ def face_page(request):
 @login_required
 def import_data(request):
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant_id=tenant.id)
+    config = get_tenant_config(tenant)
 
     if request.method == "POST":
 

@@ -26,6 +26,7 @@ from central_hub.integrations.views import (
     WhatsappEmbeddedSignupConfigView,
     WhatsappEmbeddedSignupCompleteView,
     WhatsappEmbeddedSignupCallbackView,
+    OpenAIModelsView,
 )
 
 
@@ -35,6 +36,7 @@ urlpatterns = [
 
     path("", IntegrationListView.as_view(), name="integration_list"),
     path("categories/", IntegrationCategoriesView.as_view(), name="integration_categories"),
+    path("openai/models/", OpenAIModelsView.as_view(), name="openai_models"),
     path("<str:slug>/schema/", IntegrationSchemaView.as_view(), name="integration_schema"),
     # WhatsApp embedded signup helpers
     path(

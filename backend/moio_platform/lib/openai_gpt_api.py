@@ -7,7 +7,6 @@ from io import BytesIO
 from django.core.files.storage import default_storage
 from openai import OpenAI, BaseModel
 
-from central_hub.models import TenantConfiguration
 import logging
 
 try:
@@ -22,7 +21,7 @@ ASSISTANT_TOOL_TYPES = [{"type": "code_intepreter", "name": "Code Interpreter"},
 
 
 class AssistantManager:
-    def __init__(self, config: TenantConfiguration):
+    def __init__(self, config):
 
         self.client = OpenAI(api_key=config.openai_api_key)
         self.default_model = config.openai_default_model
@@ -805,7 +804,7 @@ def get_advanced_response(prompt:str, openai_api_key, response_format, model="gp
         print('Openai Configuration Missing')
 
 
-def analyze_file(file, config: TenantConfiguration):
+def analyze_file(file, config):
 
     base64_string = base64.b64encode(file.read()).decode("utf-8")
 

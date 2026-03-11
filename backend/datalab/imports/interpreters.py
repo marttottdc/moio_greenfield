@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import json
 import logging
+from types import SimpleNamespace
 from typing import Any, Dict, List
-
-from central_hub.models import TenantConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class ShapeInterpretationError(Exception):
 class ShapeInterpreter:
     """Interprets PDF shape inspection results using LLM."""
 
-    def __init__(self, tenant_config: TenantConfiguration):
+    def __init__(self, tenant_config: SimpleNamespace):
         """Initialize interpreter with tenant configuration."""
         self.tenant_config = tenant_config
 

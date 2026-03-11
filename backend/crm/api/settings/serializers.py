@@ -1,3 +1,7 @@
+"""
+Settings serializers. Work with get_tenant_config() output (SimpleNamespace) for read;
+persist via IntegrationConfig / Tenant for write.
+"""
 from __future__ import annotations
 
 from typing import Any, Dict, Type
@@ -7,19 +11,39 @@ from rest_framework import serializers
 
 from chatbot.models.agent_configuration import AgentConfiguration
 from crm.models import WebhookConfig
-from central_hub.models import TenantConfiguration
 from central_hub.webhooks.utils import available_handlers
 
 
-class BaseTenantConfigurationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TenantConfiguration
-        fields: tuple[str, ...] = ()
+def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
+    """Safely get attribute from config object (SimpleNamespace or model)."""
+    if obj is None:
+        return default
+    return getattr(obj, key, default)
 
 
-class OpenAISettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class BaseConfigSerializer(serializers.Serializer):
+    """Base for config serializers that read from get_tenant_config() output."""
+
+    def to_representation(self, instance: Any) -> dict:
+        """instance is a config object (SimpleNamespace) with legacy attributes."""
+        return {
+            k: _get_attr(instance, k)
+            for k in self.get_field_names()
+        }
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return ()
+
+
+class OpenAISettingsSerializer(BaseConfigSerializer):
+    openai_integration_enabled = serializers.BooleanField(required=False, default=False)
+    openai_api_key = serializers.CharField(required=False, allow_blank=True, default="")
+    openai_max_retries = serializers.IntegerField(required=False, default=5)
+    openai_default_model = serializers.CharField(required=False, allow_blank=True, default="gpt-4o-mini")
+    openai_embedding_model = serializers.CharField(required=False, allow_blank=True, default="text-embedding-3-small")
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "openai_integration_enabled",
             "openai_api_key",
             "openai_max_retries",
@@ -28,9 +52,17 @@ class OpenAISettingsSerializer(BaseTenantConfigurationSerializer):
         )
 
 
-class WhatsAppSettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class WhatsAppSettingsSerializer(BaseConfigSerializer):
+    whatsapp_integration_enabled = serializers.BooleanField(required=False, default=False)
+    whatsapp_token = serializers.CharField(required=False, allow_blank=True, default="")
+    whatsapp_url = serializers.CharField(required=False, allow_blank=True, default="")
+    whatsapp_phone_id = serializers.CharField(required=False, allow_blank=True, default="")
+    whatsapp_business_account_id = serializers.CharField(required=False, allow_blank=True, default="")
+    whatsapp_name = serializers.CharField(required=False, allow_blank=True, default="")
+    whatsapp_catalog_id = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "whatsapp_integration_enabled",
             "whatsapp_token",
             "whatsapp_url",
@@ -41,9 +73,17 @@ class WhatsAppSettingsSerializer(BaseTenantConfigurationSerializer):
         )
 
 
-class SMTPSettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class SMTPSettingsSerializer(BaseConfigSerializer):
+    smtp_integration_enabled = serializers.BooleanField(required=False, default=False)
+    smtp_host = serializers.CharField(required=False, allow_blank=True, default="")
+    smtp_port = serializers.IntegerField(required=False, default=465)
+    smtp_use_tls = serializers.BooleanField(required=False, default=True)
+    smtp_user = serializers.CharField(required=False, allow_blank=True, default="")
+    smtp_password = serializers.CharField(required=False, allow_blank=True, default="")
+    smtp_from = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "smtp_integration_enabled",
             "smtp_host",
             "smtp_port",
@@ -54,9 +94,16 @@ class SMTPSettingsSerializer(BaseTenantConfigurationSerializer):
         )
 
 
-class MercadoPagoSettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class MercadoPagoSettingsSerializer(BaseConfigSerializer):
+    mercadopago_integration_enabled = serializers.BooleanField(required=False, default=False)
+    mercadopago_webhook_secret = serializers.CharField(required=False, allow_blank=True, default="")
+    mercadopago_public_key = serializers.CharField(required=False, allow_blank=True, default="")
+    mercadopago_access_token = serializers.CharField(required=False, allow_blank=True, default="")
+    mercadopago_client_id = serializers.CharField(required=False, allow_blank=True, default="")
+    mercadopago_client_secret = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "mercadopago_integration_enabled",
             "mercadopago_webhook_secret",
             "mercadopago_public_key",
@@ -66,9 +113,20 @@ class MercadoPagoSettingsSerializer(BaseTenantConfigurationSerializer):
         )
 
 
-class DACSettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class DACSettingsSerializer(BaseConfigSerializer):
+    dac_integration_enabled = serializers.BooleanField(required=False, default=False)
+    dac_user = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_password = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_rut = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_sender_name = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_sender_phone = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_base_url = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_notification_list = serializers.CharField(required=False, allow_blank=True, default="")
+    dac_tracking_period = serializers.IntegerField(required=False, default=30)
+    dac_polling_interval = serializers.IntegerField(required=False, default=30)
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "dac_integration_enabled",
             "dac_user",
             "dac_password",
@@ -82,9 +140,19 @@ class DACSettingsSerializer(BaseTenantConfigurationSerializer):
         )
 
 
-class AssistantsSettingsSerializer(BaseTenantConfigurationSerializer):
-    class Meta(BaseTenantConfigurationSerializer.Meta):
-        fields = (
+class AssistantsSettingsSerializer(BaseConfigSerializer):
+    assistants_enabled = serializers.BooleanField(required=False, default=False)
+    assistants_default_id = serializers.CharField(required=False, allow_blank=True, default="")
+    conversation_handler = serializers.CharField(required=False, default="assistant")
+    assistant_smart_reply_enabled = serializers.BooleanField(required=False, default=False)
+    assistant_output_formatting_instructions = serializers.CharField(required=False, allow_blank=True, default="")
+    assistant_output_schema = serializers.CharField(required=False, allow_blank=True, default="")
+    assistants_inactivity_limit = serializers.IntegerField(required=False, default=30)
+    chatbot_enabled = serializers.BooleanField(required=False, default=False)
+    default_agent_id = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def get_field_names(self) -> tuple[str, ...]:
+        return (
             "assistants_enabled",
             "assistants_default_id",
             "conversation_handler",
@@ -95,6 +163,20 @@ class AssistantsSettingsSerializer(BaseTenantConfigurationSerializer):
             "chatbot_enabled",
             "default_agent_id",
         )
+
+
+# Legacy alias for compatibility
+BaseTenantConfigurationSerializer = BaseConfigSerializer
+
+INTEGRATION_SERIALIZERS: Dict[str, Type[BaseConfigSerializer]] = {
+    "openai": OpenAISettingsSerializer,
+    "whatsapp": WhatsAppSettingsSerializer,
+    "smtp": SMTPSettingsSerializer,
+    "gmail": SMTPSettingsSerializer,
+    "mercadopago": MercadoPagoSettingsSerializer,
+    "dac": DACSettingsSerializer,
+    "assistants": AssistantsSettingsSerializer,
+}
 
 
 class HandoffAgentSerializer(serializers.Serializer):
@@ -276,16 +358,6 @@ class WebhookConfigSerializer(serializers.ModelSerializer):
         instance.linked_flows.set(flows)
 
 
-INTEGRATION_SERIALIZERS: Dict[str, Type[BaseTenantConfigurationSerializer]] = {
-    "openai": OpenAISettingsSerializer,
-    "whatsapp": WhatsAppSettingsSerializer,
-    "smtp": SMTPSettingsSerializer,
-    "mercadopago": MercadoPagoSettingsSerializer,
-    "dac": DACSettingsSerializer,
-    "assistants": AssistantsSettingsSerializer,
-}
-
-
 class NotificationPreferenceSerializer(serializers.Serializer):
     email = serializers.BooleanField(required=False)
     push = serializers.BooleanField(required=False)
@@ -294,7 +366,14 @@ class NotificationPreferenceSerializer(serializers.Serializer):
 
 class PreferenceUpdateSerializer(serializers.Serializer):
     theme = serializers.ChoiceField(choices=("light", "dark"), required=False)
-    language = serializers.ChoiceField(choices=("en", "es"), required=False)
+    language = serializers.ChoiceField(choices=("en", "es", "pt"), required=False)
     timezone = serializers.CharField(required=False)
+    currency = serializers.CharField(max_length=3, required=False)
     notifications = NotificationPreferenceSerializer(required=False)
     dashboard_layout = serializers.ChoiceField(choices=("compact", "expanded"), required=False)
+
+
+class LocalizationUpdateSerializer(serializers.Serializer):
+    language = serializers.ChoiceField(choices=("en", "es", "pt"), required=False)
+    timezone = serializers.CharField(required=False)
+    currency = serializers.CharField(max_length=3, required=False)

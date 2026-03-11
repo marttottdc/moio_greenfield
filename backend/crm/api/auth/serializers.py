@@ -6,8 +6,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from crm.api.settings.preferences import build_user_preferences
-from central_hub.models import TenantConfiguration
 from central_hub.rbac import ROLE_ORDER, _role_rank, _user_group_names
+from central_hub.tenant_config import get_tenant_config
 
 UserModel = get_user_model()
 
@@ -75,8 +75,6 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def get_preferences(self, obj: UserModel) -> Dict[str, Any]:
-        config = None
         tenant = getattr(obj, "tenant", None)
-        if tenant:
-            config = TenantConfiguration.objects.filter(tenant=tenant).first()
+        config = get_tenant_config(tenant) if tenant else None
         return build_user_preferences(obj, config)

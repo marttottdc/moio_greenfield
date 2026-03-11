@@ -24,7 +24,7 @@ from chatbot.lib.whatsapp_client_api import (
 )
 from crm.models import Contact
 from central_hub.context_utils import current_tenant
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 
 class ContactSearchView(APIView):
@@ -240,11 +240,7 @@ class WhatsappTemplateViewSet(viewsets.ViewSet):
     def _get_client(self, tenant):
         if tenant is None:
             return None
-        try:
-            config = TenantConfiguration.objects.get(tenant=tenant)
-        except TenantConfiguration.DoesNotExist:
-            return None
-
+        config = get_tenant_config(tenant)
         if not config.whatsapp_integration_enabled:
             return None
         return WhatsappBusinessClient(config)

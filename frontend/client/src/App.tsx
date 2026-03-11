@@ -1,3 +1,4 @@
+import "./i18n";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { GlobalFooter } from "@/components/global-footer";
 import { CacheBuster } from "@/components/cache-buster";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LocaleProvider } from "@/contexts/LocaleContext";
 import IndexEntryPage from "@/pages/index-entry";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -344,9 +346,11 @@ export default function App() {
       <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
-            <CacheBuster>
-              <AppContent />
-            </CacheBuster>
+            <LocaleProvider>
+              <CacheBuster>
+                <AppContent />
+              </CacheBuster>
+            </LocaleProvider>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>

@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config_by_id
 
 
 def connect_to_imap(server, port, user, password):
@@ -86,7 +86,7 @@ def send_email(self, html_content, subject, to, tenant_id):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Email task ---> {task_id} from {q_name}')
 
-    config = TenantConfiguration.objects.get(tenant_id=tenant_id)
+    config = get_tenant_config_by_id(tenant_id)
 
     if not config.smtp_integration_enabled:
         raise Exception("SMTP integration disabled")

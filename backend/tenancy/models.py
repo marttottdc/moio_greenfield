@@ -71,6 +71,14 @@ class Tenant(TenantMixin, models.Model):
     )
     entitlements_updated_at = models.DateTimeField(null=True, blank=True, auto_now=True)
 
+    # Organization defaults (locale, currency, assistants)
+    organization_locale = models.CharField(max_length=10, default="en", blank=True)
+    organization_currency = models.CharField(max_length=3, default="USD")
+    organization_timezone = models.CharField(max_length=100, default="UTC")
+    organization_date_format = models.CharField(max_length=20, default="DD/MM/YYYY")
+    organization_time_format = models.CharField(max_length=10, default="24h")
+    default_notification_list = models.TextField(null=True, blank=True, default="martin@moio.ai,")
+
     @property
     def primary_domain(self) -> str:
         host = str(self.domain or "").strip()
@@ -173,6 +181,12 @@ class MoioUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True)
+    reports_to = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="direct_reports",
+    )
     phone = models.CharField(max_length=20, blank=True)
     is_active = models.BooleanField(default=True)
     last_login = models.DateTimeField(blank=True, null=True)

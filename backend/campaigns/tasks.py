@@ -150,7 +150,8 @@ def validate_campaign(self, campaign_pk: str):
     if whatsapp_template_id:
 
         print(f"Whatsapp template id: {whatsapp_template_id} confirmed")
-        wa = WhatsappBusinessClient(tenant.configuration.first())
+        from central_hub.tenant_config import get_tenant_config
+        wa = WhatsappBusinessClient(get_tenant_config(tenant))
         template = wa.template_details(whatsapp_template_id)
         requirements = template_requirements(template)
         namespace = wa.retrieve_template_namespace()
@@ -279,7 +280,8 @@ def send_outgoing_messages(self, msg, campaign_pk):
         return None
 
     tenant = campaign.tenant
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
 
     wa = WhatsappBusinessClient(config)
     print("sending message")
@@ -386,7 +388,8 @@ def send_outgoing_messages_batch(self, batch: list, campaign_pk):
         return summary
 
     tenant = campaign.tenant
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
 
     wa = WhatsappBusinessClient(config)
     defaults = campaign.config.get("defaults", {})

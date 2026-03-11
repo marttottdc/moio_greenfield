@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,8 +48,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 type DestCard = {
   key: string;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   icon: React.ElementType;
   path: string;
   iconBg: string;
@@ -58,16 +59,16 @@ function buildDestinations(role: string | null | undefined): DestCard[] {
   const cards: DestCard[] = [
     {
       key: "crm",
-      label: "CRM Platform",
-      description: "Contacts, deals, tickets, campaigns and workflows.",
+      labelKey: "login.crm_platform",
+      descriptionKey: "login.crm_description",
       icon: LayoutDashboard,
       path: "/dashboard",
       iconBg: "bg-gradient-to-br from-sky-500 to-blue-600",
     },
     {
       key: "console",
-      label: "Agent Console",
-      description: "Interactive chat with AI agents and session history.",
+      labelKey: "login.agent_console",
+      descriptionKey: "login.console_description",
       icon: Bot,
       path: "/agent-console",
       iconBg: "bg-gradient-to-br from-violet-500 to-purple-600",
@@ -77,8 +78,8 @@ function buildDestinations(role: string | null | undefined): DestCard[] {
   if (isTenantAdminRole(role)) {
     cards.push({
       key: "tenant-admin",
-      label: "Tenant Admin",
-      description: "Workspaces, users, skills, automations and integrations.",
+      labelKey: "login.tenant_admin",
+      descriptionKey: "login.tenant_admin_description",
       icon: Settings,
       path: "/tenant-admin/legacy",
       iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
@@ -88,8 +89,8 @@ function buildDestinations(role: string | null | undefined): DestCard[] {
   if (isPlatformAdminRole(role)) {
     cards.push({
       key: "platform-admin",
-      label: "Platform Admin",
-      description: "Tenants, platform users, global settings and plugins.",
+      labelKey: "login.platform_admin",
+      descriptionKey: "login.platform_admin_description",
       icon: Shield,
       path: "/platform-admin",
       iconBg: "bg-gradient-to-br from-rose-500 to-red-600",
@@ -105,6 +106,7 @@ function buildDestinations(role: string | null | undefined): DestCard[] {
 type LoginStep = "credentials" | "destinations";
 
 export default function Login() {
+  const { t } = useTranslation();
   const { login, logout, user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [step, setStep] = useState<LoginStep>("credentials");
@@ -119,7 +121,7 @@ export default function Login() {
     if (!last) return;
     clearLastAuthError();
     if (last.reason === "force_logout") {
-      setSessionExpiredMessage(last.message || "Your session expired. Please sign in again.");
+      setSessionExpiredMessage(last.message || t("login.session_expired"));
     } else {
       const text = [
         last.step && `Step: ${last.step}`,
@@ -178,8 +180,8 @@ export default function Login() {
         status === 0
           ? "No se pudo conectar al servidor. Verifica que el frontend esté en http://localhost:5177, que el backend esté corriendo (puerto 8093) y que no haya override de API en localStorage."
           : error instanceof ApiError
-            ? error.message || "Invalid credentials. Please try again."
-            : "An unexpected error occurred. Please try again.";
+            ? error.message || t("login.invalid_credentials")
+            : t("login.unexpected_error");
       setErrorMessage(friendlyMessage);
     } finally {
       setIsLoading(false);
@@ -206,7 +208,7 @@ export default function Login() {
                   Moio
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  {step === "destinations" ? "Where to?" : "Access Hub"}
+                  {step === "destinations" ? t("login.destinations_title") : t("login.access_hub")}
                 </h1>
               </div>
             </div>
@@ -218,7 +220,7 @@ export default function Login() {
                 <div className="space-y-3">
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-                      Signed in
+                      {t("login.signed_in")}
                     </div>
                     <div className="text-base font-semibold text-slate-900 truncate">
                       {user.full_name || user.username}
@@ -244,14 +246,14 @@ export default function Login() {
                       data-testid="button-logout"
                     >
                       <LogOut className="h-3.5 w-3.5" />
-                      Sign out
+                      {t("login.sign_out")}
                     </Button>
                   </div>
                 </div>
 
                 {/* Destination cards */}
                 <div>
-                  <p className="text-slate-600 mb-4 text-sm">Select where you want to go:</p>
+                  <p className="text-slate-600 mb-4 text-sm">{t("login.select_destination")}</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {destinations.map((dest) => (
                       <button
@@ -264,8 +266,8 @@ export default function Login() {
                         <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${dest.iconBg} mb-3`}>
                           <dest.icon className="h-4 w-4 text-white" />
                         </div>
-                        <div className="font-semibold text-slate-900 text-sm mb-1">{dest.label}</div>
-                        <div className="text-xs text-slate-500 leading-relaxed">{dest.description}</div>
+                        <div className="font-semibold text-slate-900 text-sm mb-1">{t(dest.labelKey)}</div>
+                        <div className="text-xs text-slate-500 leading-relaxed">{t(dest.descriptionKey)}</div>
                       </button>
                     ))}
                   </div>
@@ -276,7 +278,7 @@ export default function Login() {
               <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
                 <div>
                   <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                    Sign in to access CRM, Agent Console, and administration surfaces.
+                    {t("login.sign_in_prompt")}
                   </p>
 
                   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -298,11 +300,11 @@ export default function Login() {
                           name="email"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email</FormLabel>
+                              <FormLabel>{t("login.email")}</FormLabel>
                               <FormControl>
                                 <Input
                                   type="email"
-                                  placeholder="you@moio.ai"
+                                  placeholder={t("login.email_placeholder")}
                                   autoComplete="username"
                                   disabled={isLoading}
                                   data-testid="input-email"
@@ -319,11 +321,11 @@ export default function Login() {
                           name="password"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Password</FormLabel>
+                              <FormLabel>{t("login.password")}</FormLabel>
                               <FormControl>
                                 <Input
                                   type="password"
-                                  placeholder="••••••••"
+                                  placeholder={t("login.password_placeholder")}
                                   autoComplete="current-password"
                                   disabled={isLoading}
                                   data-testid="input-password"
@@ -342,7 +344,7 @@ export default function Login() {
                           data-testid="button-login"
                         >
                           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {isLoading ? "Signing in…" : "Sign in"}
+                          {isLoading ? t("login.signing_in") : t("login.sign_in")}
                         </Button>
                       </form>
                     </Form>
@@ -352,36 +354,36 @@ export default function Login() {
                 {/* Right panel */}
                 <aside className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-7 text-slate-100 shadow-lg hidden lg:block">
                   <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300 mb-5">
-                    What's inside
+                    {t("login.whats_inside")}
                   </div>
                   <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
                     <div>
                       <div className="text-white font-medium mb-0.5 flex items-center gap-2">
                         <LayoutDashboard className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                        CRM Platform
+                        {t("login.crm_platform")}
                       </div>
-                      Contacts, deals, tickets, campaigns, workflows, data lab.
+                      {t("login.crm_platform_feature")}
                     </div>
                     <div>
                       <div className="text-white font-medium mb-0.5 flex items-center gap-2">
                         <Bot className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-                        Agent Console
+                        {t("login.agent_console")}
                       </div>
-                      Interactive AI sessions with workspace and model selection.
+                      {t("login.agent_console_feature")}
                     </div>
                     <div>
                       <div className="text-white font-medium mb-0.5 flex items-center gap-2">
                         <Settings className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                        Tenant Admin
+                        {t("login.tenant_admin")}
                       </div>
-                      Workspaces, skills, automations — tenant admins.
+                      {t("login.tenant_admin_feature")}
                     </div>
                     <div>
                       <div className="text-white font-medium mb-0.5 flex items-center gap-2">
                         <Shield className="h-3.5 w-3.5 text-rose-400 shrink-0" />
-                        Platform Admin
+                        {t("login.platform_admin")}
                       </div>
-                      Tenants, global users, plugins — platform admins.
+                      {t("login.platform_admin_feature")}
                     </div>
                   </div>
                 </aside>

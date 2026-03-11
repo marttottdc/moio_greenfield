@@ -1,0 +1,53 @@
+# Local development: PostgreSQL, Redis, PgBouncer
+# Usage: docker-compose -f docker-compose.local.yml up -d
+#        (docker compose con espacio en Docker v2)
+#
+# manage.py e hypercorn usan dev_local_settings → PgBouncer (6432) por defecto
+#
+# Redis: REDIS_URL=redis://localhost:6379/0
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_USER: moio
+      POSTGRES_PASSWORD: moio_local
+      POSTGRES_DB: moio_greenfield
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moio -d moio_greenfield"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgres://moio:moio_local@postgres:5432/moio_greenfield
+      AUTH_TYPE: scram-sha-256  # PostgreSQL 15+ usa SCRAM por defecto
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+      LISTEN_PORT: 6432
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

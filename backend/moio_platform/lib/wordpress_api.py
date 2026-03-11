@@ -1,5 +1,4 @@
 import requests
-from central_hub.models import TenantConfiguration
 from bs4 import BeautifulSoup
 
 
@@ -45,7 +44,7 @@ class WordPressAPIClient:
     Assumes Basic Auth or Application Passwords are enabled.
     """
 
-    def __init__(self, configuration: TenantConfiguration):
+    def __init__(self, configuration):
         self.base_url = configuration.wordpress_site_url
         self.username = configuration.wordpress_username
         self.password = configuration.wordpress_app_password

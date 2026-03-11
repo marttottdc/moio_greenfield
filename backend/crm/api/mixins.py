@@ -54,9 +54,18 @@ class PaginationMixin:
     MIN_PAGE_SIZE = 1
     ITEMS_KEY = "items"
 
-    def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
+    def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
+        if isinstance(dt, str):
+            try:
+                normalized = dt.replace("Z", "+00:00")
+                parsed = datetime.fromisoformat(normalized)
+                if timezone.is_naive(parsed):
+                    parsed = timezone.make_aware(parsed, timezone=dt_timezone.utc)
+                dt = parsed
+            except (ValueError, TypeError):
+                return dt
         return (
             dt.astimezone(dt_timezone.utc)
             .replace(microsecond=0)
@@ -116,9 +125,17 @@ class CommunicationsAPIMixin:
     DEFAULT_PAGE_SIZE = 25
     MAX_PAGE_SIZE = 100
 
-    def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
+    def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
+        if isinstance(dt, str):
+            try:
+                parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if timezone.is_naive(parsed):
+                    parsed = timezone.make_aware(parsed, timezone=dt_timezone.utc)
+                dt = parsed
+            except (ValueError, TypeError):
+                return dt
         return (
             dt.astimezone(dt_timezone.utc)
             .replace(microsecond=0)
@@ -309,9 +326,17 @@ class ContactAPIMixin:
         "phone": "phone",
     }
 
-    def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
+    def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
+        if isinstance(dt, str):
+            try:
+                parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if timezone.is_naive(parsed):
+                    parsed = timezone.make_aware(parsed, timezone=dt_timezone.utc)
+                dt = parsed
+            except (ValueError, TypeError):
+                return dt
         return (
             dt.astimezone(dt_timezone.utc)
             .replace(microsecond=0)
@@ -445,9 +470,17 @@ class TicketAPIMixin:
     DEFAULT_PAGE_SIZE = 25
     MAX_PAGE_SIZE = 100
 
-    def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
+    def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
+        if isinstance(dt, str):
+            try:
+                parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if timezone.is_naive(parsed):
+                    parsed = timezone.make_aware(parsed, timezone=dt_timezone.utc)
+                dt = parsed
+            except (ValueError, TypeError):
+                return dt
         return (
             dt.astimezone(dt_timezone.utc)
             .replace(microsecond=0)

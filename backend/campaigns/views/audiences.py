@@ -19,7 +19,7 @@ from campaigns.models import Audience
 from campaigns.forms import ConditionFormSet  # your existing formset
 from central_hub.context_utils import current_tenant
 from campaigns.core.audience_filters import compute_audience_preview, compute_audience, FIELD_MAP
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 
 BasicAudienceForm = modelform_factory(
@@ -288,7 +288,7 @@ def audience_assisted_preview(request, pk):
 
     # build rule tree
     try:
-        config = TenantConfiguration.objects.get(tenant=tenant)
+        config = get_tenant_config(tenant)
         tree = generate_rules_tree(
             config,
             prompt,

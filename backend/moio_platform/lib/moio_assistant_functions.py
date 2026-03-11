@@ -18,7 +18,8 @@ from moio_platform.lib.google_maps_api import GoogleMapsApi, haversine
 from moio_platform.lib.wordpress_api import WordPressAPIClient
 from moio_platform.lib.openai_gpt_api import MoioOpenai
 from central_hub.context_utils import current_tenant
-from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.models import PlatformConfiguration
+from central_hub.tenant_config import get_tenant_config, get_tenant_config_by_id
 from django.dispatch import receiver
 from django.dispatch import Signal
 from chatbot.core.messenger import Messenger
@@ -126,7 +127,7 @@ def get_named_period(period_name, date_format="%Y-%m-%d"):
 @receiver(comfort_message)
 def comfort_message_handler(sender, message, tenant_id, phone, **kwargs):
 
-    config = TenantConfiguration.objects.get(tenant=tenant_id)
+    config = get_tenant_config_by_id(tenant_id) if isinstance(tenant_id, int) else get_tenant_config(tenant_id)
     channel = kwargs.get('channel', "whatsapp")
     moio_messenger = Messenger(channel=channel, config=config, client_name="comfort")
     moio_messenger.just_reply(message, phone)
@@ -163,7 +164,7 @@ class MoioAssistantTools:
             comfort_message.send(sender="search_product", message="Buscando...", tenant_id=self.tenant_id, phone=self.contact.phone, channel=self.session.channel)
         except Exception as e:
             print(e)
-        config = TenantConfiguration.objects.get(tenant=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id) if isinstance(self.tenant_id, int) else get_tenant_config(self.tenant_id)
 
         available_products = []
         # Assuming you've already populated the embedding field
@@ -222,7 +223,7 @@ class MoioAssistantTools:
         except Exception as e:
             print(e)
 
-        config = TenantConfiguration.objects.get(tenant_id=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id)
 
         available_products = []
         # Assuming you've already populated the embedding field
@@ -390,7 +391,7 @@ class MoioAssistantTools:
         print(f"Address: {address}")
         print(f"Latitude: {latitude}, Longitude: {longitude}")
 
-        config = TenantConfiguration.objects.get(tenant=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id) if isinstance(self.tenant_id, int) else get_tenant_config(self.tenant_id)
         maps = GoogleMapsApi(config)
 
         if latitude != 0 and longitude != 0:
@@ -499,7 +500,7 @@ class MoioAssistantTools:
         :param search_term:
 
         """
-        config = TenantConfiguration.objects.get(tenant=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id) if isinstance(self.tenant_id, int) else get_tenant_config(self.tenant_id)
         wp = WordPressAPIClient(config)
         posts = wp.get_posts(per_page=100)
         tips = []
@@ -526,7 +527,7 @@ class MoioAssistantTools:
                              tenant_id=self.tenant_id,
                              phone=self.contact.phone, channel=self.session.channel)
 
-        config = TenantConfiguration.objects.get(tenant=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id) if isinstance(self.tenant_id, int) else get_tenant_config(self.tenant_id)
 
         # Assuming you've already populated the embedding field
         mo = MoioOpenai(api_key=config.openai_api_key, default_model=config.openai_default_model)
@@ -587,7 +588,7 @@ class MoioAssistantTools:
         :param data: a json object with the activity data
         """
         try:
-            config = TenantConfiguration.objects.get(tenant_id=self.tenant_id)
+            config = get_tenant_config_by_id(self.tenant_id)
             new_activity = ActivityRecord.objects.create(
                 tenant=config.tenant,
                 content=data,
@@ -641,7 +642,7 @@ class MoioAssistantTools:
         :return:
         """
 
-        config = TenantConfiguration.objects.get(tenant=self.tenant_id)
+        config = get_tenant_config_by_id(self.tenant_id) if isinstance(self.tenant_id, int) else get_tenant_config(self.tenant_id)
         woo = WooCommerceAPI(
             url=config.woocommerce_site_url,
             consumer_key=config.woocommerce_api_key,

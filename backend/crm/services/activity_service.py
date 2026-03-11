@@ -90,7 +90,19 @@ class ActivityManager:
             "duration_minutes",
         ):
             if field in create_data:
-                deferred_updates[field] = create_data.pop(field)
+                value = create_data.pop(field)
+                if field in ("occurred_at", "completed_at") and isinstance(value, str):
+                    try:
+                        from datetime import datetime as dt_cls
+                        normalized = value.replace("Z", "+00:00")
+                        parsed = dt_cls.fromisoformat(normalized)
+                        if timezone.is_naive(parsed):
+                            from datetime import timezone as tz
+                            parsed = timezone.make_aware(parsed, timezone=tz.utc)
+                        value = parsed
+                    except (ValueError, TypeError):
+                        pass
+                deferred_updates[field] = value
         create_data.pop("type_key", None)
 
         # Create the base row and deferred FK/id updates atomically so
@@ -182,20 +194,30 @@ class ActivityManager:
                 except Exception as e:
                     logger.error(f"Event handler failed for {event_type}: {e}")
 
-        # Also emit via Moio events system
+        # Also emit via Moio events system (EventLog.tenant_id expects tenant_code UUID)
+        # EventLog lives in tenant schema (flows is TENANT_APPS) - ensure we use it
         try:
+            from django_tenants.utils import schema_context
             from moio_platform.core.events import emit_event
-            emit_event(
+            tenant = getattr(activity, "tenant", None)
+            tenant_uuid = str(tenant.tenant_code) if tenant and getattr(tenant, "tenant_code", None) else str(activity.tenant_id)
+            schema = getattr(tenant, "schema_name", None) if tenant else None
+            emit_kw = dict(
                 name=f"crm.{event_type}",
-                tenant_id=str(activity.tenant_id),
+                tenant_id=tenant_uuid,
                 entity={"type": "activity", "id": str(activity.id)},
                 payload={
                     "activity_id": str(activity.id),
-                    "activity_type": getattr(activity.type, 'key', activity.kind),
+                    "activity_type": getattr(activity.type, "key", activity.kind),
                     "status": activity.status,
-                    **context
-                }
+                    **context,
+                },
             )
+            if schema:
+                with schema_context(schema):
+                    emit_event(**emit_kw)
+            else:
+                emit_event(**emit_kw)
         except Exception as e:
             logger.error(f"Failed to emit event {event_type}: {e}")
 

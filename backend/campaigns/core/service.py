@@ -28,7 +28,7 @@ from crm.models import Contact
 from moio_platform.lib.tools import remove_keys
 from campaigns.tasks import execute_campaign, validate_campaign
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, template_requirements
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 from chatbot.models.wa_message_log import WaMessageLog
 
 
@@ -257,11 +257,7 @@ def rebuild_dynamic_audience(audience: Union[Audience, uuid.UUID, str]) -> Tuple
 
 
 def fetch_whatsapp_template_requirements(tenant, template_id: str):
-    try:
-        config = TenantConfiguration.objects.get(tenant=tenant)
-    except TenantConfiguration.DoesNotExist:
-        return None
-
+    config = get_tenant_config(tenant)
     if not config.whatsapp_integration_enabled:
         return None
 

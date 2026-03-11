@@ -698,7 +698,8 @@ def whatsapp_templates(request, flow_id):
             {"templates": [], "error": "Tenant not associated with this flow."}, status=400
         )
 
-    config = tenant.configuration.first() if hasattr(tenant, "configuration") else None
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant) if tenant else None
     if not config or not getattr(config, "whatsapp_integration_enabled", False):
         return JsonResponse(
             {

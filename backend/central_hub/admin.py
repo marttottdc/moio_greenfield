@@ -8,11 +8,7 @@ except ImportError:  # pragma: no cover - fallback when optional dependency is m
     class JSONEditorWidget(_widgets.Textarea):
         pass
 
-from central_hub.models import (
-    PlatformConfiguration,
-    Tenant,
-    TenantConfiguration,
-)
+from central_hub.models import PlatformConfiguration, Tenant
 from central_hub.integrations.models import IntegrationConfig
 from central_hub.integrations.v1.models import ExternalAccount, EmailAccount, CalendarAccount
 
@@ -75,7 +71,6 @@ class CalendarAccountAdmin(admin.ModelAdmin):
 
 admin.site.register(PlatformConfiguration)
 admin.site.register(Tenant, TenantAdmin)
-admin.site.register(TenantConfiguration)
 admin.site.register(IntegrationConfig, IntegrationConfigAdmin)
 admin.site.register(ExternalAccount, ExternalAccountAdmin)
 admin.site.register(EmailAccount, EmailAccountAdmin)

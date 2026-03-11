@@ -7,7 +7,7 @@ from agents import set_default_openai_key
 
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
 from chatbot.models.chatbot_session import ChatbotSession
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -353,7 +353,7 @@ whatsapp_formatting_instructions = """You are a Formatter service that will prov
 
 def agent_processor(user_input: str, session: ChatbotSession):
 
-    config = TenantConfiguration.objects.get(tenant=session.tenant)
+    config = get_tenant_config(session.tenant)
     set_default_openai_key(config.openai_api_key)
 
     lista_de_agentes = build_agents_for_tenant(session.tenant)  # Aquí se cargan todos los agentes disponibles, las herramientas deben estar cargadas

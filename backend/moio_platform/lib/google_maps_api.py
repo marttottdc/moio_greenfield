@@ -4,7 +4,6 @@ import logging
 import googlemaps
 import requests
 from django.utils import timezone
-from central_hub.models import TenantConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +138,7 @@ def calculate_public_transport_eta(origin, destination, google_maps_api_key, pri
 
 class GoogleMapsApi:
 
-    def __init__(self, configuration: TenantConfiguration):
+    def __init__(self, configuration):
 
         if configuration.google_integration_enabled:
             self.google_maps_api_key = configuration.google_api_key

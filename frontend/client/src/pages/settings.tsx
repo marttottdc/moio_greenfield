@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { ComponentType, CSSProperties } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -6,11 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorDisplay } from "@/components/error-display";
-import { Mail, Code, CheckCircle2, Plug, Eye, EyeOff, AlertCircle, Loader2, Trash2, RefreshCw, Shield } from "lucide-react";
+import { Mail, CheckCircle2, Plug, Eye, EyeOff, AlertCircle, Loader2, RefreshCw, Shield } from "lucide-react";
 import { SiSlack, SiWordpress, SiOpenai, SiWhatsapp, SiTelegram, SiInstagram, SiGoogle } from "react-icons/si";
 import { PageLayout } from "@/components/layout/page-layout";
 import { GlassPanel } from "@/components/radiant/glass-panel";
-import { Subheading } from "@/components/radiant/text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson, ApiError, apiRequest, queryClient } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
@@ -57,6 +57,7 @@ interface IntegrationCard {
   is_configured: boolean;
   enabled: boolean;
   instance_count: number;
+  connection_status?: "connected" | "configured" | "not_configured";
   config?: Record<string, unknown>;
 }
 
@@ -74,6 +75,7 @@ interface Integration {
   supports_multi_instance: boolean;
   created_at: string;
   updated_at: string;
+  available_models?: { id: string; created?: number }[];
 }
 
 interface IntegrationSchema {
@@ -154,6 +156,8 @@ function IntegrationConfigModal({
   const [configValues, setConfigValues] = useState<Record<string, unknown>>({});
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState("config");
+  const [openaiModels, setOpenaiModels] = useState<{ id: string }[]>([]);
+  const [debouncedApiKey, setDebouncedApiKey] = useState<string>("");
   const [embeddedSession, setEmbeddedSession] = useState<{
     waba_id?: string;
     phone_number_id?: string;
@@ -184,6 +188,8 @@ function IntegrationConfigModal({
     queryKey: [apiV1(`/integrations/${slug}/`)],
     queryFn: () => fetchJson<Integration[]>(apiV1(`/integrations/${slug}/`)),
     enabled: open && !!slug,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const embeddedConfigQuery = useQuery({
@@ -205,20 +211,18 @@ function IntegrationConfigModal({
   }, [isWhatsapp, configSchema]);
 
   useEffect(() => {
-    if (configQuery.isLoading) return;
-    
+    const defaults: Record<string, unknown> = {};
+    configSchema.forEach((field) => {
+      if (field.type === "boolean") {
+        defaults[field.name] = field.default ?? false;
+      } else {
+        defaults[field.name] = field.default ?? "";
+      }
+    });
     const existingConfig = detailData?.config ?? integration?.config;
     if (existingConfig && Object.keys(existingConfig).length > 0) {
-      setConfigValues({ ...existingConfig });
-    } else {
-      const defaults: Record<string, unknown> = {};
-      configSchema.forEach((field) => {
-        if (field.type === "boolean") {
-          defaults[field.name] = field.default ?? false;
-        } else {
-          defaults[field.name] = field.default ?? "";
-        }
-      });
+      setConfigValues({ ...defaults, ...existingConfig });
+    } else if (configSchema.length > 0) {
       setConfigValues(defaults);
     }
     setShowPasswords({});
@@ -227,7 +231,42 @@ function IntegrationConfigModal({
     setEmbeddedStatus(null);
     setFbReady(false);
     setIsLaunching(false);
-  }, [integration, detailData, configQuery.isLoading, configSchema]);
+    setOpenaiModels([]);
+    setDebouncedApiKey("");
+  }, [integration, detailData, configQuery.isLoading, configQuery.data, configSchema]);
+
+  const apiKeyRaw = (configValues.api_key as string) ?? "";
+  const apiKeyValid = apiKeyRaw.length > 10 && !apiKeyRaw.includes("****");
+  useEffect(() => {
+    if (!apiKeyValid) {
+      setDebouncedApiKey("");
+      setOpenaiModels([]);
+      return;
+    }
+    const t = setTimeout(() => setDebouncedApiKey(apiKeyRaw), 400);
+    return () => clearTimeout(t);
+  }, [apiKeyRaw, apiKeyValid]);
+
+  const isOpenai = slugLower === "openai";
+  const openaiModelsQuery = useQuery<{ success: boolean; models?: { id: string }[] }>({
+    queryKey: [apiV1("/integrations/openai/models/"), debouncedApiKey],
+    queryFn: async () => {
+      const res = await apiRequest("POST", apiV1("/integrations/openai/models/"), {
+        data: { config: { ...configValues, api_key: debouncedApiKey } },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch models");
+      return data;
+    },
+    enabled: open && isOpenai && debouncedApiKey.length > 0,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (openaiModelsQuery.data?.success && Array.isArray(openaiModelsQuery.data.models)) {
+      setOpenaiModels(openaiModelsQuery.data.models);
+    }
+  }, [openaiModelsQuery.data]);
 
   // Load FB SDK once when WhatsApp modal opens
   useEffect(() => {
@@ -363,18 +402,56 @@ function IntegrationConfigModal({
 
   const saveMutation = useMutation({
     mutationFn: async (config: Record<string, unknown>) => {
-      const instanceId = detailData?.instance_id || "default";
+      if (detailData) {
+        const instanceId = detailData.instance_id || "default";
+        const response = await apiRequest(
+          "PATCH",
+          apiV1(`/integrations/${slug}/${instanceId}/`),
+          { data: { config } }
+        );
+        return response.json();
+      }
       const response = await apiRequest(
-        "PATCH",
-        apiV1(`/integrations/${slug}/${instanceId}/`),
-        { data: { config } }
+        "POST",
+        apiV1(`/integrations/${slug}/`),
+        { data: { instance_id: "default", config, enabled: true } }
       );
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (savedData: { config?: Record<string, unknown>; is_configured?: boolean } & Record<string, unknown>) => {
       toast({ title: "Saved", description: "Integration configuration saved successfully." });
+      queryClient.setQueryData([apiV1(`/integrations/${slug}/`)], (old: Integration[] | undefined) => {
+        if (!old?.length) return savedData ? [savedData] : old;
+        const instanceId = (savedData as { instance_id?: string })?.instance_id ?? "default";
+        const idx = old.findIndex((c) => (c as { instance_id?: string }).instance_id === instanceId);
+        if (idx >= 0) {
+          const next = [...old];
+          next[idx] = { ...next[idx], ...savedData };
+          return next;
+        }
+        return [...old, savedData];
+      });
+      const isConfigured = savedData?.is_configured !== false;
+      const enabled = (savedData as { enabled?: boolean })?.enabled !== false;
+      queryClient.setQueryData(
+        [apiV1("/integrations/")],
+        (oldList: IntegrationCard[] | undefined) => {
+          if (!oldList) return oldList;
+          return oldList.map((card) =>
+            card.slug === slug
+              ? {
+                  ...card,
+                  is_configured: isConfigured || card.is_configured,
+                  enabled: enabled || card.enabled,
+                  instance_count: Math.max(card.instance_count || 0, 1),
+                  connection_status: (enabled && isConfigured ? "connected" : "configured") as IntegrationCard["connection_status"],
+                }
+              : card
+          );
+        }
+      );
       queryClient.invalidateQueries({ queryKey: [apiV1("/integrations/")] });
-      queryClient.invalidateQueries({ queryKey: [apiV1(`/integrations/${slug}/`)] });
+      queryClient.refetchQueries({ queryKey: [apiV1("/integrations/")] });
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -382,8 +459,20 @@ function IntegrationConfigModal({
     },
   });
 
+  const openaiModelsList = openaiModels.length > 0 ? openaiModels : (detailData?.available_models ?? []);
+
   const testMutation = useMutation({
     mutationFn: async () => {
+      if (isOpenai) {
+        const response = await apiRequest(
+          "POST",
+          apiV1("/integrations/openai/models/"),
+          { data: { config: configValues } }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Failed to verify API key");
+        return data as { success: boolean; models?: { id: string }[] };
+      }
       const instanceId = detailData?.instance_id || "default";
       const response = await apiRequest(
         "POST",
@@ -392,35 +481,24 @@ function IntegrationConfigModal({
       );
       return response.json();
     },
-    onSuccess: (data: { success?: boolean; message?: string }) => {
+    onSuccess: (data: { success?: boolean; message?: string; models?: { id: string }[] }) => {
       if (data.success) {
-        toast({ title: "Success", description: data.message ?? "Connection test successful!" });
+        if (isOpenai && Array.isArray(data.models)) {
+          setOpenaiModels(data.models);
+          toast({ title: "Success", description: `API key valid. ${data.models.length} models loaded.` });
+        } else {
+          toast({ title: "Success", description: data.message ?? "Connection test successful!" });
+        }
+        queryClient.invalidateQueries({ queryKey: [apiV1("/integrations/")] });
+        queryClient.invalidateQueries({ queryKey: [apiV1(`/integrations/${slug}/`)] });
       } else {
         toast({ title: "Test Failed", description: data.message ?? "Connection test failed.", variant: "destructive" });
       }
     },
     onError: (error: Error) => {
       toast({ title: "Test Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const disconnectMutation = useMutation({
-    mutationFn: async () => {
-      const instanceId = detailData?.instance_id || "default";
-      const response = await apiRequest(
-        "DELETE",
-        apiV1(`/integrations/${slug}/${instanceId}/`),
-        {}
-      );
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Disconnected", description: "Integration has been disconnected." });
       queryClient.invalidateQueries({ queryKey: [apiV1("/integrations/")] });
-      onOpenChange(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: [apiV1(`/integrations/${slug}/`)] });
     },
   });
 
@@ -430,10 +508,6 @@ function IntegrationConfigModal({
 
   const handleTest = () => {
     testMutation.mutate();
-  };
-
-  const handleDisconnect = () => {
-    disconnectMutation.mutate();
   };
 
   const togglePasswordVisibility = (key: string) => {
@@ -449,8 +523,13 @@ function IntegrationConfigModal({
   const display = resolveDisplayConfig(integration.slug);
   const isSaving = saveMutation.isPending;
   const isTesting = testMutation.isPending;
-  const isDisconnecting = disconnectMutation.isPending;
   const isLoadingSchema = schemaQuery.isLoading || configQuery.isLoading;
+
+  const connectionOk =
+    (isOpenai && (openaiModelsQuery.data?.success === true || (detailData?.is_configured && detailData?.enabled))) ||
+    (!isOpenai && detailData?.enabled && detailData?.is_configured);
+  const connectionChecking = isOpenai && openaiModelsQuery.isFetching;
+  const connectionError = isOpenai && openaiModelsQuery.isError && apiKeyValid;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -463,8 +542,34 @@ function IntegrationConfigModal({
             >
               <display.icon className="h-5 w-5" style={{ color: display.color }} />
             </div>
-            <div>
-              <DialogTitle>{integration.name}</DialogTitle>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <DialogTitle>{integration.name}</DialogTitle>
+                {connectionOk && (
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-green-600" data-testid="status-connected">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    Connected
+                  </span>
+                )}
+                {connectionChecking && (
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="status-checking">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Checking...
+                  </span>
+                )}
+                {connectionError && !connectionOk && (
+                  <span className="flex items-center gap-1.5 text-sm text-destructive" data-testid="status-error">
+                    <span className="h-2 w-2 rounded-full bg-destructive" />
+                    Invalid API key
+                  </span>
+                )}
+                {!connectionOk && !connectionChecking && !connectionError && detailData?.is_configured && (
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="status-configured">
+                    <span className="h-2 w-2 rounded-full bg-muted-foreground" />
+                    Configured
+                  </span>
+                )}
+              </div>
               <DialogDescription>
                 {integration.is_configured ? "Manage your integration settings" : "Configure this integration to connect"}
               </DialogDescription>
@@ -473,15 +578,14 @@ function IntegrationConfigModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className={`grid w-full ${canShowEmbeddedSignup ? "grid-cols-3" : "grid-cols-2"}`}>
-            <TabsTrigger value="config" data-testid="tab-config">Configuration</TabsTrigger>
-            <TabsTrigger value="status" data-testid="tab-status">Status</TabsTrigger>
-            {canShowEmbeddedSignup && (
+          {canShowEmbeddedSignup ? (
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="config" data-testid="tab-config">Configuration</TabsTrigger>
               <TabsTrigger value="embedded_signup" data-testid="tab-embedded-signup">
                 Embedded Signup
               </TabsTrigger>
-            )}
-          </TabsList>
+            </TabsList>
+          ) : null}
 
           <TabsContent value="config" className="space-y-4 mt-4">
             {isLoadingSchema ? (
@@ -503,6 +607,7 @@ function IntegrationConfigModal({
                 const fieldName = field.name;
                 const fieldType = field.sensitive ? "password" : (field.type === "integer" ? "number" : field.type === "boolean" ? "boolean" : "text");
                 const fieldLabel = field.label || field.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                const isSavedSensitive = field.sensitive && detailData?.is_configured;
                 
                 return (
                   <div key={`${fieldName}-${index}`} className="space-y-2">
@@ -511,7 +616,7 @@ function IntegrationConfigModal({
                         {fieldLabel}
                         {field.required && <span className="text-destructive ml-1">*</span>}
                       </Label>
-                      {fieldType === "password" && (
+                      {fieldType === "password" && !isSavedSensitive && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -540,12 +645,52 @@ function IntegrationConfigModal({
                           {configValues[fieldName] ? "Enabled" : "Disabled"}
                         </Label>
                       </div>
+                    ) : fieldName === "default_model" && isOpenai ? (
+                      openaiModelsList.length > 0 ? (
+                        <Select
+                          value={(configValues[fieldName] as string) ?? ""}
+                          onValueChange={(v) => updateValue(fieldName, v)}
+                        >
+                          <SelectTrigger id={fieldName} data-testid={`select-${fieldName}`}>
+                            <SelectValue placeholder="Select model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {openaiModelsList.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            id={fieldName}
+                            type="text"
+                            placeholder={field.placeholder || field.description}
+                            value={(configValues[fieldName] as string) ?? ""}
+                            onChange={(e) => updateValue(fieldName, e.target.value)}
+                            data-testid={`input-${fieldName}`}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {openaiModelsQuery.isFetching
+                              ? "Loading models..."
+                              : openaiModelsQuery.isError
+                                ? "Enter a valid API key to load models."
+                                : "Models load automatically when API key is entered."}
+                          </p>
+                        </div>
+                      )
                     ) : (
                       <Input
                         id={fieldName}
-                        type={fieldType === "password" && !showPasswords[fieldName] ? "password" : fieldType === "number" ? "number" : "text"}
+                        type={fieldType === "password" && (isSavedSensitive || !showPasswords[fieldName]) ? "password" : fieldType === "number" ? "number" : "text"}
                         placeholder={field.placeholder || field.description}
-                        value={(configValues[fieldName] as string | number) ?? ""}
+                        value={
+                          isSavedSensitive && (configValues[fieldName] === undefined || configValues[fieldName] === "")
+                            ? "••••••••••••"
+                            : ((configValues[fieldName] as string | number) ?? "")
+                        }
                         onChange={(e) => updateValue(fieldName, fieldType === "number" ? Number(e.target.value) : e.target.value)}
                         data-testid={`input-${fieldName}`}
                       />
@@ -553,81 +698,14 @@ function IntegrationConfigModal({
                     {field.description && (
                       <p className="text-xs text-muted-foreground">{field.description}</p>
                     )}
+                    {fieldName === "api_key" && detailData?.is_configured && detailData?.updated_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Saved {formatLastSync(detailData.updated_at) ?? "—"}
+                      </p>
+                    )}
                   </div>
                 );
               })
-            )}
-          </TabsContent>
-
-          <TabsContent value="status" className="space-y-4 mt-4">
-            {configQuery.isLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : configQuery.isError ? (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-destructive">Failed to load status</p>
-                    <p className="text-xs text-muted-foreground">Could not fetch integration details.</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    {detailData?.enabled && detailData?.is_configured ? (
-                      <Badge variant="default">Connected</Badge>
-                    ) : detailData?.is_configured ? (
-                      <Badge variant="secondary">Configured (Disabled)</Badge>
-                    ) : (
-                      <Badge variant="secondary">Not Configured</Badge>
-                    )}
-                  </div>
-                  {detailData?.updated_at && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-muted-foreground">Last Updated</span>
-                      <span className="text-sm">{formatLastSync(detailData.updated_at)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={handleTest}
-                    disabled={isTesting}
-                    className="flex-1"
-                    data-testid="button-test-connection"
-                  >
-                    {isTesting ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Test Connection
-                  </Button>
-                  {detailData?.is_configured && (
-                    <Button
-                      variant="destructive"
-                      onClick={handleDisconnect}
-                      disabled={isDisconnecting}
-                      data-testid="button-disconnect"
-                    >
-                      {isDisconnecting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-2" />
-                      )}
-                      Disconnect
-                    </Button>
-                  )}
-                </div>
-              </>
             )}
           </TabsContent>
 
@@ -685,20 +763,36 @@ function IntegrationConfigModal({
           )}
         </Tabs>
 
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-config">
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || isLoadingSchema} data-testid="button-save-config">
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
+        <DialogFooter className="mt-6 flex-col-reverse sm:flex-row sm:justify-between gap-2">
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={isTesting}
+            className="bg-yellow-500 hover:bg-yellow-600 text-black border-yellow-600"
+            data-testid="button-test-connection"
+          >
+            {isTesting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              "Save Configuration"
+              <RefreshCw className="h-4 w-4 mr-2" />
             )}
+            Test Connection
           </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-config">
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving || isLoadingSchema} data-testid="button-save-config">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Configuration"
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -706,6 +800,7 @@ function IntegrationConfigModal({
 }
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationCard | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
@@ -734,6 +829,7 @@ export default function Settings() {
     queryKey: [apiV1("/integrations/")],
     queryFn: () => fetchJson<IntegrationCard[]>(apiV1("/integrations/")),
     retry: false,
+    staleTime: 0,
   });
 
   const {
@@ -861,16 +957,11 @@ export default function Settings() {
 
   return (
     <PageLayout
-      title="Settings"
-      description="Configure tenant-wide integrations and organization settings"
+      title={t("settings.title")}
+      description={t("settings.description")}
       showSidebarTrigger={false}
     >
       <div className="space-y-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Code className="h-5 w-5" style={{ color: "#58a6ff" }} />
-          <Subheading className="!text-base !normal-case !tracking-normal">Integration Settings</Subheading>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading
             ? integrationSkeletons.map((_, index) => (
@@ -914,11 +1005,15 @@ export default function Settings() {
                     is_configured: combinedAccounts.length > 0,
                     enabled: true,
                     instance_count: combinedAccounts.length,
+                    connection_status: combinedAccounts.length > 0 ? "connected" : "not_configured",
                   } as IntegrationCard,
                   ...integrations,
                 ].map((integration) => {
                   const display = resolveDisplayConfig(integration.slug);
-                  const isActive = integration.enabled && integration.is_configured;
+                  const isConfigured = integration.is_configured;
+                  const isActive =
+                    integration.connection_status === "connected" ||
+                    (integration.enabled && isConfigured);
 
                   return (
                     <GlassPanel
@@ -932,7 +1027,7 @@ export default function Settings() {
                             <CheckCircle2 className="h-3 w-3" />
                             Active
                           </Badge>
-                        ) : integration.is_configured ? (
+                        ) : isConfigured ? (
                           <Badge variant="secondary" className="gap-1 pl-1.5" data-testid={`badge-configured-${integration.slug}`}>
                             Configured
                           </Badge>
@@ -944,10 +1039,15 @@ export default function Settings() {
                       </div>
 
                       <div
-                        className="w-14 h-14 rounded-lg flex items-center justify-center mb-4"
-                        style={{ backgroundColor: display.bgColor }}
+                        className={`w-14 h-14 rounded-lg flex items-center justify-center mb-4 transition-opacity ${
+                          isConfigured ? "" : "opacity-50 grayscale bg-muted/40"
+                        }`}
+                        style={isConfigured ? { backgroundColor: display.bgColor } : undefined}
                       >
-                        <display.icon className="h-7 w-7" style={{ color: display.color }} />
+                        <display.icon
+                          className={`h-7 w-7 ${isConfigured ? "" : "text-muted-foreground"}`}
+                          style={isConfigured ? { color: display.color } : undefined}
+                        />
                       </div>
 
                       <div className="mb-4">
@@ -959,9 +1059,9 @@ export default function Settings() {
                         </p>
                       </div>
 
-                      {integration.supports_multi_instance && integration.instance_count > 0 && (
+                      {integration.supports_multi_instance && isConfigured && integration.instance_count > 0 && (
                         <p className="text-xs text-muted-foreground mb-4" data-testid={`text-instances-${integration.slug}`}>
-                          {integration.instance_count} instance{integration.instance_count !== 1 ? 's' : ''} configured
+                          {integration.instance_count} instance{integration.instance_count !== 1 ? "s" : ""} configured
                         </p>
                       )}
 

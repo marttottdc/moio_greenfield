@@ -52,6 +52,7 @@ class MoioUserReadSerializer(serializers.ModelSerializer):
     organization = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     groups = serializers.SerializerMethodField()
+    reports_to_ids = serializers.PrimaryKeyRelatedField(many=True, read_only=True, source="reports_to")
 
     class Meta:
         model = UserModel
@@ -70,6 +71,7 @@ class MoioUserReadSerializer(serializers.ModelSerializer):
             "role",
             "groups",
             "organization",
+            "reports_to_ids",
             "last_login",
             "created",
         )
@@ -121,6 +123,12 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
 
     role = serializers.ChoiceField(choices=tuple(ROLE_ORDER), required=False)
     password = serializers.CharField(write_only=True, required=False, allow_blank=False, trim_whitespace=False)
+    reports_to_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=UserModel.objects.none(),
+        required=False,
+        source="reports_to",
+    )
 
     class Meta:
         model = UserModel
@@ -132,8 +140,16 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
             "phone",
             "is_active",
             "role",
+            "reports_to_ids",
             "password",
         )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "request" in self.context:
+            tenant = getattr(self.context["request"].user, "tenant", None)
+            if tenant:
+                self.fields["reports_to_ids"].queryset = UserModel.objects.filter(tenant=tenant)
 
     def validate_role(self, value: str) -> str:
         role = (value or "").lower().strip()
@@ -157,6 +173,7 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
 
         role = validated_data.pop("role", None)
         password = validated_data.pop("password", None)
+        reports_to = validated_data.pop("reports_to", None)
         with transaction.atomic():
             user = UserModel.objects.create_user(
                 tenant=tenant,
@@ -165,11 +182,14 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
             )
             if role:
                 _set_role_groups(user, role)
+            if reports_to is not None:
+                user.reports_to.set(reports_to)
         return user
 
     def update(self, instance, validated_data: Dict[str, Any]):
         role = validated_data.pop("role", None)
         password = validated_data.pop("password", None)
+        reports_to = validated_data.pop("reports_to", None)
 
         for field, value in validated_data.items():
             setattr(instance, field, value)
@@ -181,5 +201,7 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
             instance.save()
             if role:
                 _set_role_groups(instance, role)
+            if reports_to is not None:
+                instance.reports_to.set(reports_to)
 
         return instance

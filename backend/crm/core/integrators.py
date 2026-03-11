@@ -14,7 +14,7 @@ from crm.models import Shipment, EcommerceOrder, EcommerceOrderLine, Address, Pr
 from crm.lib.woocommerce_api import WooCommerceAPI, get_product_brand, get_product_category, get_product_price, \
     get_product_sale_price, get_product_tags, get_product_main_image
 from crm.lib.zetasoftware_api import ZetaSoftwareAPI
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config, iter_configs_with_integration_enabled
 import logging
 
 # Configure a logger for this module
@@ -30,7 +30,7 @@ def get_customer_code(ecommerce_order: EcommerceOrder):
     Provide an Order["billing"] object from Woocommerce
     """
 
-    config = TenantConfiguration.objects.get(tenant=ecommerce_order.tenant)
+    config = get_tenant_config(ecommerce_order.tenant)
 
     if not config.zetaSoftware_integration_enabled:
         raise Exception("Zeta software integration disabled")
@@ -85,7 +85,7 @@ def send_woocommerce_order_to_zeta(ecommerce_order: EcommerceOrder, customer_cod
     """
 
     order = ecommerce_order.payload
-    config = TenantConfiguration.objects.get(tenant=ecommerce_order.tenant)
+    config = get_tenant_config(ecommerce_order.tenant)
 
     if not config.zetaSoftware_integration_enabled:
         raise Exception("Zeta software integration disabled")
@@ -199,7 +199,7 @@ def send_tracking_code_to_user(ecommerce_order: EcommerceOrder, tracking_code):
     """
 
     order = ecommerce_order.payload
-    config = TenantConfiguration.objects.get(tenant=ecommerce_order.tenant)
+    config = get_tenant_config(ecommerce_order.tenant)
 
     if not config.woocommerce_integration_enabled:
         raise Exception("Woocommerce integration disabled")
@@ -220,7 +220,7 @@ def send_order_to_dac_fulfillment(ecommerce_order: EcommerceOrder, tracking_code
     :param tracking_code:
     :return:
     """
-    config = TenantConfiguration.objects.get(tenant=ecommerce_order.tenant)
+    config = get_tenant_config(ecommerce_order.tenant)
 
     if not config.dac_integration_enabled:
         raise ValueError("DAC integration not enabled")
@@ -308,7 +308,7 @@ def send_order_to_dac_fulfillment(ecommerce_order: EcommerceOrder, tracking_code
 def register_shipping_request(ecommerce_order: EcommerceOrder):
 
     order = ecommerce_order.payload
-    woo_config = TenantConfiguration.objects.get(tenant=ecommerce_order.tenant)
+    woo_config = get_tenant_config(ecommerce_order.tenant)
 
     if not woo_config.woocommerce_integration_enabled:
         raise ValueError("WooCommerce Integration not enabled")
@@ -434,7 +434,9 @@ def import_woo_product(product, tenant):
 
 def import_dac_delivery_status():
 
-    for tenant_configuration in TenantConfiguration.objects.all():
+    from tenancy.models import Tenant
+    for tenant in Tenant.objects.all():
+        tenant_configuration = get_tenant_config(tenant)
 
         if tenant_configuration.dac_integration_enabled:
             print(f"Checking DAC {tenant_configuration.tenant} deliveries...")
@@ -531,7 +533,7 @@ def import_dac_delivery_status():
 
 
 def close_order(shipment: Shipment):
-    tenant_configuration = TenantConfiguration.objects.get(tenant=shipment.tenant)
+    tenant_configuration = get_tenant_config(shipment.tenant)
 
     if tenant_configuration.woocommerce_integration_enabled:
         woo_conn = WooCommerceAPI(
@@ -696,11 +698,11 @@ def register_or_update_ecommerce_order(payload, tenant):
 def get_all_orders(tenant=None):
 
     if tenant is None:
-        tenant_configuration_list = TenantConfiguration.objects.all()
+        config_iter = iter_configs_with_integration_enabled("woocommerce")
     else:
-        tenant_configuration_list = TenantConfiguration.objects.filter(tenant=tenant)
+        config_iter = [(tenant, get_tenant_config(tenant))]
 
-    for tenant_configuration in tenant_configuration_list:
+    for _t, tenant_configuration in config_iter:
         if tenant_configuration.woocommerce_integration_enabled:
             woo_conn = WooCommerceAPI(url=tenant_configuration.woocommerce_site_url, consumer_key=tenant_configuration.woocommerce_consumer_key, consumer_secret=tenant_configuration.woocommerce_consumer_secret)
             orders = woo_conn.get_orders()

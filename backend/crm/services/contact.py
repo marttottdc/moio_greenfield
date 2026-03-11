@@ -6,7 +6,7 @@ import logging
 import phonenumbers
 from phonenumbers import carrier, parse, NumberParseException, format_number
 from django.db.models import Q
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def _candidate_phone_values(raw_phone: str | None) -> list[str]:
     return result
 
 
-def get_contact_by_phone(phone, whatsapp_name, config: TenantConfiguration):
+def get_contact_by_phone(phone, whatsapp_name, config):
 
     formatted_phone = normalize_phone_e164(phone) or str(phone).strip()
     print(f'formatted_number: {formatted_phone}')
@@ -147,11 +147,8 @@ def sync_whatsapp_blocklist(contact: Contact, *, enabled: bool) -> None:
     if not contact.phone:
         return
 
-    config = TenantConfiguration.objects.filter(
-        tenant=contact.tenant,
-        whatsapp_integration_enabled=True,
-    ).first()
-    if not config:
+    config = get_tenant_config(contact.tenant)
+    if not config.whatsapp_integration_enabled:
         return
 
     try:

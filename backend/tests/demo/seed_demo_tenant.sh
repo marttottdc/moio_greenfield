@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Seed demo tenant with contacts, customers (accounts), and deals via API.
-# Usage: ./scripts/seed_demo_tenant.sh [BASE_URL]
+# Usage: ./tests/demo/seed_demo_tenant.sh [BASE_URL]
+# Run from backend/: ./tests/demo/seed_demo_tenant.sh
 # Requires: curl, jq
 # Credentials: DEMO_EMAIL (default demo@moio.ai), DEMO_PASS (default demo123)
 

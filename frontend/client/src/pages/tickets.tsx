@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -201,6 +202,7 @@ function renderTextWithLinks(text?: string) {
 }
 
 export default function Tickets() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -743,8 +745,8 @@ export default function Tickets() {
 
   return (
     <PageLayout
-      title="Tickets"
-      description="Manage support tickets and customer inquiries"
+      title={t("tickets.title")}
+      description={t("tickets.description")}
       className="p-0 flex flex-col"
       showSidebarTrigger={false}
       metrics={[

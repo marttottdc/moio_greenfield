@@ -14,7 +14,6 @@ except Exception:  # pragma: no cover - package/config may be unavailable in tes
 
 from crm.models import Contact, ContactType
 from tenancy.models import Tenant
-from central_hub.models import TenantConfiguration
 
 
 def _tenant_schema_context(tenant):
@@ -26,12 +25,6 @@ def _tenant_schema_context(tenant):
     ):
         return schema_context(tenant.schema_name)
     return nullcontext()
-
-
-@receiver(post_save, sender=Tenant)
-def create_tenant_configurations(sender, instance, created, **kwargs):
-    if created:
-        TenantConfiguration.objects.create(tenant=instance)
 
 
 @receiver(post_save, sender=get_user_model())

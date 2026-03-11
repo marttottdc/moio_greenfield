@@ -37,6 +37,8 @@ import {
   Bot,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocale } from "@/contexts/LocaleContext";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -141,6 +143,27 @@ const iconMap: Record<string, any> = {
   agent_console: Bot,
 };
 
+/** Map navigation node id from API to translation key (so menu items are localized) */
+const NAV_ID_TO_TRANSLATION_KEY: Record<string, string> = {
+  dashboard: "menu.dashboard",
+  crm: "menu.crm",
+  contacts: "menu.crm",
+  deals: "menu.deals",
+  activities: "menu.activities",
+  communications: "menu.communications",
+  tickets: "menu.tickets",
+  workflows: "menu.automation_studio",
+  campaigns: "menu.crm",
+  datalab: "menu.data_lab",
+  "data lab": "menu.data_lab",
+  agent_console: "menu.agent_console",
+  agents: "menu.agent_console",
+  settings: "menu.settings",
+  admin: "menu.platform_admin",
+  platform_admin: "menu.platform_admin",
+  api_tester: "menu.api_tester",
+};
+
 
 const passwordChangeSchema = z.object({
   current_password: z.string().min(1, "Current password is required"),
@@ -151,19 +174,11 @@ const passwordChangeSchema = z.object({
   path: ["confirm_password"],
 });
 
-const userPreferencesSchema = z.object({
-  language: z.string().optional(),
-  timezone: z.string().optional(),
-  notifications_enabled: z.boolean().optional(),
-  email_notifications: z.boolean().optional(),
+const localizationSchema = z.object({
+  language: z.enum(["en", "es", "pt"]),
+  timezone: z.string(),
+  currency: z.string(),
 });
-
-interface UserPreferences {
-  language?: string;
-  timezone?: string;
-  notifications_enabled?: boolean;
-  email_notifications?: boolean;
-}
 
 export function AppSidebar() {
   const [location] = useLocation();
@@ -182,7 +197,16 @@ export function AppSidebar() {
   const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
   const profilePath = apiV1("/auth/me/");
   const navigationPath = apiV1("/content/navigation/");
-  const preferencesPath = apiV1("/settings/preferences/");
+  const { t } = useTranslation();
+  const {
+    locale,
+    timezone,
+    currency,
+    setLocale,
+    setTimezone,
+    setCurrency,
+    isLoading: isLocaleLoading,
+  } = useLocale();
 
   const {
     data: user,
@@ -270,47 +294,48 @@ export function AppSidebar() {
           }
           return node.url != null;
         })
-        .map((node) => ({
-          title: node.label,
-          url: node.url || "#",
-          icon: node.icon ? iconMap[node.icon] || LayoutDashboard : LayoutDashboard,
-        }));
+        .map((node) => {
+          const transKey = NAV_ID_TO_TRANSLATION_KEY[node.id] ?? NAV_ID_TO_TRANSLATION_KEY[node.label?.toLowerCase()];
+          const title = transKey ? t(transKey) : node.label;
+          const isDataLab = node.id === "datalab" || node.label?.toLowerCase() === "data lab";
+          return {
+            title,
+            url: isDataLab ? "/datalab" : (node.url || "#"),
+            icon: node.icon ? iconMap[node.icon] || LayoutDashboard : LayoutDashboard,
+          };
+        });
 
-      // Keep left sidebar flat (consistent with the rest of the app).
-      // Data Lab should land on Datasets.
-      return mapped.map((item) =>
-        item.title.toLowerCase() === "data lab" ? { ...item, url: "/datalab" } : item
-      );
+      return mapped;
     }
 
     const items: MenuItem[] = [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "CRM", url: "/crm", icon: Users },
-      { title: "Deals", url: "/deals", icon: Briefcase },
-      { title: "Activities", url: "/activities", icon: CheckSquare },
-      { title: "Communications", url: "/communications", icon: MessageSquare },
-      { title: "Tickets", url: "/tickets", icon: Ticket },
-      { title: "Automation Studio", url: "/workflows", icon: Workflow },
-      { title: "Agent Console", url: "/agent-console", icon: Bot },
-      { title: "Data Lab", url: "/datalab", icon: Database },
+      { title: t("menu.dashboard"), url: "/dashboard", icon: LayoutDashboard },
+      { title: t("menu.crm"), url: "/crm", icon: Users },
+      { title: t("menu.deals"), url: "/deals", icon: Briefcase },
+      { title: t("menu.activities"), url: "/activities", icon: CheckSquare },
+      { title: t("menu.communications"), url: "/communications", icon: MessageSquare },
+      { title: t("menu.tickets"), url: "/tickets", icon: Ticket },
+      { title: t("menu.automation_studio"), url: "/workflows", icon: Workflow },
+      { title: t("menu.agent_console"), url: "/agent-console", icon: Bot },
+      { title: t("menu.data_lab"), url: "/datalab", icon: Database },
     ];
 
     const userRole = user?.role;
 
     if (isTenantAdminRole(userRole)) {
-      items.push({ title: "Settings", url: "/settings", icon: Settings });
+      items.push({ title: t("menu.settings"), url: "/settings", icon: Settings });
     }
 
     if (isTenantAdminRole(userRole)) {
-      items.push({ title: "Platform Admin", url: "/platform-admin", icon: Shield });
+      items.push({ title: t("menu.platform_admin"), url: "/platform-admin", icon: Shield });
     }
 
     if (isPlatformAdminRole(userRole)) {
-      items.push({ title: "API Tester", url: "/api-tester", icon: Sliders });
+      items.push({ title: t("menu.api_tester"), url: "/api-tester", icon: Sliders });
     }
 
     return items;
-  }, [navigationData, user]);
+  }, [navigationData, user, t]);
 
   const { data: apiKeyStatus, isLoading: apiKeyLoading } = useQuery({
     queryKey: ["auth", "api-key"],
@@ -326,10 +351,10 @@ export function AppSidebar() {
       setApiKeyCreateName("");
       setNewKeyShown({ key: data.key, warning: data.warning });
       queryClient.invalidateQueries({ queryKey: ["auth", "api-key"] });
-      toast({ title: "API key created", description: "Copy and store it securely — it won't be shown again." });
+      toast({ title: t("toast.api_key_created"), description: t("toast.api_key_created_description") });
     },
     onError: (err: ApiError) => {
-      toast({ title: "Failed to create API key", description: err.message, variant: "destructive" });
+      toast({ title: t("toast.api_key_create_failed"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -338,17 +363,11 @@ export function AppSidebar() {
     onSuccess: () => {
       setRevokeConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ["auth", "api-key"] });
-      toast({ title: "API key revoked" });
+      toast({ title: t("toast.api_key_revoked") });
     },
     onError: (err: ApiError) => {
-      toast({ title: "Failed to revoke API key", description: err.message, variant: "destructive" });
+      toast({ title: t("toast.api_key_revoke_failed"), description: err.message, variant: "destructive" });
     },
-  });
-
-  const { data: userPreferences } = useQuery<UserPreferences, ApiError>({
-    queryKey: [preferencesPath],
-    queryFn: () => fetchJson<UserPreferences>(preferencesPath),
-    retry: false,
   });
 
   const passwordForm = useForm<z.infer<typeof passwordChangeSchema>>({
@@ -360,13 +379,12 @@ export function AppSidebar() {
     },
   });
 
-  const preferencesForm = useForm<z.infer<typeof userPreferencesSchema>>({
-    resolver: zodResolver(userPreferencesSchema),
-    values: userPreferences || {
-      language: "en",
-      timezone: "UTC",
-      notifications_enabled: true,
-      email_notifications: true,
+  const preferencesForm = useForm<z.infer<typeof localizationSchema>>({
+    resolver: zodResolver(localizationSchema),
+    values: {
+      language: (locale === "pt" ? "pt" : locale === "es" ? "es" : "en") as "en" | "es" | "pt",
+      timezone,
+      currency,
     },
   });
 
@@ -382,37 +400,38 @@ export function AppSidebar() {
     },
     onSuccess: () => {
       toast({
-        title: "Password changed",
-        description: "Your password has been updated successfully.",
+        title: t("toast.password_changed"),
+        description: t("toast.password_changed_description"),
       });
       setPasswordModalOpen(false);
       passwordForm.reset();
     },
     onError: (error: ApiError) => {
       toast({
-        title: "Password change failed",
+        title: t("toast.update_failed"),
         description: error.message || "Failed to update password",
         variant: "destructive",
       });
     },
   });
 
-  const updatePreferencesMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof userPreferencesSchema>) => {
-      const res = await apiRequest("PATCH", preferencesPath, { data });
-      return res.json();
+  const localizationMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof localizationSchema>) => {
+      await setLocale(data.language);
+      await setTimezone(data.timezone);
+      await setCurrency(data.currency);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [preferencesPath] });
+      queryClient.invalidateQueries({ queryKey: ["localization"] });
       toast({
-        title: "Preferences updated",
-        description: "Your preferences have been saved successfully.",
+        title: t("toast.preferences_updated"),
+        description: t("toast.preferences_updated_description"),
       });
       setPreferencesModalOpen(false);
     },
     onError: (error: ApiError) => {
       toast({
-        title: "Update failed",
+        title: t("toast.update_failed"),
         description: error.message || "Failed to update preferences",
         variant: "destructive",
       });
@@ -423,8 +442,8 @@ export function AppSidebar() {
     changePasswordMutation.mutate(data);
   };
 
-  const handlePreferencesUpdate = (data: z.infer<typeof userPreferencesSchema>) => {
-    updatePreferencesMutation.mutate(data);
+  const handlePreferencesUpdate = (data: z.infer<typeof localizationSchema>) => {
+    localizationMutation.mutate(data);
   };
 
   const handleLogout = () => {
@@ -493,7 +512,7 @@ export function AppSidebar() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              {sidebarOpen ? t("sidebar.collapse") : t("sidebar.expand")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -552,19 +571,19 @@ export function AppSidebar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onClick={() => setProfileModalOpen(true)} data-testid="menu-profile">
               <UserCircle className="h-4 w-4 mr-2" />
-              View Profile
+              {t("menu.view_profile")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setPreferencesModalOpen(true)} data-testid="menu-preferences">
               <Sliders className="h-4 w-4 mr-2" />
-              Preferences
+              {t("menu.preferences")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setPasswordModalOpen(true)} data-testid="menu-change-password">
               <KeyRound className="h-4 w-4 mr-2" />
-              Change Password
+              {t("menu.change_password")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setApiKeyModalOpen(true)} data-testid="menu-api-key">
               <Key className="h-4 w-4 mr-2" />
-              API Key
+              {t("menu.api_key")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={toggleTheme} data-testid="menu-theme-toggle">
@@ -573,12 +592,12 @@ export function AppSidebar() {
               ) : (
                 <Moon className="h-4 w-4 mr-2" />
               )}
-              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              {theme === "dark" ? t("menu.light_mode") : t("menu.dark_mode")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setLogoutConfirmOpen(true)} data-testid="menu-logout">
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              {t("menu.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -588,9 +607,9 @@ export function AppSidebar() {
       <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
         <DialogContent data-testid="dialog-profile">
           <DialogHeader>
-            <DialogTitle>Profile Information</DialogTitle>
+            <DialogTitle>{t("profile.title")}</DialogTitle>
             <DialogDescription>
-              View your account details and organization information
+              {t("profile.description")}
             </DialogDescription>
           </DialogHeader>
           
@@ -606,25 +625,25 @@ export function AppSidebar() {
               </Avatar>
               <div>
                 <h3 className="text-lg font-semibold" data-testid="text-profile-name">{user?.full_name || user?.username}</h3>
-                <p className="text-sm text-muted-foreground" data-testid="text-profile-role">{user?.role || "User"}</p>
+                <p className="text-sm text-muted-foreground" data-testid="text-profile-role">{user?.role || t("profile.user")}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Username</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("profile.username")}</label>
                 <p className="text-sm" data-testid="text-profile-username">{user?.username}</p>
               </div>
               
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <p className="text-sm" data-testid="text-profile-email">{user?.email || "Not set"}</p>
+                <label className="text-sm font-medium text-muted-foreground">{t("profile.email")}</label>
+                <p className="text-sm" data-testid="text-profile-email">{user?.email || t("profile.not_set")}</p>
               </div>
 
               {user?.organization && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Organization</label>
-                  <p className="text-sm" data-testid="text-profile-organization">{user.organization.name || "Not set"}</p>
+                  <label className="text-sm font-medium text-muted-foreground">{t("profile.organization")}</label>
+                  <p className="text-sm" data-testid="text-profile-organization">{user.organization.name || t("profile.not_set")}</p>
                 </div>
               )}
             </div>
@@ -632,7 +651,7 @@ export function AppSidebar() {
 
           <DialogFooter>
             <Button onClick={() => setProfileModalOpen(false)} data-testid="button-close-profile">
-              Close
+              {t("common.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -642,9 +661,9 @@ export function AppSidebar() {
       <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
         <DialogContent data-testid="dialog-change-password">
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <DialogTitle>{t("password.title")}</DialogTitle>
             <DialogDescription>
-              Update your account password
+              {t("password.description")}
             </DialogDescription>
           </DialogHeader>
           
@@ -655,7 +674,7 @@ export function AppSidebar() {
                 name="current_password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Current Password</FormLabel>
+                    <FormLabel>{t("password.current")}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} data-testid="input-current-password" />
                     </FormControl>
@@ -669,7 +688,7 @@ export function AppSidebar() {
                 name="new_password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>New Password</FormLabel>
+                    <FormLabel>{t("password.new")}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} data-testid="input-new-password" />
                     </FormControl>
@@ -683,7 +702,7 @@ export function AppSidebar() {
                 name="confirm_password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>{t("password.confirm")}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} data-testid="input-confirm-password" />
                     </FormControl>
@@ -702,14 +721,14 @@ export function AppSidebar() {
                   }}
                   data-testid="button-cancel-password"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button 
                   type="submit" 
                   disabled={changePasswordMutation.isPending}
                   data-testid="button-save-password"
                 >
-                  {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
+                  {changePasswordMutation.isPending ? t("password.changing") : t("password.change")}
                 </Button>
               </DialogFooter>
             </form>
@@ -721,9 +740,9 @@ export function AppSidebar() {
       <Dialog open={preferencesModalOpen} onOpenChange={setPreferencesModalOpen}>
         <DialogContent data-testid="dialog-preferences">
           <DialogHeader>
-            <DialogTitle>Personal Preferences</DialogTitle>
+            <DialogTitle>{t("preferences.title")}</DialogTitle>
             <DialogDescription>
-              Customize your personal language, timezone, and notification settings
+              {t("preferences.description")}
             </DialogDescription>
           </DialogHeader>
           
@@ -734,11 +753,11 @@ export function AppSidebar() {
                 name="language"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>{t("preferences.language")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLocaleLoading}>
                       <FormControl>
                         <SelectTrigger data-testid="select-language">
-                          <SelectValue placeholder="Select language" />
+                          <SelectValue placeholder={t("preferences.select_language")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -747,7 +766,7 @@ export function AppSidebar() {
                         <SelectItem value="pt">Português</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>Your preferred language</FormDescription>
+                    <FormDescription>{t("preferences.language_description")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -758,11 +777,11 @@ export function AppSidebar() {
                 name="timezone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Timezone</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>{t("preferences.timezone")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLocaleLoading}>
                       <FormControl>
                         <SelectTrigger data-testid="select-timezone">
-                          <SelectValue placeholder="Select timezone" />
+                          <SelectValue placeholder={t("preferences.select_timezone")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -772,9 +791,12 @@ export function AppSidebar() {
                         <SelectItem value="America/Denver">Mountain Time</SelectItem>
                         <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
                         <SelectItem value="America/Montevideo">Montevideo</SelectItem>
+                        <SelectItem value="America/Argentina/Buenos_Aires">Buenos Aires</SelectItem>
+                        <SelectItem value="America/Sao_Paulo">São Paulo</SelectItem>
+                        <SelectItem value="Europe/Madrid">Madrid</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>Your local timezone</FormDescription>
+                    <FormDescription>{t("preferences.timezone_description")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -782,44 +804,29 @@ export function AppSidebar() {
 
               <FormField
                 control={preferencesForm.control}
-                name="notifications_enabled"
+                name="currency"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Push Notifications</FormLabel>
-                      <FormDescription>
-                        Receive push notifications for important updates
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-notifications"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={preferencesForm.control}
-                name="email_notifications"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Email Notifications</FormLabel>
-                      <FormDescription>
-                        Receive email notifications for activity
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-email-notifications"
-                      />
-                    </FormControl>
+                  <FormItem>
+                    <FormLabel>{t("preferences.currency")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLocaleLoading}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-currency">
+                          <SelectValue placeholder={t("preferences.select_currency")} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                        <SelectItem value="UYU">UYU</SelectItem>
+                        <SelectItem value="ARS">ARS</SelectItem>
+                        <SelectItem value="BRL">BRL</SelectItem>
+                        <SelectItem value="CLP">CLP</SelectItem>
+                        <SelectItem value="MXN">MXN</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>{t("preferences.currency_description")}</FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -831,14 +838,14 @@ export function AppSidebar() {
                   onClick={() => setPreferencesModalOpen(false)}
                   data-testid="button-cancel-preferences"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={updatePreferencesMutation.isPending}
+                  disabled={localizationMutation.isPending}
                   data-testid="button-save-preferences"
                 >
-                  {updatePreferencesMutation.isPending ? "Saving..." : "Save Preferences"}
+                  {localizationMutation.isPending ? t("preferences.saving") : t("preferences.save")}
                 </Button>
               </DialogFooter>
             </form>
@@ -850,9 +857,9 @@ export function AppSidebar() {
       <Dialog open={apiKeyModalOpen} onOpenChange={setApiKeyModalOpen}>
         <DialogContent className="max-w-md" data-testid="dialog-api-key">
           <DialogHeader>
-            <DialogTitle>API Key</DialogTitle>
+            <DialogTitle>{t("api_key.title")}</DialogTitle>
             <DialogDescription>
-              Use your API key for external API access. Manage it here with your login session.
+              {t("api_key.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
@@ -878,24 +885,24 @@ export function AppSidebar() {
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setRevokeConfirmOpen(true)} data-testid="button-revoke-api-key">
-                    Revoke
+                    {t("api_key.revoke")}
                   </Button>
                   <Button size="sm" onClick={() => setApiKeyCreateOpen(true)} data-testid="button-create-new-api-key">
-                    Create new key
+                    {t("api_key.create_new")}
                   </Button>
                 </div>
               </>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">No API key. Create one to use the API with external tools.</p>
+                <p className="text-sm text-muted-foreground">{t("api_key.no_key")}</p>
                 <Button onClick={() => setApiKeyCreateOpen(true)} data-testid="button-create-api-key">
-                  Create API key
+                  {t("api_key.create")}
                 </Button>
               </>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApiKeyModalOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setApiKeyModalOpen(false)}>{t("common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -904,30 +911,30 @@ export function AppSidebar() {
       <Dialog open={apiKeyCreateOpen} onOpenChange={setApiKeyCreateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create API key</DialogTitle>
+            <DialogTitle>{t("api_key.create_title")}</DialogTitle>
             <DialogDescription>
-              Creating a new key will revoke your current key. Optional: give this key a name (e.g. &quot;My Integration&quot;).
+              {t("api_key.create_description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <Label htmlFor="api-key-name">Name (optional)</Label>
+            <Label htmlFor="api-key-name">{t("api_key.name_optional")}</Label>
             <Input
               id="api-key-name"
-              placeholder="My Integration"
+              placeholder={t("api_key.placeholder")}
               value={apiKeyCreateName}
               onChange={(e) => setApiKeyCreateName(e.target.value)}
               data-testid="input-api-key-name"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApiKeyCreateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setApiKeyCreateOpen(false)}>{t("common.cancel")}</Button>
             <Button
               onClick={() => createKeyMutation.mutate({ name: apiKeyCreateName.trim() || undefined })}
               disabled={createKeyMutation.isPending}
               data-testid="button-confirm-create-api-key"
             >
               {createKeyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Generate key
+              {t("api_key.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -937,9 +944,9 @@ export function AppSidebar() {
       <Dialog open={!!newKeyShown} onOpenChange={(open) => !open && setNewKeyShown(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Your API key</DialogTitle>
+            <DialogTitle>{t("api_key.your_key")}</DialogTitle>
             <DialogDescription>
-              Copy this key now. It will not be shown again.
+              {t("api_key.copy_warning")}
             </DialogDescription>
           </DialogHeader>
           {newKeyShown && (
@@ -956,11 +963,11 @@ export function AppSidebar() {
                   size="icon"
                   onClick={() => {
                     navigator.clipboard.writeText(newKeyShown.key).then(
-                      () => toast({ title: "Copied", description: "API key copied to clipboard." }),
-                      () => toast({ title: "Copy failed", variant: "destructive" })
+                      () => toast({ title: t("common.copied"), description: t("toast.api_key_copied") }),
+                      () => toast({ title: t("toast.update_failed"), variant: "destructive" })
                     );
                   }}
-                  title="Copy"
+                  title={t("common.copy")}
                   data-testid="button-copy-api-key"
                 >
                   <Copy className="h-4 w-4" />
@@ -975,7 +982,7 @@ export function AppSidebar() {
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => setNewKeyShown(null)} data-testid="button-done-api-key">Done</Button>
+            <Button onClick={() => setNewKeyShown(null)} data-testid="button-done-api-key">{t("common.done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -984,13 +991,13 @@ export function AppSidebar() {
       <AlertDialog open={revokeConfirmOpen} onOpenChange={setRevokeConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+            <AlertDialogTitle>{t("api_key.revoke_confirm_title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Your current API key will stop working immediately. You can create a new key afterward.
+              {t("api_key.revoke_confirm_description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => revokeKeyMutation.mutate()}
               disabled={revokeKeyMutation.isPending}
@@ -998,7 +1005,7 @@ export function AppSidebar() {
               data-testid="button-confirm-revoke-api-key"
             >
               {revokeKeyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Revoke
+              {t("api_key.revoke")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1008,15 +1015,15 @@ export function AppSidebar() {
       <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
         <AlertDialogContent data-testid="dialog-logout-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            <AlertDialogTitle>{t("logout.confirm_title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to logout? You'll need to sign in again to access your account.
+              {t("logout.confirm_description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-logout">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-logout">{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleLogout} data-testid="button-confirm-logout">
-              Logout
+              {t("logout.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

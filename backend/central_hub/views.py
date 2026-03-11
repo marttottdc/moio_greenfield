@@ -25,18 +25,13 @@ from chatbot.models.agent_configuration import AgentConfiguration
 from moio_platform.lib.moio_assistant_functions import get_available_tools
 from moio_platform.lib.openai_gpt_api import MoioOpenai, AssistantManager, ASSISTANT_TOOL_TYPES
 from central_hub.context_utils import current_tenant
-from central_hub.forms import TenantForm, OpenaiIntegrationConfigForm, PsigmaIntegrationConfigForm, \
-    GoogleIntegrationConfigForm
+from central_hub.forms import TenantForm
 from central_hub.content_blocks import (
     get_visible_blocks_queryset,
     render_blocks as render_block_group,
 )
-from central_hub.models import (
-    MoioUser,
-    PlatformConfiguration,
-    Tenant,
-    TenantConfiguration,
-)
+from central_hub.models import MoioUser, PlatformConfiguration, Tenant
+from central_hub.tenant_config import get_tenant_config
 import logging
 
 User = get_user_model()
@@ -107,16 +102,11 @@ def server_error(request, *args, **kwargs):
 
 @login_required
 def configure_tenant(request):
-
-    forms = {
-        'openai_config_form': OpenaiIntegrationConfigForm(),
-        'psigma_config_form': PsigmaIntegrationConfigForm(),
-        'google_config_form': GoogleIntegrationConfigForm(),
-    }
-
-    return render(request,
-                  template_name='portal/tenant_config.html',
-                  context={'forms': forms})
+    return render(
+        request,
+        template_name="portal/tenant_config.html",
+        context={"forms": {}},
+    )
 
 
 def build_whatsapp_configuration(request):
@@ -172,7 +162,7 @@ def update_settings(request):
 @login_required()
 def configure_openai(request):
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
 
     if request.method == "POST":
         if request.POST.get('enabled') == 'on':
@@ -184,11 +174,21 @@ def configure_openai(request):
         max_retries = request.POST.get('max_retries')
         default_model = request.POST.get('default_model')
 
-        config.openai_integration_enabled = enabled
-        config.openai_api_key = api_key
-        config.openai_default_model = default_model
-        config.openai_max_retries = max_retries
-        config.save()
+        from central_hub.integrations.models import IntegrationConfig
+        IntegrationConfig.objects.update_or_create(
+            tenant=tenant,
+            slug="openai",
+            instance_id="default",
+            defaults={
+                "enabled": enabled,
+                "config": {
+                    "api_key": api_key or "",
+                    "default_model": default_model or "gpt-4o-mini",
+                    "max_retries": int(max_retries) if max_retries else 5,
+                },
+                "name": "OpenAI",
+            },
+        )
 
         pong = "Disabled"
         if enabled:
@@ -221,7 +221,7 @@ def configure_openai(request):
 def configure_agent(request, agent_id=None):
 
     tenant = current_tenant.get()
-    config = tenant.configuration.first()
+    config = get_tenant_config(tenant)
 
     available_agents = AgentConfiguration.objects.get(tenant=tenant)
 
@@ -311,7 +311,8 @@ def configure_agent(request, agent_id=None):
 def agent_configuration_panel(request):
 
     tenant = current_tenant.get()
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
     available_assistants = None
 
     if config.openai_integration_enabled:
@@ -332,7 +333,8 @@ def agent_configuration_panel(request):
 def configure_assistant(request, assistant_id=None):
 
     tenant = current_tenant.get()
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
 
     ai = AssistantManager(config=config)
     available_assistants = ai.list_assistants()
@@ -420,7 +422,8 @@ def configure_assistant(request, assistant_id=None):
 def assistant_configuration(request):
 
     tenant = current_tenant.get()
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
     available_assistants = None
 
     if config.openai_integration_enabled:
@@ -443,7 +446,8 @@ def configure_whatsapp_business(request, state=None):
     portal_config = PlatformConfiguration.objects.first()
 
     tenant = current_tenant.get()
-    config = tenant.configuration.first()
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
 
     app_id = portal_config.fb_moio_bot_app_id
     callback_uri = f'{portal_config.my_url}fb_oauth_callback/'
@@ -646,7 +650,8 @@ def confirm_waba_configuration(request):
         waba_business_name = request.POST.get("waba_business_name")
 
         tenant = current_tenant.get()
-        config = tenant.configuration.first()
+        from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(tenant)
         portal_config = PlatformConfiguration.objects.first()
 
         try:
@@ -829,9 +834,6 @@ def admin_tenant_form(request):
         tenant = Tenant.objects.create(nombre=nombre,
                                        domain=domain,
                                        enabled=enabled)
-
-        # Create default configuration for the tenant
-        TenantConfiguration.objects.create(tenant=tenant)
 
         # Return updated tenant list
         tenants = Tenant.objects.all()

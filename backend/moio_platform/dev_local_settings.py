@@ -1,33 +1,43 @@
 """
-Local development settings for the shared greenfield backend.
-
-This module is intended for developer machines. It preloads a local env file,
-then imports the base settings module with sane defaults for the shared dev
-Postgres database and schema-based tenancy.
+Local development settings. Configuración estática para stack Docker local:
+PostgreSQL vía PgBouncer (6432), Redis (6379).
+Sin .env: valores fijos, siempre gana sobre variables de entorno externas.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
+# No load_dotenv: config estática, no depender de .env.dev.local
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env.dev.local", override=True)
-
-os.environ.setdefault("DB_HOST", "infra.moio.ai")
-os.environ.setdefault("DB_PORT", "5432")
-os.environ.setdefault("DB_NAME", "moio_greenfield_dev")
-os.environ.setdefault("DB_USER", "greenfield_dev_admin")
-os.environ.setdefault("DJANGO_TENANTS_ENABLED", "1")
-os.environ.setdefault("USE_LOCAL_DEV_DEFAULTS", "0")
-os.environ.setdefault("DEBUG", "true")
-os.environ.setdefault("SECRET_KEY", "dev-local-unsafe-secret-key")
+# Config estática: Docker local (postgres + pgbouncer + redis)
+# Usar asignación directa para anular cualquier DB_* ya definido en el entorno
+os.environ["DB_HOST"] = "localhost"
+os.environ["DB_PORT"] = "6432"
+os.environ["DB_NAME"] = "moio_greenfield"
+os.environ["DB_USER"] = "moio"
+os.environ["DB_PASSWORD"] = "moio_local"
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+os.environ["DJANGO_TENANTS_ENABLED"] = "1"
+os.environ["USE_LOCAL_DEV_DEFAULTS"] = "0"
+os.environ["DEBUG"] = "true"
+os.environ["SECRET_KEY"] = "dev-local-unsafe-secret-key"
+# Evitar que DATABASE_URL de .env/base settings sobrescriba
+os.environ.pop("DATABASE_URL", None)
 
 from .settings import *  # noqa: E402,F401,F403
 
+# Fuerza la config local por si .env/DATABASE_URL cargó valores remotos
+DATABASES["default"] = {
+    "ENGINE": "django_tenants.postgresql_backend",
+    "HOST": "localhost",
+    "PORT": 6432,
+    "NAME": "moio_greenfield",
+    "USER": "moio",
+    "PASSWORD": "moio_local",
+    "CONN_MAX_AGE": 0,
+    "DISABLE_SERVER_SIDE_CURSORS": True,
+}
 
 DEBUG = True
 ALLOWED_HOSTS = list(dict.fromkeys([*ALLOWED_HOSTS, "infra.moio.ai", "127.0.0.1", "localhost"]))

@@ -113,10 +113,8 @@ def tenant():
         id=1,
         defaults={"nombre": "Acme Corp", "domain": "acme.test"},
     )
-    config = tenant.configuration.first()
-    if config and not config.whatsapp_name:
-        config.whatsapp_name = f"tenant-{uuid.uuid4().hex[:8]}"
-        config.save(update_fields=["whatsapp_name"])
+    from central_hub.tenant_config import get_tenant_config
+    get_tenant_config(tenant)  # ensure config exists
     return tenant
 
 

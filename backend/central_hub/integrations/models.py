@@ -112,12 +112,33 @@ class IntegrationConfig(TenantScopedModel):
         slug: str,
         instance_id: str = "default"
     ) -> "IntegrationConfig | None":
-        """Get integration config for a tenant, or None if not found."""
-        return cls.objects.filter(
-            tenant=tenant,
-            slug=slug,
-            instance_id=instance_id
-        ).first()
+        """Get integration config for a tenant, or None if not found.
+
+        Tries tenant schema first, then public, so we read from the same place
+        we write to (avoids read/write schema mismatch with django-tenants).
+        """
+        tenant_id = tenant.pk if hasattr(tenant, "pk") else tenant
+        qs_filter = dict(tenant_id=tenant_id, slug=slug, instance_id=instance_id)
+
+        # Try tenant schema first (where PATCH writes when middleware switches)
+        schema_name = getattr(tenant, "schema_name", None)
+        if schema_name:
+            try:
+                from django_tenants.utils import schema_context
+                with schema_context(schema_name):
+                    obj = cls._base_manager.filter(**qs_filter).first()
+                    if obj is not None:
+                        return obj
+            except Exception:
+                pass
+
+        # Fallback: public schema (shared app table)
+        try:
+            from django_tenants.utils import schema_context
+            with schema_context("public"):
+                return cls._base_manager.filter(**qs_filter).first()
+        except Exception:
+            return cls._base_manager.filter(**qs_filter).first()
     
     @classmethod
     def get_or_create_for_tenant(

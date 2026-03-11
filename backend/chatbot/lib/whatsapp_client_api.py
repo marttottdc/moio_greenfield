@@ -11,7 +11,7 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 from chatbot.models.wa_message_log import WaMessageLog
 from moio_platform.lib.openai_gpt_api import whisper_to_text, image_reader
-from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.models import PlatformConfiguration
 from central_hub.config import get_platform_configuration
 from celery import shared_task
 from django.conf import settings
@@ -245,7 +245,7 @@ class WhatsappMessage:
 
 class WhatsappBusinessClient:
 
-    def __init__(self, config: TenantConfiguration):
+    def __init__(self, config):
 
         if config.whatsapp_integration_enabled:
             portal_configuration = get_platform_configuration()

@@ -10,6 +10,7 @@ from chatbot.models.wa_payloads import WaPayloads
 from chatbot.models.wa_templates import WaTemplate, WaTemplateComponent
 from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.agent_configuration import AgentConfiguration
+from chatbot.models.tenant_chatbot_settings import TenantChatbotSettings
 
 
 class ChatbotMemoryAdmin(admin.ModelAdmin):
@@ -51,3 +52,4 @@ admin.site.register(WaTemplateComponent)
 admin.site.register(EmailMessage)
 admin.site.register(EmailAccount)
 admin.site.register(AgentConfiguration)
+admin.site.register(TenantChatbotSettings)

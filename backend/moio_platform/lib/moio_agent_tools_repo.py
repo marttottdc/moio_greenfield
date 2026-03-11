@@ -31,7 +31,8 @@ from crm.models import Stock, ProductVariant, Product, Tag, EcommerceOrder, Acti
 from moio_platform.lib.google_maps_api import GoogleMapsApi, haversine
 from moio_platform.lib.wordpress_api import WordPressAPIClient
 from moio_platform.lib.openai_gpt_api import MoioOpenai
-from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.models import PlatformConfiguration
+from central_hub.tenant_config import get_tenant_config, get_tenant_config_by_id
 from django.dispatch import receiver
 from django.dispatch import Signal
 from chatbot.core.messenger import Messenger
@@ -208,7 +209,7 @@ def get_named_period(period_name, date_format="%Y-%m-%d"):
 
 @receiver(comfort_message)
 def comfort_message_handler(sender, message, tenant_id, phone, **kwargs):
-    config = TenantConfiguration.objects.get(tenant=tenant_id)
+    config = get_tenant_config_by_id(tenant_id) if isinstance(tenant_id, int) else get_tenant_config(tenant_id)
     channel = kwargs.get('channel', "whatsapp")
     moio_messenger = Messenger(channel=channel,
                                config=config,
@@ -1101,7 +1102,7 @@ def search_nearby_pos(ctx: RunContextWrapper,
     print(f"Address: {address}")
     print(f"Latitude: {latitude}, Longitude: {longitude}")
 
-    config = TenantConfiguration.objects.get(tenant=session.tenant_id)
+    config = get_tenant_config_by_id(session.tenant_id)
     maps = GoogleMapsApi(config)
 
     if latitude != 0 and longitude != 0:
@@ -1298,7 +1299,7 @@ def search_nearby_pos_v2(ctx: RunContextWrapper,
                          phone=contact.phone,
                          channel=session.channel)
 
-    config = TenantConfiguration.objects.get(tenant=session.tenant_id)
+    config = get_tenant_config_by_id(session.tenant_id)
     maps = GoogleMapsApi(config)
 
     user_location, formatted_address, error = _get_user_location(
@@ -1504,7 +1505,7 @@ def check_service_availability(
     except Exception as e:
         logger.error(str(e))
         
-    config = TenantConfiguration.objects.get(tenant=session.tenant_id)
+    config = get_tenant_config_by_id(session.tenant_id)
     maps = GoogleMapsApi(config)
 
     user_location, formatted_address, error = _get_user_location(
@@ -1588,7 +1589,7 @@ def get_tips(ctx: RunContextWrapper, search_term: str):
     session = ctx.context.get("session")
     contact = ctx.context.get("contact")
 
-    config = TenantConfiguration.objects.get(tenant=session.tenant_id)
+    config = get_tenant_config_by_id(session.tenant_id)
     wp = WordPressAPIClient(config)
     posts = wp.get_posts(per_page=100)
     tips = []
@@ -1771,7 +1772,7 @@ def register_activity(ctx: RunContextWrapper, data):
     contact = ctx.context.get("contact")
 
     try:
-        config = TenantConfiguration.objects.get(tenant_id=session.tenant_id)
+        config = get_tenant_config_by_id(session.tenant_id)
         new_activity = ActivityRecord.objects.create(tenant=config.tenant,
                                                      content=data,
                                                      source="chatbot")
@@ -2227,10 +2228,10 @@ def create_order(ctx: RunContextWrapper, first_name: str, last_name: str,
     session = ctx.context.get("session")
     contact = ctx.context.get("contact")
 
-    config = TenantConfiguration.objects.get(tenant=session.tenant_id)
+    config = get_tenant_config_by_id(session.tenant_id)
     woo = WooCommerceAPI(url=config.woocommerce_site_url,
-                         consumer_key=config.woocommerce_api_key,
-                         consumer_secret=config.woocommerce_api_secret,
+                         consumer_key=config.woocommerce_consumer_key,
+                         consumer_secret=config.woocommerce_consumer_secret,
                          timeout=30)
 
     customer_data = {

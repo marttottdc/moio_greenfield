@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ function getWidgetGridClass(size: WidgetConfig["size"]): string {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
   const [kpiSelectorOpen, setKPISelectorOpen] = useState(false);
 
@@ -109,8 +111,8 @@ export default function Dashboard() {
 
   return (
     <PageLayout
-      title="Dashboard"
-      description="Your personalized command center"
+      title={t("dashboard.title")}
+      description={t("dashboard.description")}
       showSidebarTrigger={false}
       headerAction={
         <Button
@@ -120,7 +122,7 @@ export default function Dashboard() {
           data-testid="button-customize-dashboard"
         >
           <Settings2 className="h-4 w-4 mr-2" />
-          Customize
+          {t("dashboard.customize")}
         </Button>
       }
     >
@@ -162,11 +164,11 @@ export default function Dashboard() {
             {enabledWidgets.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">
-                  No widgets enabled. Customize your dashboard to add widgets.
+                  {t("dashboard.no_widgets")}
                 </p>
                 <Button onClick={() => setWidgetSelectorOpen(true)}>
                   <Settings2 className="h-4 w-4 mr-2" />
-                  Add Widgets
+                  {t("dashboard.add_widgets")}
                 </Button>
               </div>
             )}

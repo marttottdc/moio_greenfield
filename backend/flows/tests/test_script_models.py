@@ -69,10 +69,9 @@ def test_flow_script_log_validation(flow_script_version_factory):
     )
     log.save()
 
-    config = version.tenant.configuration.first()
-    if config:
-        config.whatsapp_name = f"tenant-{uuid.uuid4().hex[:8]}"
-        config.save(update_fields=["whatsapp_name"])
+    from central_hub.tenant_config import get_tenant_config
+    config = get_tenant_config(version.tenant)
+    # Config is read-only; unique whatsapp_name was for TenantConfiguration uniqueness
 
     other_tenant = Tenant.objects.create(
         nombre="Gamma",
@@ -97,16 +96,10 @@ def test_serializer_multi_tenant_isolation(flow_factory, flow_script_factory, fl
     script = flow_script_factory(flow=flow)
     flow_script_version_factory(script=script)
 
-    config = flow.tenant.configuration.first()
-    if config:
-        config.whatsapp_name = f"tenant-{uuid.uuid4().hex[:8]}"
-        config.save(update_fields=["whatsapp_name"])
+    config = get_tenant_config(flow.tenant)
 
     other_tenant = Tenant.objects.create(nombre="Beta", domain="beta.test")
-    other_config = other_tenant.configuration.first()
-    if other_config:
-        other_config.whatsapp_name = f"beta-{uuid.uuid4().hex[:8]}"
-        other_config.save(update_fields=["whatsapp_name"])
+    other_config = get_tenant_config(other_tenant)
     other_flow = flow_factory(tenant=other_tenant)
     other_script = flow_script_factory(flow=other_flow, tenant=other_tenant)
     flow_script_version_factory(script=other_script)

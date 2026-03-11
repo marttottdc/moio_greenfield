@@ -15,16 +15,16 @@ function.
 """
 
 from __future__ import annotations
+from types import SimpleNamespace
 from typing import Mapping, Sequence, Optional, Any, Dict
 from openai import OpenAI, Client
-from central_hub.models import TenantConfiguration
 
 
 
 
 
 def generate_rules_tree(
-    config: TenantConfiguration,
+    config: SimpleNamespace,
     prompt: str,
     *,
     allowed_fields: Sequence[str],

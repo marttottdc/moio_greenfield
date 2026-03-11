@@ -180,12 +180,26 @@ class IntegrationConfigUpdateSerializer(IntegrationConfigSerializer):
     def update(
         self, instance: IntegrationConfig, validated_data: dict[str, Any]
     ) -> IntegrationConfig:
-        """Merge config updates instead of replacing entirely."""
+        """Merge config updates. Skip sensitive fields with masked values (e.g. sk-****xyz)."""
         if "config" in validated_data:
             new_config = validated_data.pop("config")
-            instance.config.update(new_config)
-        
+            sensitive_fields = get_sensitive_fields(instance.slug)
+            updated_config = dict(instance.config)
+            for key, value in new_config.items():
+                if key in sensitive_fields and self._looks_like_mask(value):
+                    continue
+                updated_config[key] = value
+            instance.config = updated_config
+        if instance.is_configured() and not instance.enabled:
+            validated_data["enabled"] = True
         return super().update(instance, validated_data)
+
+    @staticmethod
+    def _looks_like_mask(value: Any) -> bool:
+        """Return True if value looks like a masked placeholder (should not overwrite real secret)."""
+        if not isinstance(value, str) or not value:
+            return True
+        return "****" in value
 
 
 class IntegrationListSerializer(serializers.Serializer):

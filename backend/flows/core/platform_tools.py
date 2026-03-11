@@ -162,7 +162,8 @@ def send_whatsapp_message(
     
     try:
         tenant = Tenant.objects.get(id=tenant_id) if tenant_id else None
-        config = tenant.configuration.first() if tenant else None
+        from central_hub.tenant_config import get_tenant_config
+        config = get_tenant_config(tenant) if tenant else None
         
         if not config or not config.whatsapp_integration_enabled:
             return {

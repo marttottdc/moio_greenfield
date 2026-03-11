@@ -5,7 +5,7 @@ import pandas as pd
 from django.utils import timezone
 
 from crm.lib.dac_api import DacApi
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 
 def generate_fecha_levante():
@@ -100,7 +100,7 @@ def moio_order_router(woo_conn):
 
 def create_dac_delivery(delivery_request):
 
-    dac_config = TenantConfiguration.objects.get(tenant=delivery_request.tenant)
+    dac_config = get_tenant_config(delivery_request.tenant)
 
     if not dac_config.dac_integration_enabled:
         return None

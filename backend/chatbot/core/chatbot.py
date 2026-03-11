@@ -15,7 +15,7 @@ from crm.models import Contact
 from moio_platform.lib.tools import has_time_passed
 from moio_platform.lib.moio_assistant_functions import MoioAssistantTools
 from moio_platform.lib.openai_gpt_api import full_chat_reply, summarize_chat
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 import logging
 from celery import shared_task, current_task
 from django.conf import settings
@@ -102,7 +102,7 @@ class Chatbot:
 
     def __init__(self, contact: Contact, channel: str, tenant):
 
-        self.tenant_configuration = TenantConfiguration.objects.get(tenant=tenant)
+        self.tenant_configuration = get_tenant_config(tenant)
         self.tenant = tenant
         self.contact = contact
         self.last_assistant_message = ''

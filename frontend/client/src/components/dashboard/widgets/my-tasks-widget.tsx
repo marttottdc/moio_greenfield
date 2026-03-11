@@ -21,6 +21,7 @@ interface Activity {
   title: string;
   kind: string;
   content: TaskContent;
+  author?: string | null;
   created_at: string;
 }
 
@@ -168,6 +169,9 @@ export function MyTasksWidget() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm truncate ${isDone ? "line-through text-muted-foreground" : ""}`}>
                     {task.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    By <span className="text-foreground">{task.author ?? "—"}</span>
                   </p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {content.priority && (

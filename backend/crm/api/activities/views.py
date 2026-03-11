@@ -21,9 +21,41 @@ from crm.models import (
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 from crm.services.activity_service import _normalize_content, activity_manager
 from crm.services.activity_suggestion_service import accept_suggestion, dismiss_suggestion
+from tenancy.rbac import user_has_role
+
+
+def _related_display(obj) -> Optional[str]:
+    """Return display name for contact/customer (name only, not email)."""
+    if not obj:
+        return None
+    # Contact: fullname, display_name, whatsapp_name, first+last (no email)
+    # Customer: name, legal_name
+    for attr in ("name", "nombre", "fullname", "display_name", "whatsapp_name", "legal_name"):
+        val = getattr(obj, attr, None)
+        if val and isinstance(val, str) and val.strip():
+            return val.strip()
+    # Fallback: first_name + last_name (Contact)
+    fn = getattr(obj, "first_name", "") or ""
+    ln = getattr(obj, "last_name", "") or ""
+    combined = f"{fn} {ln}".strip()
+    if combined:
+        return combined
+    return None
+
+
+def _activity_author_display(user) -> str:
+    """Return display name for activity author."""
+    if not user:
+        return "System"
+    fn = getattr(user, "first_name", "") or ""
+    ln = getattr(user, "last_name", "") or ""
+    name = f"{fn} {ln}".strip()
+    return name or getattr(user, "email", "") or getattr(user, "username", "") or "Unknown"
 
 
 def _serialize_activity_record(activity: ActivityRecord, isoformat) -> Dict[str, Any]:
+    author_user = activity.created_by or activity.user or activity.owner
+    author = _activity_author_display(author_user)
     return {
         "id": str(activity.pk),
         "title": activity.title,
@@ -36,6 +68,7 @@ def _serialize_activity_record(activity: ActivityRecord, isoformat) -> Dict[str,
         "visibility": activity.visibility,
         "visibility_label": activity.get_visibility_display(),
         "user_id": activity.user_id if activity.user else None,
+        "author": author,
         "created_at": isoformat(activity.created_at),
         "status": activity.status,
         "status_label": activity.get_status_display(),
@@ -46,8 +79,11 @@ def _serialize_activity_record(activity: ActivityRecord, isoformat) -> Dict[str,
         "owner_id": activity.owner_id,
         "created_by_id": activity.created_by_id,
         "contact_id": activity.contact_id,
+        "contact_name": _related_display(activity.contact) if activity.contact else None,
         "customer_id": str(activity.customer_id) if activity.customer_id else None,
+        "customer_name": _related_display(activity.customer) if activity.customer else None,
         "deal_id": str(activity.deal_id) if activity.deal_id else None,
+        "deal_title": getattr(activity.deal, "title", None) or getattr(activity.deal, "name", None) if activity.deal else None,
         "ticket_id": str(activity.ticket_id) if activity.ticket_id else None,
         "tags": activity.tags or [],
         "reason": activity.reason or "",
@@ -69,9 +105,28 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return ActivityRecord.objects.none()
-        return ActivityRecord.objects.filter(tenant=tenant).select_related(
+        qs = ActivityRecord.objects.filter(tenant=tenant).select_related(
             "type", "user", "owner", "created_by", "contact", "customer", "deal", "ticket"
         )
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return qs.none()
+        if getattr(user, "is_superuser", False) or user_has_role(user, "tenant_admin"):
+            return qs
+        if user_has_role(user, "manager"):
+            supervised_ids = list(
+                user.direct_reports.filter(tenant=tenant).values_list("pk", flat=True)
+            )
+            visible_user_ids = [user.pk] + supervised_ids
+            return qs.filter(
+                Q(user_id__in=visible_user_ids)
+                | Q(owner_id__in=visible_user_ids)
+                | Q(created_by_id__in=visible_user_ids)
+            )
+        visible = (
+            Q(user=user) | Q(owner=user) | Q(created_by=user)
+        )
+        return qs.filter(visible)
 
     def get(self, request):
         queryset = self._base_queryset(request)
@@ -206,10 +261,28 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return None
+        base = ActivityRecord.objects.filter(tenant=tenant).select_related(
+            "type", "user", "owner", "created_by", "contact", "customer", "deal", "ticket"
+        )
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            if not (getattr(user, "is_superuser", False) or user_has_role(user, "tenant_admin")):
+                if user_has_role(user, "manager"):
+                    supervised_ids = list(
+                        user.direct_reports.filter(tenant=tenant).values_list("pk", flat=True)
+                    )
+                    visible_user_ids = [user.pk] + supervised_ids
+                    base = base.filter(
+                        Q(user_id__in=visible_user_ids)
+                        | Q(owner_id__in=visible_user_ids)
+                        | Q(created_by_id__in=visible_user_ids)
+                    )
+                else:
+                    base = base.filter(
+                        Q(user=user) | Q(owner=user) | Q(created_by=user)
+                    )
         try:
-            return ActivityRecord.objects.filter(tenant=tenant).select_related(
-                "type", "user", "owner", "created_by", "contact", "customer", "deal", "ticket"
-            ).get(pk=activity_id)
+            return base.get(pk=activity_id)
         except ActivityRecord.DoesNotExist:
             return None
 

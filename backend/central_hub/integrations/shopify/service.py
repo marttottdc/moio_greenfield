@@ -45,13 +45,10 @@ from crm.models import (
     Customer,
     EcommerceOrder,
     EcommerceOrderLine,
-    ShopifyProduct,
-    ShopifyCustomer,
-    ShopifyOrder,
-    ShopifySyncLog,
     Tag,
-    Tenant,
 )
+from tenancy.models import Tenant
+from .models import ShopifyProduct, ShopifyCustomer, ShopifyOrder, ShopifySyncLog
 from tenancy.models import Tenant
 
 logger = logging.getLogger(__name__)

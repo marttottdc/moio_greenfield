@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.db import IntegrityError
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
@@ -28,7 +29,7 @@ from central_hub.integrations.registry import (
     list_integrations,
     list_categories,
 )
-from central_hub.models import PlatformConfiguration, TenantConfiguration
+from central_hub.models import PlatformConfiguration
 from chatbot.lib.whatsapp_client_api import (
     subscribe_to_webhooks,
     register_waba_phone_number,
@@ -128,13 +129,25 @@ class IntegrationListView(IntegrationAPIView):
         
         result = []
         for definition in integrations:
-            configs = IntegrationConfig.objects.filter(
-                tenant=tenant,
-                slug=definition.slug,
+            configs = list(
+                IntegrationConfig.objects.filter(
+                    tenant=tenant,
+                    slug=definition.slug,
+                )
             )
             
-            enabled_count = configs.filter(enabled=True).count()
+            enabled_count = sum(1 for c in configs if c.enabled)
             configured_count = sum(1 for c in configs if c.is_configured())
+            
+            connection_status = "not_configured"
+            if configured_count > 0:
+                if enabled_count > 0:
+                    any_ok = any(
+                        c.metadata.get("last_connection_ok") for c in configs if c.is_configured()
+                    )
+                    connection_status = "connected" if any_ok else "configured"
+                else:
+                    connection_status = "configured"
             
             result.append({
                 "slug": definition.slug,
@@ -145,7 +158,8 @@ class IntegrationListView(IntegrationAPIView):
                 "supports_multi_instance": definition.supports_multi_instance,
                 "is_configured": configured_count > 0,
                 "enabled": enabled_count > 0,
-                "instance_count": configs.count(),
+                "instance_count": len(configs),
+                "connection_status": connection_status,
             })
         
         return Response(result)
@@ -389,17 +403,7 @@ class WhatsappEmbeddedSignupCompleteView(IntegrationAPIView):
         integration_cfg.config.update(config_defaults["config"])
         integration_cfg.save()
 
-        # Optionally sync legacy defaults
-        if set_as_default:
-            tenant_cfg = TenantConfiguration.objects.filter(tenant=tenant).first()
-            if tenant_cfg:
-                tenant_cfg.whatsapp_integration_enabled = True
-                tenant_cfg.whatsapp_token = access_token
-                tenant_cfg.whatsapp_business_account_id = waba_id
-                tenant_cfg.whatsapp_phone_id = phone_number_id
-                tenant_cfg.whatsapp_name = instance_name or verified_name or ""
-                tenant_cfg.whatsapp_url = "https://graph.facebook.com/v21.0/"
-                tenant_cfg.save()
+        # set_as_default: IntegrationConfig is already created with enabled=True above
 
         response_data = {
             "status": "ok",
@@ -564,7 +568,8 @@ class IntegrationConfigListView(IntegrationAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            serializer.save(tenant=tenant)
+            instance = serializer.save(tenant=tenant)
+            logger.info("Integration config created: slug=%s instance_id=%s", slug, instance_id)
         except IntegrityError:
             return Response(
                 {"error": f"Config already exists for {slug}:{instance_id}"},
@@ -645,7 +650,8 @@ class IntegrationConfigDetailView(IntegrationAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer.save()
+        instance = serializer.save()
+        logger.info("Integration config updated: slug=%s instance_id=%s", slug, instance_id)
         return Response(serializer.data)
     
     @extend_schema(
@@ -695,6 +701,113 @@ class IntegrationConfigDetailView(IntegrationAPIView):
         
         config.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class OpenAIModelsView(IntegrationAPIView):
+    """
+    List OpenAI models via models.list() - validates API key and returns model list.
+    POST with { config: { api_key: "..." } } to fetch models and confirm status.
+    """
+
+    @extend_schema(
+        summary="List OpenAI models",
+        description="Call OpenAI models.list() with the provided API key. Validates the key and returns available models for the default_model selector.",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "config": {
+                        "type": "object",
+                        "properties": {"api_key": {"type": "string"}},
+                        "required": ["api_key"],
+                    }
+                },
+            }
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "success": {"type": "boolean"},
+                    "models": {
+                        "type": "array",
+                        "items": {"type": "object", "properties": {"id": {"type": "string"}}},
+                    },
+                },
+            },
+            400: {"description": "Invalid request or API key"},
+        },
+        tags=["Integrations"],
+    )
+    def post(self, request):
+        tenant = self.get_tenant()
+        if tenant is None:
+            return Response(
+                {"error": "Authentication required"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        data = getattr(request, "data", None) or {}
+        config = data.get("config") or {}
+        api_key = (config.get("api_key") or "").strip()
+
+        def _is_empty_or_masked(key: str) -> bool:
+            if not key:
+                return True
+            if "****" in key:  # Serializer mask (e.g. sk-t****2345)
+                return True
+            # Frontend placeholder when saved key is hidden (e.g. ••••••••••••)
+            stripped = key.replace(" ", "")
+            if stripped and all(c in "•▪." for c in stripped) and len(stripped) >= 4:
+                return True
+            return False
+
+        if _is_empty_or_masked(api_key):
+            stored = IntegrationConfig.get_for_tenant(tenant, "openai", "default")
+            if not stored:
+                try:
+                    from django_tenants.utils import schema_context
+                    with schema_context("public"):
+                        stored = IntegrationConfig._base_manager.filter(
+                            tenant_id=tenant.pk, slug="openai", instance_id="default"
+                        ).first()
+                except Exception:
+                    pass
+            if stored and stored.is_configured():
+                api_key = (stored.config.get("api_key") or "").strip()
+            if not api_key:
+                return Response(
+                    {"success": False, "error": "api_key required in config or stored configuration"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            models_response = client.models.list()
+            models = [
+                {"id": m.id, "created": getattr(m, "created", None), "owned_by": getattr(m, "owned_by", "")}
+                for m in (models_response.data or [])
+            ]
+            models.sort(key=lambda x: (0 if x["id"].startswith("gpt") else 1, x["id"]))
+            stored = IntegrationConfig.get_for_tenant(tenant, "openai", "default")
+            if stored:
+                stored.metadata.update(
+                    {"last_connection_ok": True, "last_connection_at": timezone.now().isoformat()}
+                )
+                stored.save(update_fields=["metadata", "updated_at"])
+            return Response({"success": True, "models": models})
+        except Exception as e:
+            logger.warning("OpenAI models.list failed: %s", e)
+            stored = IntegrationConfig.get_for_tenant(tenant, "openai", "default")
+            if stored:
+                stored.metadata.update(
+                    {"last_connection_ok": False, "last_connection_at": timezone.now().isoformat()}
+                )
+                stored.save(update_fields=["metadata", "updated_at"])
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

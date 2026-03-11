@@ -137,29 +137,39 @@ def _audit(entry: ActivityCaptureEntry, *, actor=None, event_type: str, event_da
 
 def get_openai_config_for_tenant(*, tenant) -> OpenAIConfig:
     """
-    Load OpenAI configuration from IntegrationConfig (slug='openai').
+    Load OpenAI configuration from IntegrationConfig (slug='openai') only.
 
     Selection rule:
-    - Prefer enabled+configured instance_id='default' if present.
-    - Else first enabled+configured instance.
+    - Prefer enabled+configured instance_id='default', else first enabled+configured.
+    - If none enabled: accept any configured IntegrationConfig (UI may not set enabled on save).
     """
-    # Ensure the integration exists in registry (guard against removed registry entries)
     if not get_integration("openai"):
         raise ValueError("OpenAI integration is not registered")
 
-    qs = IntegrationConfig.objects.filter(tenant=tenant, slug="openai", enabled=True)
-    default_cfg = qs.filter(instance_id="default").first()
-    candidates = [c for c in [default_cfg] if c is not None] + list(qs.exclude(id=getattr(default_cfg, "id", None)))
-    cfg = next((c for c in candidates if c.is_configured()), None)
-    if not cfg:
-        raise ValueError("OpenAI integration is not configured/enabled for this tenant")
+    def _from_config(cfg) -> OpenAIConfig:
+        api_key = (cfg.config or {}).get("api_key") or ""
+        model = (cfg.config or {}).get("default_model") or "gpt-4o-mini"
+        max_retries = int((cfg.config or {}).get("max_retries") or 5)
+        if not api_key:
+            raise ValueError("OpenAI api_key missing in IntegrationConfig")
+        return OpenAIConfig(api_key=api_key, default_model=model, max_retries=max_retries)
 
-    api_key = cfg.config.get("api_key") or ""
-    model = cfg.config.get("default_model") or "gpt-4o-mini"
-    max_retries = int(cfg.config.get("max_retries") or 5)
-    if not api_key:
-        raise ValueError("OpenAI api_key missing in IntegrationConfig")
-    return OpenAIConfig(api_key=api_key, default_model=model, max_retries=max_retries)
+    # 1. Try IntegrationConfig: enabled=True, is_configured
+    qs_enabled = IntegrationConfig.objects.filter(tenant=tenant, slug="openai", enabled=True)
+    default_cfg = qs_enabled.filter(instance_id="default").first()
+    others = list(qs_enabled.exclude(id=default_cfg.id)) if default_cfg else []
+    candidates = [c for c in [default_cfg] if c is not None] + others
+    cfg = next((c for c in candidates if c and c.is_configured()), None)
+    if cfg:
+        return _from_config(cfg)
+
+    # 2. Try any configured IntegrationConfig (enabled may be False if UI did not set it)
+    qs_any = IntegrationConfig.objects.filter(tenant=tenant, slug="openai")
+    cfg = next((c for c in qs_any if c.is_configured()), None)
+    if cfg:
+        return _from_config(cfg)
+
+    raise ValueError("OpenAI integration is not configured/enabled for this tenant")
 
 
 def build_system_prompt(

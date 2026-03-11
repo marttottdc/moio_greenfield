@@ -13,7 +13,6 @@ from chatbot.lib.whatsapp_client_api import compose_template_based_message, repl
 from central_hub.webhooks.registry import webhook_handler
 from central_hub.tenant_config import get_tenant_config
 from crm.models import KnowledgeItem, Face, WebhookPayload
-from crm.tasks import process_shopify_webhook
 from moio_platform.lib.openai_gpt_api import MoioOpenai
 import json
 import logging
@@ -597,14 +596,6 @@ def multi_face_search(payload, headers, content_type, cfg):
         results.append(event_detail)
 
     return {"faces": results}
-
-
-# ===============================================================================
-# SHOPIFY WEBHOOK HANDLERS
-# ===============================================================================
-
-@webhook_handler("shopify_webhook")
-def shopify_webhook_handler(payload, headers, content_type, cfg):
     """
     Handle Shopify webhooks for real-time data synchronization.
 

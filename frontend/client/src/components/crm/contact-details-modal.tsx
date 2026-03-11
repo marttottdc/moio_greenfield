@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Zap,
@@ -10,11 +11,6 @@ import {
   Building2,
   Loader2,
   Pencil,
-  StickyNote,
-  CheckSquare,
-  Lightbulb,
-  CalendarDays,
-  Clock,
   User,
   Briefcase,
   ExternalLink,
@@ -29,7 +25,7 @@ import { fetchJson } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
 import { timelineApi } from "@/lib/timeline/timelineApi";
 import type { TimelineItem } from "@/lib/timeline/types";
-import { useAuth } from "@/contexts/AuthContext";
+import { TimelineItemCard, ActivityDetailSheet, type ActivityDetailData } from "@/components/timeline/TimelineItemCard";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -122,64 +118,6 @@ function groupByDate(items: { created_at?: string }[]): Map<string, { created_at
   return map;
 }
 
-function shortId(id: string, keep = 6): string {
-  const v = String(id || "").trim();
-  if (!v) return "";
-  return v.length <= keep * 2 + 3 ? v : `${v.slice(0, keep)}…${v.slice(-keep)}`;
-}
-
-type ActivityKind = "task" | "note" | "idea" | "event" | string;
-function activityIcon(kind: ActivityKind) {
-  const k = String(kind || "").toLowerCase();
-  if (k === "task") return CheckSquare;
-  if (k === "note") return StickyNote;
-  if (k === "idea") return Lightbulb;
-  if (k === "event") return CalendarDays;
-  return Clock;
-}
-
-function TimelineEventCard({ item }: { item: TimelineItem }) {
-  const { user } = useAuth();
-  if (item.type === "capture_entry") {
-    const entry: any = (item as any).entry ?? item;
-    const summary = entry.summary ? String(entry.summary) : String(entry.raw_text ?? "").trim();
-    const status = String(entry.status ?? "captured");
-    return (
-      <div className="p-3 rounded-lg border bg-card text-sm space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <StickyNote className="h-4 w-4 text-amber-600 shrink-0" />
-          <Badge variant="outline" className="text-xs">{status}</Badge>
-        </div>
-        {summary && <p className="text-muted-foreground line-clamp-2">{summary}</p>}
-      </div>
-    );
-  }
-  if (item.type === "activity") {
-    const title = (item as any).title ?? (item as any).name ?? (item as any)?.activity?.title ?? "Activity";
-    const kind = (item as any).kind ?? (item as any)?.activity?.kind;
-    const Icon = activityIcon(kind);
-    const activity: any = (item as any).activity ?? item;
-    const actorId = activity?.user_id ? String(activity.user_id) : "";
-    const authorLabel = !actorId ? null : user?.id && actorId === user.id ? "You" : `User ${shortId(actorId)}`;
-    return (
-      <div className="p-3 rounded-lg border bg-card space-y-1" data-testid={`timeline-activity-${item.id}`}>
-        <div className="flex items-center gap-2 min-w-0">
-          <Icon className={cn("h-4 w-4 shrink-0", String(kind || "").toLowerCase() === "note" ? "text-amber-600" : "text-muted-foreground")} />
-          {kind && <Badge variant="secondary" className="text-xs">{String(kind)}</Badge>}
-          <span className="font-medium truncate">{String(title)}</span>
-        </div>
-        {authorLabel && <p className="text-xs text-muted-foreground">By <span className="text-foreground">{authorLabel}</span></p>}
-      </div>
-    );
-  }
-  return (
-    <div className="p-3 rounded-lg border bg-card space-y-1" data-testid={`timeline-item-${item.id}`}>
-      <Badge variant="secondary">{String(item.type || "item")}</Badge>
-      <span className="text-sm truncate">{item.id}</span>
-    </div>
-  );
-}
-
 function DealCard({ deal }: { deal: DealLite }) {
   const valueStr =
     typeof deal.value === "number"
@@ -264,6 +202,16 @@ export function ContactDetailsModal({
   initialContact,
   onEdit,
 }: ContactDetailsModalProps) {
+  const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
+  const [activityDetailOpen, setActivityDetailOpen] = useState(false);
+
+  const handleActivityClick = (item: TimelineItem) => {
+    if (item.type === "activity") {
+      setSelectedActivity(item);
+      setActivityDetailOpen(true);
+    }
+  };
+
   const contactQuery = useQuery({
     queryKey: [apiV1("/crm/contacts/"), "detail", contactId],
     queryFn: () => fetchJson<ContactDetailsContact>(apiV1(`/crm/contacts/${contactId}/`)),
@@ -325,8 +273,13 @@ export function ContactDetailsModal({
 
   const statusPill = contact ? getStatusPill(contact) : null;
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setActivityDetailOpen(false);
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col"
         data-testid="dialog-contact-details"
@@ -452,7 +405,7 @@ export function ContactDetailsModal({
                         .flatMap(([, items]) =>
                           items.map((item) => (
                             <TimelineNode key={`${(item as TimelineItem).type}-${(item as TimelineItem).id}`} timestamp={formatTimelineDateShort((item as TimelineItem).created_at)}>
-                              <TimelineEventCard item={item as TimelineItem} />
+                              <TimelineItemCard item={item as TimelineItem} onActivityClick={handleActivityClick} />
                             </TimelineNode>
                           ))
                         )}
@@ -526,6 +479,11 @@ export function ContactDetailsModal({
           </div>
         </div>
       </DialogContent>
+      <ActivityDetailSheet
+        open={activityDetailOpen}
+        onOpenChange={setActivityDetailOpen}
+        activity={selectedActivity?.type === "activity" ? (selectedActivity as ActivityDetailData) : null}
+      />
     </Dialog>
   );
 }

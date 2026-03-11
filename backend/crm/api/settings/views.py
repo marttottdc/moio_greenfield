@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Dict, Optional, Type
 
+
 from django.db import IntegrityError
 from django.http import Http404
 from rest_framework import status, viewsets
@@ -14,14 +15,20 @@ from rest_framework.exceptions import ValidationError
 
 from crm.models import WebhookConfig
 from crm.services.agent_service import AgentService
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
+from .config_persistence import (
+    persist_integration_config,
+    persist_org_settings,
+    disable_integration,
+)
 from .serializers import (
     AgentConfigurationSerializer,
     INTEGRATION_SERIALIZERS,
     WebhookConfigSerializer,
-    BaseTenantConfigurationSerializer,
+    BaseConfigSerializer,
     PreferenceUpdateSerializer,
+    LocalizationUpdateSerializer,
 )
 from .preferences import build_user_preferences, update_user_preferences
 
@@ -57,41 +64,49 @@ SUPPORTED_INTEGRATIONS = {
 
 
 class TenantConfigurationViewSet(viewsets.GenericViewSet):
+    """GET/PATCH per-integration settings. Reads via get_tenant_config; writes via IntegrationConfig/Tenant."""
     permission_classes = [IsAuthenticated]
     lookup_field = "integration"
     lookup_url_kwarg = "integration"
-    queryset = TenantConfiguration.objects.all()
 
-    def get_serializer_class(self) -> Type[BaseTenantConfigurationSerializer]:
+    def get_serializer_class(self) -> Type[BaseConfigSerializer]:
         slug = self.kwargs.get(self.lookup_url_kwarg)
         serializer_class = INTEGRATION_SERIALIZERS.get(slug)
         if not serializer_class:
             raise Http404("Integration not supported")
         return serializer_class
 
-    def get_queryset(self):
-        tenant = getattr(self.request.user, "tenant", None)
-        if not tenant:
-            return TenantConfiguration.objects.none()
-        return TenantConfiguration.objects.filter(tenant=tenant)
-
-    def get_object(self) -> TenantConfiguration:
+    def _get_tenant(self):
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             raise Http404
-        instance, _ = TenantConfiguration.objects.get_or_create(tenant=tenant)
-        return instance
+        return tenant
+
+    def get_object(self):
+        """Return config object from get_tenant_config (SimpleNamespace)."""
+        tenant = self._get_tenant()
+        return get_tenant_config(tenant)
 
     def retrieve(self, request, *args, **kwargs) -> Response:
-        serializer = self.get_serializer(self.get_object())
+        config = self.get_object()
+        serializer = self.get_serializer(config)
         return Response(serializer.data)
 
     def partial_update(self, request, *args, **kwargs) -> Response:
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        tenant = self._get_tenant()
+        integration_slug = self.kwargs.get(self.lookup_url_kwarg)
+        serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        validated_data = serializer.validated_data
+
+        if integration_slug == "assistants":
+            persist_org_settings(tenant, validated_data)
+        else:
+            persist_integration_config(tenant, integration_slug, validated_data)
+
+        config = get_tenant_config(tenant)
+        output = self.get_serializer(config)
+        return Response(output.data)
 
 
 class AgentConfigurationViewSet(viewsets.ViewSet):
@@ -153,7 +168,6 @@ class AgentConfigurationViewSet(viewsets.ViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            # Use serializer.save() so handoff_ids is persisted via serializer.create().
             agent = serializer.save(tenant=tenant)
         except IntegrityError as e:
             raise ValidationError({"non_field_errors": [str(e)]})
@@ -177,7 +191,6 @@ class AgentConfigurationViewSet(viewsets.ViewSet):
         serializer = self.get_serializer(agent, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         try:
-            # Use serializer.save() so handoff_ids is persisted via serializer.update().
             agent = serializer.save()
         except IntegrityError as e:
             raise ValidationError({"non_field_errors": [str(e)]})
@@ -234,14 +247,18 @@ class WebhookConfigViewSet(viewsets.ModelViewSet):
 
 
 class IntegrationViewSet(viewsets.ViewSet):
+    """List/retrieve integrations; connect/disconnect via IntegrationConfig API."""
     permission_classes = [IsAuthenticated]
 
-    def _get_config(self) -> TenantConfiguration:
+    def _get_tenant(self):
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             raise Http404
-        config, _ = TenantConfiguration.objects.get_or_create(tenant=tenant)
-        return config
+        return tenant
+
+    def _get_config(self):
+        tenant = self._get_tenant()
+        return get_tenant_config(tenant)
 
     def _get_meta(self, slug: str) -> dict:
         meta = SUPPORTED_INTEGRATIONS.get(slug)
@@ -257,7 +274,7 @@ class IntegrationViewSet(viewsets.ViewSet):
             raise Http404("Integration serializer not found")
         return serializer_class
 
-    def _integration_payload(self, slug: str, config: TenantConfiguration) -> dict:
+    def _integration_payload(self, slug: str, config) -> dict:
         meta = self._get_meta(slug)
         serializer_class = self._get_serializer_class(slug)
         enabled = getattr(config, meta["enabled_field"], False)
@@ -273,7 +290,7 @@ class IntegrationViewSet(viewsets.ViewSet):
         }
         
         # For OpenAI, fetch available models
-        if slug == "openai" and enabled and config.openai_api_key:
+        if slug == "openai" and enabled and getattr(config, "openai_api_key", None):
             try:
                 from openai import OpenAI
                 client = OpenAI(api_key=config.openai_api_key)
@@ -294,7 +311,6 @@ class IntegrationViewSet(viewsets.ViewSet):
         return Response({"integrations": data})
 
     def retrieve(self, request, pk=None) -> Response:
-        """GET /api/v1/settings/integrations/{id}/ — return single integration by slug (id)."""
         config = self._get_config()
         try:
             payload = self._integration_payload(pk, config)
@@ -303,23 +319,22 @@ class IntegrationViewSet(viewsets.ViewSet):
         return Response(payload)
 
     def destroy(self, request, pk=None) -> Response:
-        config = self._get_config()
-        meta = self._get_meta(pk)
-        setattr(config, meta["enabled_field"], False)
-        config.save(update_fields=[meta["enabled_field"]])
+        tenant = self._get_tenant()
+        disable_integration(tenant, pk)
         return Response({"message": "Integration disconnected successfully"})
 
     @action(detail=True, methods=["post"], url_path="connect")
     def connect(self, request, pk=None) -> Response:
-        config = self._get_config()
+        tenant = self._get_tenant()
         meta = self._get_meta(pk)
         serializer_class = self._get_serializer_class(pk)
-        serializer = serializer_class(config, data=request.data, partial=True)
+        serializer = serializer_class(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        if not getattr(config, meta["enabled_field"], False):
-            setattr(config, meta["enabled_field"], True)
-            config.save(update_fields=[meta["enabled_field"]])
+        validated_data = dict(serializer.validated_data)
+        validated_data[meta["enabled_field"]] = True
+        persist_integration_config(tenant, pk, validated_data, enabled=True)
+
+        config = get_tenant_config(tenant)
         payload = self._integration_payload(pk, config)
         payload["message"] = "Integration connected successfully"
         return Response(payload)
@@ -329,20 +344,20 @@ class PreferencesViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = PreferenceUpdateSerializer
 
-    def _get_config(self) -> TenantConfiguration | None:
+    def _get_config(self):
         tenant = getattr(self.request.user, "tenant", None)
         if not tenant:
             return None
-        return TenantConfiguration.objects.filter(tenant=tenant).first()
+        return get_tenant_config(tenant)
 
-    def _system_settings(self, config: TenantConfiguration | None) -> dict:
+    def _system_settings(self, config) -> dict:
         tenant = getattr(self.request.user, "tenant", None)
         return {
             "organization_name": tenant.nombre if tenant else "",
-            "currency": getattr(config, "organization_currency", "USD"),
-            "date_format": getattr(config, "organization_date_format", "DD/MM/YYYY"),
-            "time_format": getattr(config, "organization_time_format", "24h"),
-            "timezone": getattr(config, "organization_timezone", "UTC"),
+            "currency": getattr(config, "organization_currency", "USD") if config else "USD",
+            "date_format": getattr(config, "organization_date_format", "DD/MM/YYYY") if config else "DD/MM/YYYY",
+            "time_format": getattr(config, "organization_time_format", "24h") if config else "24h",
+            "timezone": getattr(config, "organization_timezone", "UTC") if config else "UTC",
         }
 
     def retrieve(self, request, *args, **kwargs) -> Response:
@@ -367,3 +382,41 @@ class PreferencesViewSet(viewsets.ViewSet):
         if tenant is None:
             raise Http404
         serializer.save(tenant=tenant)
+
+
+class LocalizationViewSet(viewsets.ViewSet):
+    """GET/PATCH /api/v1/settings/localization/ — language, timezone, currency (tenant defaults + user override)."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocalizationUpdateSerializer
+
+    def _get_config(self):
+        tenant = getattr(self.request.user, "tenant", None)
+        if not tenant:
+            return None
+        return get_tenant_config(tenant)
+
+    def retrieve(self, request, *args, **kwargs) -> Response:
+        config = self._get_config()
+        prefs = build_user_preferences(request.user, config)
+        return Response({
+            "language": prefs.get("language", "en"),
+            "timezone": prefs.get("timezone", "UTC"),
+            "currency": prefs.get("currency", "USD"),
+            "system_defaults": {
+                "language": getattr(config, "organization_locale", None) or "en" if config else "en",
+                "timezone": getattr(config, "organization_timezone", None) or "UTC" if config else "UTC",
+                "currency": getattr(config, "organization_currency", None) or "USD" if config else "USD",
+            },
+        })
+
+    def partial_update(self, request, *args, **kwargs) -> Response:
+        serializer = self.serializer_class(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        config = self._get_config()
+        updated = update_user_preferences(request.user, config, serializer.validated_data)
+        return Response({
+            "message": "Localization preferences updated",
+            "language": updated.get("language", "en"),
+            "timezone": updated.get("timezone", "UTC"),
+            "currency": updated.get("currency", "USD"),
+        })

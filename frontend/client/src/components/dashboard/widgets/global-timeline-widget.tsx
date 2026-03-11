@@ -22,6 +22,12 @@ function formatWhen(ts?: string) {
   }
 }
 
+function shortId(id: string, keep = 6): string {
+  const v = String(id || "").trim();
+  if (!v) return "";
+  return v.length <= keep * 2 + 3 ? v : `${v.slice(0, keep)}…${v.slice(-keep)}`;
+}
+
 function MiniTimelineRow({ item }: { item: TimelineItem }) {
   const label = (() => {
     if (item.type === "capture_entry") {
@@ -36,14 +42,30 @@ function MiniTimelineRow({ item }: { item: TimelineItem }) {
     return String(item.id);
   })();
 
+  const author = (() => {
+    if (item.type === "capture_entry") {
+      const entry: any = (item as any).entry ?? item;
+      const actorId = entry?.actor_id ? String(entry.actor_id) : "";
+      return actorId ? `User ${shortId(actorId)}` : "—";
+    }
+    if (item.type === "activity") {
+      const activity: any = (item as any).activity ?? item;
+      if (activity?.author && String(activity.author).trim()) return String(activity.author).trim();
+      const userId = activity?.user_id ? String(activity.user_id) : "";
+      return userId ? `User ${shortId(userId)}` : "—";
+    }
+    return "—";
+  })();
+
   const status = item.type === "capture_entry" ? String(((item as any).entry ?? item).status ?? "captured") : undefined;
 
   return (
     <div className="flex items-start justify-between gap-3 py-2 border-b last:border-b-0">
       <div className="min-w-0">
         <div className="text-sm truncate">{label}</div>
-        <div className="text-xs text-muted-foreground flex items-center gap-2">
-          <span className="truncate">{formatWhen(item.created_at)}</span>
+        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+          <span className="truncate">By {author}</span>
+          <span className="truncate">· {formatWhen(item.created_at)}</span>
           {status && <Badge variant="outline" className="text-[10px]">{status}</Badge>}
         </div>
       </div>

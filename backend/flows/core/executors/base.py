@@ -391,9 +391,10 @@ def get_tenant_config(tenant_id: Optional[str]):
         return None, None
     
     try:
-        from central_hub.models import Tenant, TenantConfiguration
+        from central_hub.models import Tenant
+        from central_hub.tenant_config import get_tenant_config
         tenant = Tenant.objects.get(id=tenant_id)
-        config = TenantConfiguration.objects.filter(tenant=tenant).first()
+        config = get_tenant_config(tenant)
         return tenant, config
     except Exception as e:
         logger.error(f"Failed to get tenant config for {tenant_id}: {e}")

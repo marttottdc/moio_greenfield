@@ -11,7 +11,8 @@ from agents import Runner, set_default_openai_key
 from websockets_app.consumers.base import TenantAwareConsumer
 from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
 from chatbot.models.agent_configuration import AgentConfiguration, CHANNEL_DESKTOP
-from central_hub.models import TenantConfiguration, MoioUser
+from central_hub.models import MoioUser
+from central_hub.tenant_config import get_tenant_config_by_id
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class DesktopCrmAgentConsumer(TenantAwareConsumer):
         super().__init__(*args, **kwargs)
         self.session: Optional[ChatbotSession] = None
         self.agent_config: Optional[AgentConfiguration] = None
-        self.tenant_config: Optional[TenantConfiguration] = None
+        self.tenant_config: Optional[Any] = None
 
     async def setup_groups(self):
         if self.user and self.tenant_id:
@@ -188,7 +189,7 @@ class DesktopCrmAgentConsumer(TenantAwareConsumer):
             preferences = user.preferences or {}
             agent_id = preferences.get("crm_desktop_agent_id")
 
-            tenant_config = TenantConfiguration.objects.get(tenant_id=self.tenant_id)
+            tenant_config = get_tenant_config_by_id(self.tenant_id)
 
             if agent_id:
                 try:
@@ -211,8 +212,11 @@ class DesktopCrmAgentConsumer(TenantAwareConsumer):
             except AgentConfiguration.DoesNotExist:
                 return {"error": "No agent configured. Please configure a CRM desktop agent in your preferences or set a default agent."}
 
-        except TenantConfiguration.DoesNotExist:
-            return {"error": "Tenant configuration not found"}
+        except Exception as e:
+            from django.core.exceptions import ObjectDoesNotExist
+            if isinstance(e, ObjectDoesNotExist):
+                return {"error": "Tenant configuration not found"}
+            raise
         except Exception as e:
             logger.error(f"Error getting user agent: {e}")
             return {"error": str(e)}

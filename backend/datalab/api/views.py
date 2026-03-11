@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiResponse
 from drf_spectacular.types import OpenApiTypes
 
-from datalab.core.models import FileAsset, FileSet, ImportProcess, ImportRun, ResultSet, ResultSetStorage
+from datalab.core.models import Dataset, FileAsset, FileSet, ImportProcess, ImportRun, ResultSet, ResultSetStorage
 from datalab.imports.parsers import FileParser, FileParserError
 from datalab.imports.pdf_inspector import PDFShapeInspector
 from datalab.imports.analyzers.pdf_shape import PdfShapeAnalyzer, PdfShapeAnalyzerError
@@ -644,11 +644,9 @@ class ImportProcessViewSet(AuthenticatedDataLabView, viewsets.ModelViewSet):
             )
 
         try:
-            from central_hub.models import TenantConfiguration
-            from django.shortcuts import get_object_or_404
-            
-            tenant_config = get_object_or_404(TenantConfiguration, tenant=tenant)
-            
+            from central_hub.tenant_config import get_tenant_config
+
+            tenant_config = get_tenant_config(tenant)
             interpreter = ShapeInterpreter(tenant_config)
             interpretation = interpreter.interpret(shape_inspection)
             

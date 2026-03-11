@@ -3236,11 +3236,11 @@ def _agent_executor(node, payload, ctx):
         # Tools in moio_agent_tools_repo often expect ctx.context["session"], ["contact"], ["config"].
         # Provide lightweight, dot-accessible wrappers here (runner context only).
         from flows.core.lib import DotAccessDict
-        from central_hub.models import TenantConfiguration
+        from central_hub.tenant_config import get_tenant_config
 
         # Tenant configuration (used by multiple tools for API keys / catalog ids / tenant pointer).
         try:
-            agent_ctx.setdefault("config", TenantConfiguration.objects.get(tenant=tenant))
+            agent_ctx.setdefault("config", get_tenant_config(tenant))
         except Exception:
             # Don't hard-fail agent runs if tenant config lookup fails.
             pass

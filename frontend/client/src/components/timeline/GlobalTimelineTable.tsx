@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Loader2,
   StickyNote,
@@ -9,6 +9,9 @@ import {
   Clock,
   ExternalLink,
   Pencil,
+  User,
+  Building2,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +30,8 @@ import type { TimelineItem } from "@/lib/timeline/types";
 import type { TimelineRowModel } from "@/lib/timeline/types";
 import { itemToRowModel, groupRowsByDay } from "@/lib/timeline/timelineRowModel";
 import { format, isToday } from "date-fns";
+import { cn } from "@/lib/utils";
+import { RelatedEntityLabel } from "./TimelineItemCard";
 
 function labelFromContact(contact: any): string | null {
   const candidates = [
@@ -79,7 +84,7 @@ function AnchorCell({ row }: { row: TimelineRowModel }) {
       }
       const d = await fetchJson<any>(apiV1(`/crm/deals/${anchorId}/`));
       const label = labelFromDeal(d) || anchorId;
-      return { kind: "Deal" as const, label, href: "/deals" };
+      return { kind: "Deal" as const, label, href: `/deals?dealId=${encodeURIComponent(anchorId!)}` };
     },
     retry: false,
     staleTime: 10 * 60 * 1000,
@@ -121,7 +126,7 @@ function OpenAnchorButton({ row }: { row: TimelineRowModel }) {
       }
       const d = await fetchJson<any>(apiV1(`/crm/deals/${anchorId}/`));
       const label = labelFromDeal(d) || anchorId;
-      return { kind: "Deal" as const, label, href: "/deals" };
+      return { kind: "Deal" as const, label, href: `/deals?dealId=${encodeURIComponent(anchorId!)}` };
     },
     retry: false,
     staleTime: 10 * 60 * 1000,
@@ -146,6 +151,7 @@ export function GlobalTimelineTable(props: {
   canLoadMore: boolean;
   onLoadMore: () => void;
   onEditActivity?: (activity: any) => void;
+  onActivityClick?: (item: TimelineItem) => void;
 }) {
   const { user } = useAuth();
   const rows = props.items.map((item) => itemToRowModel(item, user?.id ?? null));
@@ -195,7 +201,14 @@ export function GlobalTimelineTable(props: {
                   const isActivity = row.type === "activity";
                   const activity = isActivity ? (row.item as any).activity ?? row.item : null;
                   return (
-                    <TableRow key={`${row.type}-${row.id}`} className="border-b">
+                    <TableRow
+                      key={`${row.type}-${row.id}`}
+                      className={cn(
+                        "border-b",
+                        isActivity && props.onActivityClick && "cursor-pointer hover:bg-muted/50"
+                      )}
+                      onClick={() => isActivity && props.onActivityClick?.(row.item)}
+                    >
                       <TableCell className={`${compactCell} text-muted-foreground`}>
                         {row.whenDisplay}
                       </TableCell>
@@ -225,9 +238,43 @@ export function GlobalTimelineTable(props: {
                       >
                         {row.titleSummary}
                       </TableCell>
-                      <TableCell className={compactCell}>
+                      <TableCell className={compactCell} onClick={(e) => e.stopPropagation()}>
                         {row.anchorModel && row.anchorId ? (
                           <AnchorCell row={row} />
+                        ) : isActivity && activity ? (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            {activity.contact_id && (
+                              <RelatedEntityLabel
+                                kind="contact"
+                                id={activity.contact_id}
+                                name={activity.contact_name}
+                                fallback="Contact"
+                                icon={<User className="h-3 w-3 inline mr-0.5" />}
+                                href={`/crm?tab=contacts&contactId=${encodeURIComponent(activity.contact_id)}`}
+                                className="text-primary hover:underline text-xs"
+                              />
+                            )}
+                            {activity.customer_id && (
+                              <RelatedEntityLabel
+                                kind="customer"
+                                id={activity.customer_id}
+                                name={activity.customer_name}
+                                fallback="Account"
+                                icon={<Building2 className="h-3 w-3 inline mr-0.5" />}
+                                href={`/crm?tab=accounts&accountId=${encodeURIComponent(activity.customer_id)}`}
+                                className="text-primary hover:underline text-xs"
+                              />
+                            )}
+                            {activity.deal_id && (
+                              <Link href={`/deals?dealId=${encodeURIComponent(activity.deal_id)}`} className="text-primary hover:underline text-xs">
+                                <Briefcase className="h-3 w-3 inline mr-0.5" />
+                                {activity.deal_title || "Deal"}
+                              </Link>
+                            )}
+                            {!(activity.contact_id || activity.customer_id || activity.deal_id) && (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
@@ -243,7 +290,7 @@ export function GlobalTimelineTable(props: {
                       <TableCell className={`${compactCell} text-muted-foreground`}>
                         {row.visibility}
                       </TableCell>
-                      <TableCell className={`${compactCell} text-right`}>
+                      <TableCell className={`${compactCell} text-right`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-0.5">
                           <OpenAnchorButton row={row} />
                           {isActivity && activity && props.onEditActivity && (
@@ -251,7 +298,10 @@ export function GlobalTimelineTable(props: {
                               variant="ghost"
                               size="sm"
                               className="h-6 min-h-0 px-1.5 text-xs"
-                              onClick={() => props.onEditActivity?.(activity)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onEditActivity?.(activity);
+                              }}
                             >
                               <Pencil className="h-2.5 w-2.5 mr-0.5" />
                               Edit

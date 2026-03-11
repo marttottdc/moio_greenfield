@@ -1,5 +1,6 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
 from django.utils import timezone
 
@@ -16,7 +17,7 @@ from moio_platform.lib.moio_assistant_functions import MoioAssistantTools
 
 from moio_platform.lib.tools import has_time_passed
 
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config, get_tenant_config_by_id
 import logging
 from chatbot.lib.whatsapp_client_api import WhatsappMessage
 from chatbot.core.agents import OrchestratorAgent
@@ -116,7 +117,7 @@ class AgentThread:
 
 class MoioAgent:
 
-    def __init__(self, config: TenantConfiguration, contact: Contact):
+    def __init__(self, config: SimpleNamespace, contact: Contact):
 
         self.config = config
         self.contact = contact
@@ -363,7 +364,7 @@ class MoioAgent:
 
 class AgentEngine:
 
-    def __init__(self, config: TenantConfiguration, contact: Contact, started_by="user"):
+    def __init__(self, config, contact: Contact, started_by="user"):
 
         self.config = config
         self.contact = contact
@@ -726,7 +727,7 @@ class AgentEngine:
 
 
 def session_sweep(tenant_id: int):
-    config = TenantConfiguration.objects.get(tenant=tenant_id)
+    config = get_tenant_config_by_id(tenant_id) if isinstance(tenant_id, int) else get_tenant_config(tenant_id)
     inactive_threshold = config.assistants_inactivity_limit
 
     sessions = ChatbotSession.objects.filter(

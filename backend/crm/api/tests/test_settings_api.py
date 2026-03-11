@@ -12,8 +12,10 @@ from rest_framework.test import APITestCase
 
 from chatbot.models.agent_configuration import AgentConfiguration
 from crm.models import WebhookConfig
-from central_hub.models import Tenant, TenantConfiguration
+from central_hub.integrations.models import IntegrationConfig
+from central_hub.models import Tenant
 from central_hub.signals import create_internal_contact, create_tenant_configurations
+from central_hub.tenant_config import get_tenant_config
 from central_hub.webhooks.utils import available_handlers
 from central_hub.webhooks.registry import webhook_handler
 
@@ -45,15 +47,30 @@ class SettingsApiTests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
-        self.config = TenantConfiguration.objects.create(
+        # Seed via IntegrationConfig (replaces TenantConfiguration)
+        self.openai_config, _ = IntegrationConfig.objects.get_or_create(
             tenant=self.tenant,
-            openai_api_key="tenant-openai",
-            whatsapp_name="tenant-whatsapp",
+            slug="openai",
+            instance_id="default",
+            defaults={"config": {}, "enabled": False},
         )
-        self.other_config = TenantConfiguration.objects.create(
+        self.openai_config.config = {"api_key": "tenant-openai", "default_model": "gpt-4o-mini"}
+        self.openai_config.save()
+
+        self.whatsapp_config, _ = IntegrationConfig.objects.get_or_create(
+            tenant=self.tenant,
+            slug="whatsapp",
+            instance_id="default",
+            defaults={"config": {}, "enabled": False},
+        )
+        self.whatsapp_config.config = {"name": "tenant-whatsapp"}
+        self.whatsapp_config.save()
+
+        IntegrationConfig.objects.get_or_create(
             tenant=self.other_tenant,
-            openai_api_key="other-openai",
-            whatsapp_name="other-whatsapp",
+            slug="openai",
+            instance_id="default",
+            defaults={"config": {"api_key": "other-openai"}, "enabled": False},
         )
 
     def test_openai_settings_are_scoped_to_authenticated_tenant(self) -> None:
@@ -62,7 +79,8 @@ class SettingsApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["openai_api_key"], "tenant-openai")
-        self.assertNotEqual(response.data["openai_api_key"], self.other_config.openai_api_key)
+        other_cfg = get_tenant_config(self.other_tenant)
+        self.assertNotEqual(response.data["openai_api_key"], other_cfg.openai_api_key)
 
     def test_partial_update_updates_only_specified_fields(self) -> None:
         url = "/api/v1/settings/openai/"
@@ -70,9 +88,9 @@ class SettingsApiTests(APITestCase):
         response = self.client.patch(url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.config.refresh_from_db()
-        self.assertEqual(self.config.openai_api_key, "new-secret")
-        self.assertEqual(self.config.openai_default_model, "gpt-4o-mini")
+        config = get_tenant_config(self.tenant)
+        self.assertEqual(config.openai_api_key, "new-secret")
+        self.assertEqual(config.openai_default_model, "gpt-4o-mini")
 
     def test_agent_crud_respects_tenant_scope(self) -> None:
         other_agent = AgentConfiguration.objects.create(
@@ -241,9 +259,9 @@ class SettingsApiTests(APITestCase):
         )
 
     def test_integrations_endpoint_reports_status_and_config(self) -> None:
-        self.config.whatsapp_integration_enabled = True
-        self.config.whatsapp_name = "Tenant WhatsApp"
-        self.config.save()
+        self.whatsapp_config.enabled = True
+        self.whatsapp_config.config["name"] = "Tenant WhatsApp"
+        self.whatsapp_config.save()
 
         response = self.client.get("/api/v1/settings/integrations/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -261,8 +279,8 @@ class SettingsApiTests(APITestCase):
 
         disconnect = self.client.delete("/api/v1/settings/integrations/openai/")
         self.assertEqual(disconnect.status_code, status.HTTP_200_OK)
-        self.config.refresh_from_db()
-        self.assertFalse(self.config.openai_integration_enabled)
+        config = get_tenant_config(self.tenant)
+        self.assertFalse(config.openai_integration_enabled)
 
     def test_agent_tools_list_includes_builtins(self) -> None:
         """GET /api/v1/settings/agents/tools/ returns builtin tools (e.g. Code Interpreter) for Automation Studio."""

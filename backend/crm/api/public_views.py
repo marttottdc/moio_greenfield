@@ -1072,9 +1072,9 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
         if session.human_mode:
             try:
                 from chatbot.core.messenger import Messenger
-                from central_hub.models import TenantConfiguration
+                from central_hub.tenant_config import get_tenant_config
 
-                config = TenantConfiguration.objects.get(tenant=session.tenant)
+                config = get_tenant_config(session.tenant)
                 messenger = Messenger(channel=session.channel, config=config, client_name="human_mode")
                 delivery_report = messenger.just_reply_with_report(content, session.contact.phone)
                 send_success = bool(delivery_report.get("success", False))

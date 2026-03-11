@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
 import { PageLayout } from "@/components/layout/page-layout";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -62,6 +63,7 @@ interface PipelinesResponse {
 const COLORS = ["#58a6ff", "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#6366f1", "#14b8a6"];
 
 export default function DealsAnalytics() {
+  const { t } = useTranslation();
   const pipelinesQuery = useQuery<PipelinesResponse>({
     queryKey: [apiV1("/crm/deals/pipelines/")],
     queryFn: () => fetchJson<PipelinesResponse>(apiV1("/crm/deals/pipelines/")),
@@ -177,8 +179,8 @@ export default function DealsAnalytics() {
 
   return (
     <PageLayout 
-      title="Deal Analytics" 
-      description="Analyze your sales performance and pipeline health"
+      title={t("deals.analytics_title")} 
+      description={t("deals.analytics_description")}
     >
       <div className="mb-4">
         <Link href="/deals">

@@ -26,6 +26,7 @@ class IntegrationField:
     default: Any = None
     description: str = ""
     legacy_field: str | None = None
+    choices: list[tuple[str, str]] | None = None
 
 
 @dataclass

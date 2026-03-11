@@ -18,7 +18,13 @@ from chatbot.core.email_utils import sync_email_account
 from crm.models import Contact
 
 from moio_platform.lib.openai_gpt_api import whisper_to_text, image_reader
-from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.models import PlatformConfiguration
+from central_hub.tenant_config import (
+    get_tenant_config,
+    get_tenant_config_by_id,
+    get_tenant_config_by_whatsapp_ids,
+    iter_configs_with_integration_enabled,
+)
 from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.wa_payloads import WaPayloads
 from moio_platform.lib.tools import check_elapsed_time, has_time_passed
@@ -47,7 +53,7 @@ def _human_mode_inbound_content(received_whatsapp: WhatsappMessage) -> str:
         return str(inbound_content)
 
 
-def preprocess_message(received_whatsapp, config: TenantConfiguration):
+def preprocess_message(received_whatsapp, config):
 
     wa = WhatsappBusinessClient(config)
 
@@ -158,7 +164,7 @@ def preprocess_message(received_whatsapp, config: TenantConfiguration):
     return message
 
 
-def process_message_with_assistant(received_whatsapp: WhatsappMessage, config: TenantConfiguration):
+def process_message_with_assistant(received_whatsapp: WhatsappMessage, config):
     start_time = timezone.now()
     logger.info("Starting message Processing with Assistant: %s", received_whatsapp.msg_id)
 
@@ -336,7 +342,7 @@ def process_message_with_assistant(received_whatsapp: WhatsappMessage, config: T
         logger.error(e)
 
 
-def process_message_with_chatbot(received_whatsapp: WhatsappMessage, config: TenantConfiguration):
+def process_message_with_chatbot(received_whatsapp: WhatsappMessage, config):
 
     wa = WhatsappBusinessClient(config)
 
@@ -446,7 +452,7 @@ def process_message_with_chatbot(received_whatsapp: WhatsappMessage, config: Ten
             moio_messenger.smart_reply(reply, contact.phone)
 
 
-def process_message_with_agent(received_whatsapp: WhatsappMessage, config: TenantConfiguration):
+def process_message_with_agent(received_whatsapp: WhatsappMessage, config):
     start_time = timezone.now()
     logger.info("Starting message Processing with Agent: %s", received_whatsapp.msg_id)
 
@@ -534,7 +540,7 @@ def session_sweeper(self):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Processing chatbot heartbeat ---> {task_id} from {q_name}')
     
-    for config in TenantConfiguration.objects.filter(whatsapp_integration_enabled=True):
+    for _tenant, config in iter_configs_with_integration_enabled("whatsapp"):
         sessions = ChatbotSession.objects.filter(
             tenant_id=config.tenant_id,
             active=True,
@@ -599,17 +605,16 @@ def whatsapp_webhook_handler(self, body: dict):
                 payload_kwargs["status"] = received_whatsapp.msg_type
 
             try:
-                config = TenantConfiguration.objects.get(
-                    whatsapp_business_account_id=received_whatsapp.get_waba_id(),
-                    whatsapp_phone_id=received_whatsapp.get_waba_phone_id(),
-                    whatsapp_integration_enabled__exact=True
+                config = get_tenant_config_by_whatsapp_ids(
+                    received_whatsapp.get_waba_id(),
+                    received_whatsapp.get_waba_phone_id(),
                 )
-            except TenantConfiguration.DoesNotExist:
-                config_error = "not_found"
-            except TenantConfiguration.MultipleObjectsReturned:
+                if config is None:
+                    config_error = "not_found"
+                else:
+                    payload_kwargs["tenant_id"] = config.tenant_id
+            except ValueError:
                 config_error = "multiple"
-            else:
-                payload_kwargs["tenant_id"] = config.tenant_id
 
     WaPayloads.objects.create(**payload_kwargs)
 
@@ -766,7 +771,7 @@ def sync_all_email_accounts(self):
     tasks.apply_async()
 
 
-def process_email_with_assistant(received_email: EmailMessage, config: TenantConfiguration):
+def process_email_with_assistant(received_email: EmailMessage, config):
 
     logger.info("Processing %s",config.whatsapp_name)
 
@@ -819,7 +824,7 @@ def archive_conversation(self, session_id):
     print(f"Ending Conversation {session_id}")
 
     session = ChatbotSession.objects.get(session=session_id)
-    config = session.tenant.configuration.first()
+    config = get_tenant_config(session.tenant)
 
     agent = MoioAgent(config=config, contact=session.contact)
     reply = agent.internal_command(message="end_conversation")

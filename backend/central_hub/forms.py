@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from central_hub.models import Tenant, TenantConfiguration
+from central_hub.models import Tenant
 
 
 class TenantForm(forms.ModelForm):
@@ -15,6 +15,7 @@ class TenantForm(forms.ModelForm):
             'enabled': forms.CheckboxInput(attrs={'class': 'form-check-input', 'data-toggle': 'toggle'}),
         }
 
+
 User = get_user_model()
 
 
@@ -24,23 +25,5 @@ class UserUpdateForm(forms.ModelForm):
         fields = ['username', 'email', 'first_name', 'last_name']
 
 
-# ==========================
-
-class PsigmaIntegrationConfigForm(forms.ModelForm):
-    class Meta:
-        model = TenantConfiguration
-        fields = ['tenant', 'psigma_integration_enabled', 'psigma_user', 'psigma_password', 'psigma_token', 'psigma_url']
-
-
-class GoogleIntegrationConfigForm(forms.ModelForm):
-    class Meta:
-        model = TenantConfiguration
-        fields = ['tenant', 'google_integration_enabled', 'google_api_key']
-
-
-class OpenaiIntegrationConfigForm(forms.ModelForm):
-
-    class Meta:
-        model = TenantConfiguration
-        fields = ['tenant', 'openai_integration_enabled', 'openai_api_key', 'openai_max_retries']
+# Integration config forms removed – use IntegrationConfig via /api/v1/integrations/
 

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { 
@@ -452,11 +453,11 @@ function useQueryParams() {
 }
 
 const crmSections = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "contacts", label: "Contacts", icon: Users },
-  { id: "accounts", label: "Accounts", icon: Building2 },
-  { id: "master_data", label: "Master Data", icon: Database },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "overview", labelKey: "crm.overview", icon: LayoutDashboard },
+  { id: "contacts", labelKey: "crm.contacts", icon: Users },
+  { id: "accounts", labelKey: "crm.accounts", icon: Building2 },
+  { id: "master_data", labelKey: "crm.master_data", icon: Database },
+  { id: "analytics", labelKey: "crm.analytics", icon: BarChart3 },
 ];
 
 const masterDataSubsections = [
@@ -500,6 +501,7 @@ function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
 }
 
 export default function CRM() {
+  const { t } = useTranslation();
   const [location, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const queryParams = useQueryParams();
@@ -646,8 +648,8 @@ export default function CRM() {
     <div className="flex h-full">
       <div className="w-64 border-r border-border bg-background flex flex-col shrink-0">
         <div className="p-3 border-b border-border">
-          <h2 className="font-semibold text-sm">CRM</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Manage relationships</p>
+          <h2 className="font-semibold text-sm">{t("crm.title")}</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("crm.description")}</p>
         </div>
         <div className="p-2 space-y-1 border-b border-border">
           {crmSections.map((section) => {
@@ -666,7 +668,7 @@ export default function CRM() {
                 data-testid={`nav-${section.id}`}
               >
                 <Icon className="h-4 w-4" />
-                {section.label}
+                {t(section.labelKey)}
               </button>
             );
           })}
@@ -3563,14 +3565,64 @@ function PipelinesSection({ onBack }: PipelinesSectionProps) {
   );
 }
 
+/** Paginated API response shape used by products, tags, contact_types, knowledge */
+interface PaginatedCountResponse {
+  pagination?: { total_items: number };
+}
+
+/** Pipelines API response shape */
+interface PipelinesCountResponse {
+  pipelines?: unknown[];
+}
+
 function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string; onSelectSection: (section: string) => void }) {
+  const productsQ = useQuery({
+    queryKey: [apiV1("/crm/products/"), { page: 1, limit: 1 }],
+    queryFn: () => fetchJson<PaginatedCountResponse>(apiV1("/crm/products/"), { page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const knowledgeQ = useQuery({
+    queryKey: [apiV1("/crm/knowledge/"), { page: 1, limit: 1 }],
+    queryFn: () => fetchJson<PaginatedCountResponse>(apiV1("/crm/knowledge/"), { page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const servicesQ = useQuery({
+    queryKey: [apiV1("/crm/knowledge/"), { type: "service-template", page: 1, limit: 1 }],
+    queryFn: () => fetchJson<PaginatedCountResponse>(apiV1("/crm/knowledge/"), { type: "service-template", page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const contactTypesQ = useQuery({
+    queryKey: [apiV1("/crm/contact_types/"), { page: 1, limit: 1 }],
+    queryFn: () => fetchJson<PaginatedCountResponse>(apiV1("/crm/contact_types/"), { page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const tagsQ = useQuery({
+    queryKey: [apiV1("/crm/tags/"), { page: 1, limit: 1 }],
+    queryFn: () => fetchJson<PaginatedCountResponse>(apiV1("/crm/tags/"), { page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const pipelinesQ = useQuery({
+    queryKey: [apiV1("/crm/deals/pipelines/")],
+    queryFn: () => fetchJson<PipelinesCountResponse>(apiV1("/crm/deals/pipelines/")),
+    staleTime: 60_000,
+  });
+
+  const counts: Record<string, number> = {
+    products: productsQ.data?.pagination?.total_items ?? 0,
+    knowledge_base: knowledgeQ.data?.pagination?.total_items ?? 0,
+    services: servicesQ.data?.pagination?.total_items ?? 0,
+    contact_types: contactTypesQ.data?.pagination?.total_items ?? 0,
+    tags: tagsQ.data?.pagination?.total_items ?? 0,
+    pipelines: Array.isArray(pipelinesQ.data?.pipelines) ? pipelinesQ.data.pipelines.length : 0,
+  };
+
   const masterDataCategories = [
     {
       id: "products",
       title: "Products",
       description: "Manage your product catalog and pricing",
       icon: Package,
-      count: 0,
+      count: counts.products,
       color: "blue",
     },
     {
@@ -3578,7 +3630,7 @@ function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string;
       title: "Knowledge Base",
       description: "Articles, FAQs, and documentation",
       icon: BookOpen,
-      count: 0,
+      count: counts.knowledge_base,
       color: "purple",
     },
     {
@@ -3586,7 +3638,7 @@ function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string;
       title: "Services",
       description: "Service offerings and configurations",
       icon: Wrench,
-      count: 0,
+      count: counts.services,
       color: "green",
     },
     {
@@ -3594,7 +3646,7 @@ function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string;
       title: "Contact Types",
       description: "Categories and classifications for contacts",
       icon: UserCog,
-      count: 0,
+      count: counts.contact_types,
       color: "orange",
     },
     {
@@ -3602,7 +3654,7 @@ function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string;
       title: "Tags & Labels",
       description: "Custom tags for organizing records",
       icon: Tags,
-      count: 0,
+      count: counts.tags,
       color: "pink",
     },
     {
@@ -3610,7 +3662,7 @@ function MasterDataGrid({ searchQuery, onSelectSection }: { searchQuery: string;
       title: "Pipelines",
       description: "Sales pipelines and deal stages",
       icon: GitBranch,
-      count: 0,
+      count: counts.pipelines,
       color: "cyan",
     },
   ];

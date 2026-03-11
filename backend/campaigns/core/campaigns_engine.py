@@ -9,7 +9,7 @@ from campaigns.models import Campaign, Channel, Kind, CampaignDataStaging
 from django.conf import settings
 
 from chatbot.lib.whatsapp_client_api import replace_template_placeholders, compose_template_based_message
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 from typing import Any, Dict, List, Literal, Optional
 from openai import OpenAI, OpenAIError
 
@@ -91,7 +91,7 @@ def auto_correct(tenant, prompt: str, data: Dict[str, Any]) -> Dict[str, Any]:
       - "raise": raises RuntimeError(refusal_text)
       - "return_error_dict": returns {"error": refusal_text}
     """
-    cfg = TenantConfiguration.objects.get(tenant=tenant)
+    cfg = get_tenant_config(tenant)
     if not cfg.openai_integration_enabled:
         return data
 
@@ -134,7 +134,7 @@ def auto_correct(tenant, prompt: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 def describe_configuration(tenant, prompt: str, campaign: Campaign):
 
-    cfg = TenantConfiguration.objects.get(tenant=tenant)
+    cfg = get_tenant_config(tenant)
     if not cfg.openai_integration_enabled:
         return None
 

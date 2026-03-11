@@ -25,7 +25,7 @@ except ImportError:  # pragma: no cover - fallback for older SDKs
     InputGuardrail = OutputGuardrail = Any  # type: ignore
 
 from central_hub.models import Tenant
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 import moio_platform.lib.moio_agent_tools_repo as tool_repo
 
@@ -343,7 +343,7 @@ class FlowAgentRuntime:
         self._output_catalog = output_catalog or OUTPUT_MODEL_CATALOG
 
         # Set OpenAI API key before building agents
-        tenant_cfg = TenantConfiguration.objects.get(tenant=tenant)
+        tenant_cfg = get_tenant_config(tenant)
         if tenant_cfg and tenant_cfg.openai_api_key:
             logger.info("Setting default OpenAI API key for tenant %s", )
             set_default_openai_key(tenant_cfg.openai_api_key)

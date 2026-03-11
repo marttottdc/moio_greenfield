@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
@@ -55,11 +56,11 @@ import { Calendar as CalendarIconLucide } from "lucide-react";
 import { emailApi } from "@/lib/integrations/emailApi";
 import type { EmailAccount, EmailMessage } from "@/lib/integrations/types";
 
-type ActivityKind = "task" | "note" | "idea" | "event";
+type ActivityKind = "task" | "note" | "idea" | "event" | "other";
 type ActivitiesTab = ActivityKind | "all" | "email" | "timeline";
 
 function isActivityKind(value: ActivitiesTab): value is ActivityKind {
-  return value === "task" || value === "note" || value === "idea" || value === "event";
+  return value === "task" || value === "note" || value === "idea" || value === "event" || value === "other";
 }
 
 interface TaskContent {
@@ -100,6 +101,7 @@ interface Activity {
   visibility: "public" | "private";
   visibility_label?: string;
   user_id?: string | null;
+  author?: string | null;
   created_at: string;
 }
 
@@ -149,6 +151,7 @@ const kindConfig: Record<ActivityKind, { icon: typeof CheckSquare; color: string
   note: { icon: StickyNote, color: "bg-amber-500", label: "Note" },
   idea: { icon: Lightbulb, color: "bg-purple-500", label: "Idea" },
   event: { icon: CalendarDays, color: "bg-green-500", label: "Event" },
+  other: { icon: Clock, color: "bg-gray-500", label: "Other" },
 };
 
 const defaultKindConfig = { icon: Clock, color: "bg-gray-500", label: "Activity" };
@@ -288,6 +291,7 @@ function TaskCard({
 }) {
   const content = activity.content as TaskContent;
   const isDone = content.status === "done";
+  const author = activity.author ?? "—";
 
   return (
     <div 
@@ -317,7 +321,9 @@ function TaskCard({
               <EyeOff className="h-3 w-3 text-muted-foreground" />
             )}
           </div>
-          
+          <p className="text-xs text-muted-foreground mb-1">
+            By <span className="text-foreground">{author}</span>
+          </p>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {content.priority && (
               <Badge variant="outline" className="text-xs">
@@ -368,6 +374,7 @@ function ActivityCard({
   const config = kindConfig[activity.kind as ActivityKind] ?? defaultKindConfig;
   const Icon = config.icon;
   const content = activity.content as any;
+  const author = activity.author ?? "—";
 
   return (
     <div 
@@ -386,7 +393,9 @@ function ActivityCard({
               <EyeOff className="h-3 w-3 text-muted-foreground" />
             )}
           </div>
-          
+          <p className="text-xs text-muted-foreground mb-2">
+            By <span className="text-foreground">{author}</span>
+          </p>
           {activity.kind === "task" && (
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               {content.status && (
@@ -694,6 +703,8 @@ function ActivityDialog({
         location,
         participants: [],
       };
+    } else if (kind === "other") {
+      content = activity?.content ? (activity.content as Record<string, unknown>) : {};
     }
 
     onSave({
@@ -710,7 +721,7 @@ function ActivityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit" : "Create"} {kindConfig[kind].label}</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit" : "Create"} {kindConfig[kind]?.label ?? defaultKindConfig.label}</DialogTitle>
           <DialogDescription>
             {isEditing ? "Update the activity details below." : "Fill in the details for your new activity."}
           </DialogDescription>
@@ -973,6 +984,7 @@ function ActivityDialog({
 }
 
 export default function Activities() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const isEmbedded = new URLSearchParams(window.location.search).get("embed") === "true";
   const [activeTab, setActiveTab] = useState<ActivitiesTab>(() => {
@@ -2108,7 +2120,7 @@ export default function Activities() {
   }
 
   return (
-    <PageLayout title="Activities" description="Manage your tasks, notes, ideas, and events">
+    <PageLayout title={t("activities.title")} description={t("activities.description")}>
       {activitiesContent}
     </PageLayout>
   );

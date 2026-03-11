@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays } from "lucide-react";
+import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays, User, Building2, Briefcase, Eye } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { getItemWhen } from "@/lib/timeline/timelineRowModel";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { GlobalTimelineTable } from "./GlobalTimelineTable";
+import { ActivityDetailSheet, RelatedEntityLabel, type ActivityDetailData } from "./TimelineItemCard";
 
 type CaptureTimelinePage = {
   items: TimelineItem[];
@@ -93,10 +94,9 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
   const anchorId = String(entry.anchor_id ?? "").trim();
 
   const actorId = entry.actor_id ? String(entry.actor_id) : "";
-  const authorLabel = (() => {
-    if (!actorId) return null;
+  const author = (() => {
+    if (!actorId) return "—";
     if (user?.id && actorId === user.id) return "You";
-    // We only have actor_id in capture payload; show a stable fallback until we wire a user lookup.
     return `User ${shortId(actorId)}`;
   })();
 
@@ -143,11 +143,9 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
         <span className="text-xs text-muted-foreground shrink-0">{formatWhen(item.created_at)}</span>
       </div>
 
-      {authorLabel && (
-        <div className="text-xs text-muted-foreground min-w-0 truncate">
-          By <span className="text-foreground">{authorLabel}</span>
-        </div>
-      )}
+      <div className="text-xs text-muted-foreground min-w-0 truncate">
+        By <span className="text-foreground">{author}</span>
+      </div>
 
       {anchorText && (
         <div className="text-xs text-muted-foreground min-w-0">
@@ -175,32 +173,73 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
   );
 }
 
-function ActivityCard({ item }: { item: TimelineItem }) {
+function ActivityCard({ item, onActivityClick }: { item: TimelineItem; onActivityClick?: (item: TimelineItem) => void }) {
   const { user } = useAuth();
   const title = (item as any).title ?? (item as any).name ?? (item as any)?.activity?.title ?? "Activity";
   const kind = (item as any).kind ?? (item as any).type ?? (item as any)?.activity?.kind;
   const Icon = activityIcon(kind);
   const activity: any = (item as any).activity ?? item;
-  const actorId = activity?.user_id ? String(activity.user_id) : "";
-  const authorLabel = (() => {
-    if (!actorId) return null;
+  const author = (() => {
+    if (activity?.author && String(activity.author).trim()) return String(activity.author).trim();
+    const actorId = activity?.user_id ? String(activity.user_id) : "";
+    if (!actorId) return "—";
     if (user?.id && actorId === user.id) return "You";
     return `User ${shortId(actorId)}`;
   })();
+  const hasRelated = activity?.contact_id || activity?.customer_id || activity?.deal_id;
 
   return (
-    <div className="p-4 rounded-lg border bg-card space-y-2" data-testid={`timeline-activity-${item.id}`}>
+    <div
+      className={cn(
+        "p-4 rounded-lg border bg-card space-y-2",
+        onActivityClick && "cursor-pointer hover:bg-muted/50 transition-colors"
+      )}
+      data-testid={`timeline-activity-${item.id}`}
+      onClick={() => onActivityClick?.(item)}
+      role={onActivityClick ? "button" : undefined}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon className={cn("h-4 w-4 shrink-0", String(kind || "").toLowerCase() === "note" ? "text-amber-600" : "text-muted-foreground")} />
           {kind && <Badge variant="secondary" className="shrink-0">{String(kind)}</Badge>}
           <span className="font-medium truncate">{String(title)}</span>
+          {onActivityClick && <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{formatWhen(item.created_at)}</span>
       </div>
-      {authorLabel && (
-        <div className="text-xs text-muted-foreground min-w-0 truncate">
-          By <span className="text-foreground">{authorLabel}</span>
+      <div className="text-xs text-muted-foreground min-w-0 truncate">
+        By <span className="text-foreground">{author}</span>
+      </div>
+      {hasRelated && (
+        <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+          {activity.contact_id && (
+            <RelatedEntityLabel
+              kind="contact"
+              id={activity.contact_id}
+              name={activity.contact_name}
+              fallback="Contact"
+              icon={<User className="h-3 w-3 inline mr-0.5 align-middle" />}
+              href={`/crm?tab=contacts&contactId=${encodeURIComponent(activity.contact_id)}`}
+              className="hover:underline text-primary"
+            />
+          )}
+          {activity.customer_id && (
+            <RelatedEntityLabel
+              kind="customer"
+              id={activity.customer_id}
+              name={activity.customer_name}
+              fallback="Account"
+              icon={<Building2 className="h-3 w-3 inline mr-0.5 align-middle" />}
+              href={`/crm?tab=accounts&accountId=${encodeURIComponent(activity.customer_id)}`}
+              className="hover:underline text-primary"
+            />
+          )}
+          {activity.deal_id && (
+            <Link href={`/deals?dealId=${encodeURIComponent(activity.deal_id)}`} className="hover:underline text-primary">
+              <Briefcase className="h-3 w-3 inline mr-0.5 align-middle" />
+              {activity.deal_title || "Deal"}
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -221,9 +260,9 @@ function FallbackCard({ item }: { item: TimelineItem }) {
   );
 }
 
-function TimelineItemCard({ item }: { item: TimelineItem }) {
+function TimelineItemCard({ item, onActivityClick }: { item: TimelineItem; onActivityClick?: (item: TimelineItem) => void }) {
   if (item.type === "capture_entry") return <CaptureEntryCard item={item} />;
-  if (item.type === "activity") return <ActivityCard item={item} />;
+  if (item.type === "activity") return <ActivityCard item={item} onActivityClick={onActivityClick} />;
   return <FallbackCard item={item} />;
 }
 
@@ -236,6 +275,15 @@ export function GlobalTimeline(props: {
   const view = props.view ?? "cards";
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<TimelineItem[]>([]);
+  const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
+  const [activityDetailOpen, setActivityDetailOpen] = useState(false);
+
+  const handleActivityClick = (item: TimelineItem) => {
+    if (item.type === "activity") {
+      setSelectedActivity(item);
+      setActivityDetailOpen(true);
+    }
+  };
 
   const mergeUnique = (prev: TimelineItem[], next: TimelineItem[]) => {
     const seen = new Set(prev.map((it) => `${it.type}-${it.id}`));
@@ -357,21 +405,34 @@ export function GlobalTimeline(props: {
 
   if (view === "table") {
     return (
-      <GlobalTimelineTable
-        items={items}
-        isLoading={query.isFetching}
-        canLoadMore={canLoadMore}
-        onLoadMore={handleLoadMore}
-        onEditActivity={props.onEditActivity}
-      />
+      <>
+        <GlobalTimelineTable
+          items={items}
+          isLoading={query.isFetching}
+          canLoadMore={canLoadMore}
+          onLoadMore={handleLoadMore}
+          onEditActivity={props.onEditActivity}
+          onActivityClick={handleActivityClick}
+        />
+        <ActivityDetailSheet
+          open={activityDetailOpen}
+          onOpenChange={setActivityDetailOpen}
+          activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+        />
+      </>
     );
   }
 
   return (
     <div className="space-y-3">
       {items.map((item) => (
-        <TimelineItemCard key={`${item.type}-${item.id}`} item={item} />
+        <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onActivityClick={handleActivityClick} />
       ))}
+      <ActivityDetailSheet
+        open={activityDetailOpen}
+        onOpenChange={setActivityDetailOpen}
+        activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+      />
       <div className="flex items-center justify-center pt-2">
         <Button variant="outline" onClick={handleLoadMore} disabled={!canLoadMore || query.isFetching}>
           {query.isFetching && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

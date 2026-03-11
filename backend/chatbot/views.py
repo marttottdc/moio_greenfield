@@ -26,7 +26,8 @@ from crm.models import Contact
 from moio_platform.lib.tools import check_elapsed_time
 from moio_platform.lib.openai_gpt_api import get_simple_response
 from central_hub.context_utils import current_tenant
-from central_hub.models import TenantConfiguration, PlatformConfiguration
+from central_hub.models import PlatformConfiguration
+from central_hub.tenant_config import get_tenant_config
 
 from chatbot.core.assessment_manager import AssessmentManager
 import logging
@@ -140,7 +141,7 @@ def messenger_webhook_receiver(request):
 @login_required()
 def list_whatsapp_templates(request):
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
     portal_config = PlatformConfiguration.objects.first()
     templates = []
 
@@ -175,7 +176,7 @@ def list_whatsapp_templates(request):
 def wa_templates_for_campaigns(request):
     """Endpoint to load WhatsApp templates for campaign creation"""
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
     templates = []
 
     if config.whatsapp_integration_enabled:
@@ -203,7 +204,7 @@ def wa_templates_for_campaigns(request):
 @login_required()
 def watemplatedetails(request, template_id):
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
 
     if config.whatsapp_integration_enabled:
         wa = WhatsappBusinessClient(config)
@@ -248,7 +249,7 @@ def watemplatedetails(request, template_id):
 @login_required()
 def whatsapp_template_details(request, template_id):
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
 
     if config.whatsapp_integration_enabled:
         wa = WhatsappBusinessClient(config)
@@ -434,7 +435,7 @@ def handle_facebook_code(request):
 def self_assessments(request, campaign_id):
 
     campaign = Campaign.objects.get(pk=campaign_id)
-    config = TenantConfiguration.objects.get(pk=campaign.tenant.pk)
+    config = get_tenant_config(campaign.tenant)
 
     print(f'Request session:{request.session.session_key}')
 

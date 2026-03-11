@@ -22,7 +22,8 @@ from moio_platform.celery_app import app
 from moio_platform.core.core_views import handler500
 from moio_platform.lib.tools import remove_keys
 from central_hub.context_utils import current_tenant
-from central_hub.models import Tenant, TenantConfiguration
+from central_hub.models import Tenant
+from central_hub.tenant_config import get_tenant_config
 from chatbot.lib.whatsapp_client_api import WhatsappBusinessClient, template_requirements, replace_template_placeholders, compose_template_based_message
 from campaigns.models import Audience, AudienceKind, Campaign, CampaignDataStaging, Status, CampaignData
 from campaigns.forms import CampaignBasicForm
@@ -438,7 +439,7 @@ def load_whatsapp_templates(request):
         campaign = None
 
     try:
-        config = TenantConfiguration.objects.get(tenant=tenant)
+        config = get_tenant_config(tenant)
         if config.whatsapp_integration_enabled:
             wa = WhatsappBusinessClient(config)
             template_list = wa.download_message_templates()
@@ -471,7 +472,7 @@ def load_whatsapp_templates(request):
 
 def _get_whatsapp_requirements(tenant, template_id):
 
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
     if config.whatsapp_integration_enabled:
         wa = WhatsappBusinessClient(config)
 
@@ -487,7 +488,7 @@ def _get_whatsapp_requirements(tenant, template_id):
 def whatsapp_template_details(request, template_id):
 
     tenant = current_tenant.get()
-    config = TenantConfiguration.objects.get(tenant=tenant)
+    config = get_tenant_config(tenant)
 
     campaign_pk = request.GET.get("campaign_pk", None)
     enable_preview = request.GET.get("enable_preview", "True") == "True"
@@ -564,7 +565,7 @@ def whatsapp_templates_tab(request):
     templates = []
 
     try:
-        config = TenantConfiguration.objects.get(tenant=tenant)
+        config = get_tenant_config(tenant)
         if config.whatsapp_integration_enabled:
             wa = WhatsappBusinessClient(config)
             template_list = wa.download_message_templates()

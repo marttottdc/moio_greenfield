@@ -2,7 +2,7 @@ import datetime
 
 from crm.models import Branch, Contact, Company
 from crm.lib.dac_api import DacApi
-from central_hub.models import TenantConfiguration
+from central_hub.tenant_config import get_tenant_config_by_id
 import phonenumbers
 from django.core.exceptions import ValidationError
 from phonenumbers import geocoder, PhoneNumberFormat, parse, format_number
@@ -60,14 +60,9 @@ def import_branches(df, tenant):
 def track_dac_delivery(tracking_code, tenant_id):
 
     try:
-        tenant_configuration = TenantConfiguration.objects.get(tenant_id=tenant_id)
-
-    except TenantConfiguration.DoesNotExist:
-        print(f"TenantConfiguration does not exist for tenant_id {tenant_id}")
-        return None
-
-    except TenantConfiguration.MultipleObjectsReturned:
-        print(f"Multiple TenantConfiguration for tenant_id {tenant_id}")
+        tenant_configuration = get_tenant_config_by_id(tenant_id)
+    except Exception as e:
+        print(f"Config not found for tenant_id {tenant_id}: {e}")
         return None
 
     if tenant_configuration.dac_integration_enabled:

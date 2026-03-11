@@ -61,8 +61,7 @@ export function itemToRowModel(item: TimelineItem, currentUserId?: string | null
   if (item.type === "capture_entry") {
     const entry: any = (item as any).entry ?? item;
     const actorId = entry.actor_id ? String(entry.actor_id) : "";
-    const author =
-      !actorId ? "" : currentUserId && actorId === currentUserId ? "You" : `User ${shortId(actorId)}`;
+    const author = !actorId ? "—" : currentUserId && actorId === currentUserId ? "You" : `User ${shortId(actorId)}`;
     return {
       id: String(item.id),
       type: "capture_entry",
@@ -82,9 +81,13 @@ export function itemToRowModel(item: TimelineItem, currentUserId?: string | null
 
   const activity: any = (item as any).activity ?? item;
   const kind = String(activity?.kind ?? "note").toLowerCase() as TimelineRowModel["kind"];
-  const userId = activity?.user_id ? String(activity.user_id) : "";
-  const author =
-    !userId ? "" : currentUserId && userId === currentUserId ? "You" : `User ${shortId(userId)}`;
+  const author = (() => {
+    if (activity?.author && String(activity.author).trim()) return String(activity.author).trim();
+    const userId = activity?.user_id ? String(activity.user_id) : "";
+    if (!userId) return "—";
+    if (currentUserId && userId === currentUserId) return "You";
+    return `User ${shortId(userId)}`;
+  })();
   const content = activity?.content ?? {};
   const status =
     kind === "task" ? String(content?.status ?? "open") : String(activity?.status ?? "—");
