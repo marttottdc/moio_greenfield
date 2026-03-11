@@ -48,6 +48,7 @@ import NotFound from "@/pages/not-found";
 import DataLabHome from "@/pages/datalab/index";
 import CreateImportDataset from "@/pages/datalab/create/import";
 import CreateDatasetFromCRM from "@/pages/datalab/create/query";
+import ShopifyEmbed from "@/pages/shopify-embed";
 import DocsHomePage from "@/pages/docs/index";
 import DocsGuidePage from "@/pages/docs/guide";
 import DocsEndpointPage from "@/pages/docs/endpoint";
@@ -262,10 +263,15 @@ function AppRoutes() {
         <ProtectedRoute component={DataLabHome} />
       </Route>
       
+      {/* Shopify embedded app – no auth wrapper (App Bridge handles identity) */}
+      <Route path="/shopify-embed">
+        <ShopifyEmbed />
+      </Route>
+
       <Route path="/">
         <IndexEntryPage />
       </Route>
-      
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -275,8 +281,14 @@ function AppLayout() {
   const { isAuthenticated } = useAuth();
   const [location] = useLocation();
   const isDocsPage = /^\/docs(\/|$)/.test(location);
+  const isShopifyEmbed = /^\/shopify-embed(\/|$|\?)/.test(location) || location.startsWith("/shopify-embed");
   const isEntrySurface =
     location === "/" || /^\/desktop-agent-console(\/|$)/.test(location);
+
+  // Shopify embedded app – always render without any shell
+  if (isShopifyEmbed) {
+    return <AppRoutes />;
+  }
 
   if (!isAuthenticated) {
     return <AppRoutes />;

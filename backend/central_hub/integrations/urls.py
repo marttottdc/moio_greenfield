@@ -34,6 +34,8 @@ from central_hub.integrations.views import (
 urlpatterns = [
     # v1 email + calendar routes (must precede slug catch-alls)
     path("", include("central_hub.integrations.v1.urls")),
+    # Shopify embedded app (OAuth + embed helpers – must precede generic slug routes)
+    path("shopify/", include("central_hub.integrations.shopify.urls")),
 
     path("", IntegrationListView.as_view(), name="integration_list"),
     path("categories/", IntegrationCategoriesView.as_view(), name="integration_categories"),

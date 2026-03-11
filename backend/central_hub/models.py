@@ -33,6 +33,9 @@ class PlatformConfiguration(models.Model):
     google_oauth_client_secret = models.CharField(max_length=200, null=True, blank=True, default="")
     microsoft_oauth_client_id = models.CharField(max_length=200, null=True, blank=True, default="")
     microsoft_oauth_client_secret = models.CharField(max_length=200, null=True, blank=True, default="")
+    # Shopify App (embedded app OAuth)
+    shopify_client_id = models.CharField(max_length=200, null=True, blank=True, default="")
+    shopify_client_secret = models.CharField(max_length=200, null=True, blank=True, default="")
 
     class Meta:
         db_table = 'platform_configuration'
