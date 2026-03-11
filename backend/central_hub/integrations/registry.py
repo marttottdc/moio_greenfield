@@ -565,11 +565,21 @@ INTEGRATION_REGISTRY: dict[str, IntegrationDefinition] = {
     "shopify": IntegrationDefinition(
         slug="shopify",
         name="Shopify",
-        description="E-commerce platform integration for products, orders, and inventory sync",
+        description="Shopify e-commerce integration - Receive data from Shopify as source of truth",
         category="ecommerce",
         icon="shopping-bag",
         supports_multi_instance=True,
         fields=[
+            IntegrationField(
+                name="direction",
+                field_type="choice",
+                choices=[
+                    ("receive", "Receive from Shopify (Shopify as source of truth)"),
+                    ("send", "Send to Shopify (CRM as source of truth)"),
+                ],
+                default="receive",
+                description="Data flow direction"
+            ),
             IntegrationField(
                 name="store_url",
                 required=True,
@@ -589,29 +599,43 @@ INTEGRATION_REGISTRY: dict[str, IntegrationDefinition] = {
             IntegrationField(
                 name="webhook_secret",
                 sensitive=True,
-                description="Webhook signature verification secret"
+                description="Webhook signature verification secret for validating incoming webhooks"
             ),
             IntegrationField(
-                name="location_id",
-                description="Default inventory location ID"
-            ),
-            IntegrationField(
-                name="sync_products",
+                name="receive_products",
                 field_type="boolean",
                 default=True,
-                description="Enable product synchronization"
+                description="Receive/sync product data from Shopify into CRM"
             ),
             IntegrationField(
-                name="sync_orders",
+                name="receive_customers",
                 field_type="boolean",
                 default=True,
-                description="Enable order synchronization"
+                description="Receive/sync customer data from Shopify into CRM"
             ),
             IntegrationField(
-                name="sync_inventory",
+                name="receive_orders",
                 field_type="boolean",
                 default=True,
-                description="Enable inventory synchronization"
+                description="Receive/sync order data from Shopify into CRM"
+            ),
+            IntegrationField(
+                name="receive_inventory",
+                field_type="boolean",
+                default=True,
+                description="Receive/sync inventory data from Shopify into CRM"
+            ),
+            IntegrationField(
+                name="send_inventory_updates",
+                field_type="boolean",
+                default=False,
+                description="Send inventory updates from CRM back to Shopify"
+            ),
+            IntegrationField(
+                name="send_order_updates",
+                field_type="boolean",
+                default=False,
+                description="Send order status updates from CRM back to Shopify"
             ),
         ]
     ),

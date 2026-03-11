@@ -19,7 +19,8 @@ from crm.lib.moiotools import create_dac_delivery
 from moio_platform.lib.google_maps_api import get_geocode
 
 from moio_platform.lib.openai_gpt_api import get_json_response
-from central_hub.models import TenantConfiguration, Tenant
+from central_hub.models import Tenant
+from central_hub.tenant_config import get_tenant_config, get_tenant_config_by_id, iter_configs_with_integration_enabled
 
 from central_hub.webhooks.utils import get_handler
 logger = logging.getLogger(__name__)
@@ -94,7 +95,9 @@ def geocode_branches(self):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Geocoding Branches ---> {task_id} from {q_name}')
 
-    for tenant_config in TenantConfiguration.objects.all():
+    from tenancy.models import Tenant
+    for tenant in Tenant.objects.all():
+        tenant_config = get_tenant_config(tenant)
         if tenant_config.google_integration_enabled:
             for branch in Branch.objects.filter(geocoded__exact=False, tenant=tenant_config.tenant):
 
@@ -121,7 +124,7 @@ def geocode_branches(self):
                         branch.geocoded = True
                         branch.save()
         else:
-            print(f"Google Integrations Disabled for {tenant_config.tenant}")
+            print(f"Google Integrations Disabled for {tenant}")
 
 
 @shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
@@ -130,7 +133,7 @@ def smart_address_fix(self, data, order_number, tenant_id):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Fixig address ---> {task_id} from {q_name}')
 
-    tenant_configuration = TenantConfiguration.objects.get(tenant_id=tenant_id)
+    tenant_configuration = get_tenant_config_by_id(tenant_id)
     if tenant_configuration.openai_integration_enabled:
         instructions = "format this address to be compatible and attempt to standardize it. and return it in a json format. We need just the shipping address, if there is none, assume the billing address. The notes field can contain important data to decide what to do. This is an uruguayan address:"
         prompt = f'{instructions} {data}'
@@ -143,7 +146,9 @@ def fix_order_addresses(self):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Processing task ---> {task_id} from {q_name}')
 
-    for tenant_config in TenantConfiguration.objects.all():
+    from tenancy.models import Tenant
+    for tenant in Tenant.objects.all():
+        tenant_config = get_tenant_config(tenant)
         if tenant_config.openai_integration_enabled:
             try:
                 # Instruction model removed - use default prompt
@@ -169,7 +174,7 @@ def fetch_frontend_skus_data(self, tenant=None):
     print(f'Tenant: {tenant}')
 
     if not tenant:
-        for tenant_configuration in TenantConfiguration.objects.filter(woocommerce_integration_enabled=True):
+        for _t, tenant_configuration in iter_configs_with_integration_enabled("woocommerce"):
             if tenant_configuration.woocommerce_integration_enabled:
                 woo_conn = WooCommerceAPI(
                     consumer_key=tenant_configuration.woocommerce_consumer_key,
@@ -191,7 +196,7 @@ def import_frontend_skus(self, tenant_id):
         logger.info(f'Importing SKUs ---> {task_id} from {q_name}')
 
     try:
-        tenant_configuration = TenantConfiguration.objects.get(tenant_id=tenant_id)
+        tenant_configuration = get_tenant_config_by_id(tenant_id)
 
         if tenant_configuration.woocommerce_integration_enabled:
             woo_conn = WooCommerceAPI(
@@ -205,8 +210,8 @@ def import_frontend_skus(self, tenant_id):
                 print(f"Importing {product['sku']}, {product['name']}, {product['status']}")
                 import_woo_product(product, tenant_configuration.tenant)
 
-    except TenantConfiguration.DoesNotExist:
-        raise ValueError(f"No existe el tenant {tenant_id}")
+    except Tenant.DoesNotExist:
+        raise ValueError(f"No existe el tenant {tenant_id}") from None
 
 
 @shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
@@ -215,7 +220,7 @@ def create_smart_order(self, data, tenant):
     q_name = self.request.delivery_info['routing_key']
     logger.info(f'Creating order ---> {task_id} from {q_name}')
 
-    tenant_configuration = TenantConfiguration.objects.get(tenant_id=tenant)
+    tenant_configuration = get_tenant_config_by_id(tenant) if isinstance(tenant, int) else get_tenant_config(tenant)
 
     system_instructions = """
                             tengo un ecommerce y quiero procesar pedidos de mayoristas que los envian de multiples formas. 
@@ -1729,5 +1734,241 @@ def apply_capture_entry(self, entry_id: str):
         except Exception:
             pass
     return {"ok": True, "status": CaptureStatus.APPLIED, "applied_refs": refs}
+
+
+# ===============================================================================
+# SHOPIFY INTEGRATION TASKS
+# ===============================================================================
+
+@shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
+def sync_shopify_products(self, tenant_id: int, instance_id: str = "default"):
+    """
+    Sync products FROM Shopify INTO CRM for a specific tenant and integration instance.
+
+    This task receives product data from Shopify (source of truth) and updates CRM tables.
+    """
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    logger.info(f'Syncing Shopify products ---> {task_id} from {q_name}')
+
+    try:
+        from central_hub.integrations.models import IntegrationConfig
+        from crm.services.shopify_sync_service import ShopifySyncService
+
+        tenant = Tenant.objects.get(id=tenant_id)
+        config_obj = IntegrationConfig.get_for_tenant(tenant, 'shopify', instance_id)
+
+        if not config_obj or not config_obj.enabled:
+            logger.info(f"Shopify integration not enabled for tenant {tenant_id}")
+            return {"status": "skipped", "reason": "integration_disabled"}
+
+        if not config_obj.is_configured():
+            logger.error(f"Shopify integration not configured for tenant {tenant_id}")
+            return {"status": "failed", "reason": "not_configured"}
+
+        # Get the last synced ID from metadata
+        last_product_id = config_obj.metadata.get('last_product_id')
+
+        sync_service = ShopifySyncService(tenant, config_obj.config)
+        results = sync_service.sync_products(since_id=last_product_id)
+
+        # Update metadata with last synced ID
+        if results['last_id']:
+            config_obj.metadata['last_product_id'] = results['last_id']
+            config_obj.save()
+
+        logger.info(f"Shopify products sync completed: {results}")
+        return {"status": "completed", "results": results}
+
+    except Exception as e:
+        logger.exception(f"Shopify products sync failed for tenant {tenant_id}")
+        return {"status": "failed", "error": str(e)}
+
+
+@shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
+def sync_shopify_customers(self, tenant_id: int, instance_id: str = "default"):
+    """
+    Sync customers FROM Shopify INTO CRM for a specific tenant and integration instance.
+
+    This task receives customer data from Shopify (source of truth) and updates CRM tables.
+    """
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    logger.info(f'Syncing Shopify customers ---> {task_id} from {q_name}')
+
+    try:
+        from central_hub.integrations.models import IntegrationConfig
+        from crm.services.shopify_sync_service import ShopifySyncService
+
+        tenant = Tenant.objects.get(id=tenant_id)
+        config_obj = IntegrationConfig.get_for_tenant(tenant, 'shopify', instance_id)
+
+        if not config_obj or not config_obj.enabled:
+            logger.info(f"Shopify integration not enabled for tenant {tenant_id}")
+            return {"status": "skipped", "reason": "integration_disabled"}
+
+        if not config_obj.is_configured():
+            logger.error(f"Shopify integration not configured for tenant {tenant_id}")
+            return {"status": "failed", "reason": "not_configured"}
+
+        # Get the last synced ID from metadata
+        last_customer_id = config_obj.metadata.get('last_customer_id')
+
+        sync_service = ShopifySyncService(tenant, config_obj.config)
+        results = sync_service.sync_customers(since_id=last_customer_id)
+
+        # Update metadata with last synced ID
+        if results['last_id']:
+            config_obj.metadata['last_customer_id'] = results['last_id']
+            config_obj.save()
+
+        logger.info(f"Shopify customers sync completed: {results}")
+        return {"status": "completed", "results": results}
+
+    except Exception as e:
+        logger.exception(f"Shopify customers sync failed for tenant {tenant_id}")
+        return {"status": "failed", "error": str(e)}
+
+
+@shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
+def sync_shopify_orders(self, tenant_id: int, instance_id: str = "default", status_filter: str = None):
+    """
+    Sync orders FROM Shopify INTO CRM for a specific tenant and integration instance.
+
+    This task receives order data from Shopify (source of truth) and updates CRM tables.
+    """
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    logger.info(f'Syncing Shopify orders ---> {task_id} from {q_name}')
+
+    try:
+        from central_hub.integrations.models import IntegrationConfig
+        from crm.services.shopify_sync_service import ShopifySyncService
+
+        tenant = Tenant.objects.get(id=tenant_id)
+        config_obj = IntegrationConfig.get_for_tenant(tenant, 'shopify', instance_id)
+
+        if not config_obj or not config_obj.enabled:
+            logger.info(f"Shopify integration not enabled for tenant {tenant_id}")
+            return {"status": "skipped", "reason": "integration_disabled"}
+
+        if not config_obj.is_configured():
+            logger.error(f"Shopify integration not configured for tenant {tenant_id}")
+            return {"status": "failed", "reason": "not_configured"}
+
+        # Get the last synced ID from metadata
+        last_order_id = config_obj.metadata.get('last_order_id')
+
+        sync_service = ShopifySyncService(tenant, config_obj.config)
+        results = sync_service.sync_orders(since_id=last_order_id, status=status_filter)
+
+        # Update metadata with last synced ID
+        if results['last_id']:
+            config_obj.metadata['last_order_id'] = results['last_id']
+            config_obj.save()
+
+        logger.info(f"Shopify orders sync completed: {results}")
+        return {"status": "completed", "results": results}
+
+    except Exception as e:
+        logger.exception(f"Shopify orders sync failed for tenant {tenant_id}")
+        return {"status": "failed", "error": str(e)}
+
+
+@shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
+def sync_all_shopify_data(self, tenant_id: int, instance_id: str = "default"):
+    """
+    Sync all enabled Shopify data types for a tenant.
+
+    Only syncs data types that are enabled in the Shopify integration configuration.
+    Uses Shopify as the source of truth and receives data into CRM tables.
+    """
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    logger.info(f'Syncing all enabled Shopify data (receiving from Shopify) ---> {task_id} from {q_name}')
+
+    try:
+        from central_hub.integrations.models import IntegrationConfig
+        from crm.services.shopify_sync_service import ShopifySyncService
+
+        tenant = Tenant.objects.get(id=tenant_id)
+        config_obj = IntegrationConfig.get_for_tenant(tenant, 'shopify', instance_id)
+
+        if not config_obj or not config_obj.enabled:
+            logger.info(f"Shopify integration not enabled for tenant {tenant_id}")
+            return {"status": "skipped", "reason": "integration_disabled"}
+
+        if not config_obj.is_configured():
+            logger.error(f"Shopify integration not configured for tenant {tenant_id}")
+            return {"status": "failed", "reason": "not_configured"}
+
+        # Check direction - this task only handles receiving
+        if config_obj.config.get('direction') == 'send':
+            logger.info(f"Shopify integration configured for sending, not receiving for tenant {tenant_id}")
+            return {"status": "skipped", "reason": "direction_send_not_receive"}
+
+        sync_service = ShopifySyncService(tenant, config_obj.config)
+        results = sync_service.sync_all_enabled_data()
+
+        logger.info(f"All enabled Shopify data sync completed for tenant {tenant_id}: {results}")
+        return {"status": "completed", "results": results}
+
+    except Exception as e:
+        logger.exception(f"All Shopify data sync failed for tenant {tenant_id}")
+        return {"status": "failed", "error": str(e)}
+
+
+@shared_task(bind=True, queue=settings.MEDIUM_PRIORITY_Q)
+def process_shopify_webhook(self, payload: dict, headers: dict, tenant_code: str, topic: str):
+    """
+    Process incoming Shopify webhook.
+
+    Args:
+        payload: Webhook payload data
+        headers: Webhook headers
+        tenant_code: Tenant code for identifying tenant
+        topic: Webhook topic (e.g., 'products/create', 'orders/create')
+    """
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    logger.info(f'Processing Shopify webhook {topic} ---> {task_id} from {q_name}')
+
+    try:
+        from crm.services.shopify_sync_service import ShopifySyncService
+        from central_hub.integrations.models import IntegrationConfig
+
+        tenant = Tenant.objects.get(tenant_code=tenant_code)
+
+        # Find enabled Shopify integration for this tenant
+        shopify_configs = IntegrationConfig.get_enabled_for_tenant(tenant, 'shopify')
+        if not shopify_configs:
+            logger.warning(f"No enabled Shopify integration found for tenant {tenant_code}")
+            return {"status": "skipped", "reason": "no_integration"}
+
+        # Use the first enabled config (assuming single shop per tenant for now)
+        config_obj = shopify_configs.first()
+
+        sync_service = ShopifySyncService(tenant, config_obj.config)
+
+        # Process based on topic
+        if topic == 'products/create' or topic == 'products/update':
+            result = sync_service._sync_single_product(payload)
+            return {"status": "processed", "type": "product", "action": result['action']}
+
+        elif topic == 'customers/create' or topic == 'customers/update':
+            result = sync_service._sync_single_customer(payload)
+            return {"status": "processed", "type": "customer", "action": result['action']}
+
+        elif topic == 'orders/create' or topic == 'orders/update':
+            result = sync_service._sync_single_order(payload)
+            return {"status": "processed", "type": "order", "action": result['action']}
+
+        else:
+            logger.info(f"Unhandled webhook topic: {topic}")
+            return {"status": "ignored", "reason": f"unhandled_topic_{topic}"}
+
+    except Exception as e:
+        logger.exception(f"Shopify webhook processing failed: {e}")
+        return {"status": "failed", "error": str(e)}
 
 
