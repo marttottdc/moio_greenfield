@@ -419,6 +419,9 @@ class CaptureEntryApplySyncView(_CaptureSerializerMixin, PaginationMixin, Protec
         payload = request.data or {}
         final_override = payload.get("final")
         confirmed_activities = payload.get("confirmed_activities")
+        deal_id_override = payload.get("deal_id")
+        contact_id_override = (payload.get("contact_id") or "").strip() or None
+        customer_id_override = (payload.get("customer_id") or "").strip() or None
 
         # Build final: use confirmed_activities (user edits) or final override or classification
         if isinstance(confirmed_activities, list) and confirmed_activities:
@@ -445,7 +448,13 @@ class CaptureEntryApplySyncView(_CaptureSerializerMixin, PaginationMixin, Protec
             return _error("invalid_state", str(exc), status.HTTP_400_BAD_REQUEST)
 
         try:
-            result = apply_capture_entry_to_activities(entry=entry, actor=request.user)
+            result = apply_capture_entry_to_activities(
+                entry=entry,
+                actor=request.user,
+                deal_id_override=deal_id_override,
+                contact_id_override=contact_id_override,
+                customer_id_override=customer_id_override,
+            )
         except ValueError as exc:
             return _error("apply_failed", str(exc), status.HTTP_400_BAD_REQUEST)
         except Exception as exc:

@@ -88,17 +88,48 @@ class PaginationMixin:
         return page, limit
 
     def _get_tenant(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        tenant = self._resolve_tenant_for_request(request)
         if tenant is None:
             raise ValidationError({"tenant": "User must belong to a tenant"})
         return tenant
 
+    def _resolve_tenant_for_request(self, request):
+        """Resolve tenant from user, context, or JWT (fixes 'relation does not exist' when middleware runs before auth)."""
+        tenant = getattr(request.user, "tenant", None)
+        if tenant and getattr(tenant, "schema_name", None):
+            return tenant
+        try:
+            from tenancy.context_utils import current_tenant
+
+            tenant = current_tenant.get()
+        except Exception:
+            tenant = None
+        if tenant and getattr(tenant, "schema_name", None):
+            return tenant
+        try:
+            from tenancy.host_rewrite import _get_tenant_schema_from_jwt
+            from tenancy.models import Tenant
+            from tenancy.tenant_support import public_schema_name
+
+            schema_name = _get_tenant_schema_from_jwt(request)
+            if not schema_name:
+                return None
+            try:
+                from django_tenants.utils import schema_context
+
+                with schema_context(public_schema_name()):
+                    return Tenant.objects.filter(schema_name=schema_name).first()
+            except Exception:
+                return Tenant.objects.filter(schema_name=schema_name).first()
+        except Exception:
+            return None
+
     def _get_tenant_or_none(self, request):
-        return getattr(request.user, "tenant", None)
+        return self._resolve_tenant_for_request(request)
 
     def _ensure_tenant_schema(self, request):
         """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
-        tenant = getattr(request.user, "tenant", None)
+        tenant = self._resolve_tenant_for_request(request)
         if not tenant or not getattr(tenant, "schema_name", None):
             return
         if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):

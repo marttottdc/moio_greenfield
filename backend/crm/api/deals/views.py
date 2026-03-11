@@ -60,6 +60,15 @@ class DealsView(PaginationMixin, ProtectedAPIView):
         if contact_id:
             deals = deals.filter(contact_id=contact_id)
 
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            deals = deals.filter(
+                Q(title__icontains=search)
+                | Q(contact__fullname__icontains=search)
+                | Q(contact__email__icontains=search)
+                | Q(contact__company__icontains=search)
+            ).distinct()
+
         sort_by = request.query_params.get('sort_by', 'created_at')
         order = request.query_params.get('order', 'desc')
         if order == 'desc':

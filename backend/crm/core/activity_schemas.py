@@ -55,6 +55,6 @@ def validate_content(
     kind_value = getattr(record_or_type, "kind", None) or kind
     if kind_value and kind_value in PAYLOAD_MODEL_BY_KIND:
         model_cls = PAYLOAD_MODEL_BY_KIND[kind_value]
-        return model_cls.model_validate(content).model_dump()
+        return model_cls.model_validate(content).model_dump(mode="json")
 
     return content

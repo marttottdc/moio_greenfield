@@ -194,6 +194,11 @@
   "crm": {
     "title": "CRM",
     "description": "Manage contacts, accounts, and deals",
+    "contacts_section_description": "Manage your contacts and accounts",
+    "contacts_description": "Manage your contacts",
+    "accounts_description": "Manage your accounts",
+    "search_contacts": "Search contacts...",
+    "search_accounts": "Search accounts...",
     "overview": "Overview",
     "contacts": "Contacts",
     "accounts": "Accounts",

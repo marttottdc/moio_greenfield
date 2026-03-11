@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   StickyNote,
   CheckSquare,
@@ -13,8 +14,10 @@ import {
   User,
   Building2,
   Briefcase,
+  Pencil,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -147,27 +150,68 @@ export function ActivityDetailSheet({
   open,
   onOpenChange,
   activity,
+  onEdit,
+  renderActivityEditForm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: ActivityDetailData | null;
+  onEdit?: (activity: ActivityDetailData) => void;
+  renderActivityEditForm?: (props: { activity: ActivityDetailData; onSaved: () => void; onCancel: () => void }) => React.ReactNode;
 }) {
   const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+
   if (!activity) return null;
+
+  const handleCancelEdit = () => setIsEditing(false);
+  const handleSavedEdit = () => setIsEditing(false);
+
+  const canEditInDrawer = !!renderActivityEditForm;
+  const showEditForm = isEditing && canEditInDrawer;
+
   const content = activity.content ?? {};
   const kind = String(activity.kind ?? "").toLowerCase();
   const Icon = activityIcon(kind);
   const created = activity.created_at ? formatTimelineDateShort(activity.created_at) : "—";
   const author = resolveActivityAuthor(activity, user?.id);
 
+  const handleEditClick = () => {
+    if (canEditInDrawer) {
+      setIsEditing(true);
+    } else if (onEdit) {
+      onEdit(activity);
+      onOpenChange(false);
+    }
+  };
+
+  const hasEditAction = canEditInDrawer || onEdit;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={(next) => { if (!next) setIsEditing(false); onOpenChange(next); }}>
       <SheetContent className="sm:max-w-lg overflow-y-auto" side="right">
+        {showEditForm ? (
+          renderActivityEditForm!({ activity, onSaved: handleSavedEdit, onCancel: handleCancelEdit })
+        ) : (
+        <>
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5 text-muted-foreground" />
-            {activity.title || "Activity"}
-          </SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle className="flex items-center gap-2">
+              <Icon className="h-5 w-5 text-muted-foreground" />
+              {activity.title || "Activity"}
+            </SheetTitle>
+            {hasEditAction && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditClick}
+                className="shrink-0"
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Edit
+              </Button>
+            )}
+          </div>
         </SheetHeader>
         <div className="mt-6 space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -317,6 +361,8 @@ export function ActivityDetailSheet({
               </div>
             )}
         </div>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   );

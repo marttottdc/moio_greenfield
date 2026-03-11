@@ -32,6 +32,8 @@ import { Contact, PaginatedResponse } from "@/lib/moio-types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ContactDetailsModal, type ContactDetailsContact } from "@/components/crm/contact-details-modal";
+import { useAuth } from "@/contexts/AuthContext";
+import { isTenantAdminRole } from "@/lib/rbac";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -83,7 +85,9 @@ function detailsContactToContact(c: ContactDetailsContact): Contact {
 }
 
 export default function Contacts() {
+  const { user } = useAuth();
   const { toast } = useToast();
+  const canDelete = isTenantAdminRole(user?.role);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -560,14 +564,16 @@ export default function Contacts() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openDeleteConfirm(contact)}
-                          data-testid={`button-delete-${contact.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openDeleteConfirm(contact)}
+                            data-testid={`button-delete-${contact.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

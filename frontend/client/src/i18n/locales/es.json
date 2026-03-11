@@ -194,6 +194,11 @@
   "crm": {
     "title": "CRM",
     "description": "Gestiona contactos, cuentas y negocios",
+    "contacts_section_description": "Gestiona tus contactos y cuentas",
+    "contacts_description": "Gestiona tus contactos",
+    "accounts_description": "Gestiona tus cuentas",
+    "search_contacts": "Buscar contactos...",
+    "search_accounts": "Buscar cuentas...",
     "overview": "Resumen",
     "contacts": "Contactos",
     "accounts": "Cuentas",

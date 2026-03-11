@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -37,7 +38,12 @@ import {
   MapPin,
   Users,
   LayoutGrid,
-  Table2
+  Table2,
+  Briefcase,
+  Building2,
+  ChevronsUpDown,
+  Check,
+  User
 } from "lucide-react";
 import { PageLayout } from "@/components/layout/page-layout";
 import { EmptyState } from "@/components/empty-state";
@@ -106,6 +112,12 @@ interface Activity {
   user_id?: string | null;
   author?: string | null;
   created_at: string;
+  contact_id?: string | null;
+  contact_name?: string | null;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  deal_id?: string | null;
+  deal_title?: string | null;
 }
 
 interface ActivitiesResponse {
@@ -143,10 +155,47 @@ type CaptureEntriesResponse = {
 interface CreateActivityData {
   title: string;
   kind: ActivityKind;
-  type?: string;
+  type_key?: string | null;
   content: ActivityContent;
   source?: string;
   visibility?: "public" | "private";
+  status?: string | null;
+  contact_id?: string | null;
+  customer_id?: string | null;
+  deal_id?: string | null;
+}
+
+/** Convert ISO string to datetime-local input value (YYYY-MM-DDTHH:mm). */
+function toDatetimeLocalValue(iso?: string): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return "";
+  }
+}
+
+/** Convert datetime-local value to ISO string for API. */
+function fromDatetimeLocalValue(local: string): string {
+  if (!local || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)) return "";
+  return local.length >= 19 ? local : `${local}:00`;
+}
+
+type DealLite = { id: string; title?: string; contact_name?: string | null };
+type ContactLite = { id: string; name?: string; fullname?: string; display_name?: string };
+type AccountLite = { id: string; name?: string; legal_name?: string | null };
+
+function normalizeEntityArray<T>(data: any, keys: string[] = []): T[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as T[];
+  for (const k of keys) {
+    if (Array.isArray((data as any)[k])) return (data as any)[k] as T[];
+  }
+  if (Array.isArray((data as any).results)) return (data as any).results as T[];
+  return [];
 }
 
 const kindConfig: Record<ActivityKind, { icon: typeof CheckSquare; color: string; label: string }> = {
@@ -179,12 +228,16 @@ const statusLabels: Record<string, string> = {
   open: "Open",
   in_progress: "In Progress",
   done: "Done",
+  planned: "Planned",
+  completed: "Completed",
 };
 
 const statusColors: Record<string, string> = {
   open: "bg-blue-500",
   in_progress: "bg-amber-500",
   done: "bg-green-500",
+  planned: "bg-blue-500",
+  completed: "bg-green-500",
 };
 
 function formatRelativeTime(dateString: string): string {
@@ -605,6 +658,8 @@ function ActivityDialog({
   defaultKind,
   onSave,
   isLoading,
+  variant = "dialog",
+  onCancel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -612,7 +667,10 @@ function ActivityDialog({
   defaultKind: ActivityKind;
   onSave: (data: CreateActivityData) => void;
   isLoading: boolean;
+  variant?: "dialog" | "inline";
+  onCancel?: () => void;
 }) {
+  const { toast } = useToast();
   const [title, setTitle] = useState(activity?.title || "");
   const [kind, setKind] = useState<ActivityKind>(activity?.kind || defaultKind);
   const [visibility, setVisibility] = useState<"public" | "private">(activity?.visibility || "public");
@@ -642,6 +700,126 @@ function ActivityDialog({
     (activity?.content as EventContent)?.end ? new Date((activity?.content as EventContent).end!) : undefined
   );
   const [location, setLocation] = useState((activity?.content as EventContent)?.location || "");
+  const [eventStatus, setEventStatus] = useState<string>(activity?.status ?? "planned");
+  const [activityTypeKey, setActivityTypeKey] = useState<string>(activity?.type ?? "");
+
+  // Related entities
+  const [contactId, setContactId] = useState<string>("");
+  const [dealId, setDealId] = useState<string>("");
+  const [customerId, setCustomerId] = useState<string>("");
+  const [dealSearch, setDealSearch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [dealPopoverOpen, setDealPopoverOpen] = useState(false);
+  const [contactPopoverOpen, setContactPopoverOpen] = useState(false);
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [isCreatingEntity, setIsCreatingEntity] = useState<"deal" | "contact" | "account" | null>(null);
+
+  const [debouncedDealSearch, setDebouncedDealSearch] = useState("");
+  const [debouncedContactSearch, setDebouncedContactSearch] = useState("");
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedDealSearch(dealSearch), 200);
+    return () => clearTimeout(t);
+  }, [dealSearch]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedContactSearch(contactSearch), 200);
+    return () => clearTimeout(t);
+  }, [contactSearch]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCustomerSearch(customerSearch), 200);
+    return () => clearTimeout(t);
+  }, [customerSearch]);
+
+  const dealsQuery = useQuery({
+    queryKey: [apiV1("/crm/deals/"), "activity-dialog", debouncedDealSearch, contactId, customerId],
+    queryFn: () =>
+      fetchJson<any>(apiV1("/crm/deals/"), {
+        page: 1,
+        limit: 50,
+        ...(debouncedDealSearch.trim() ? { search: debouncedDealSearch.trim() } : {}),
+        ...(contactId ? { contact_id: contactId } : {}),
+        ...(customerId ? { customer_id: customerId } : {}),
+      }),
+    enabled: open && (!!contactId || !!customerId),
+    retry: false,
+  });
+  const contactsQuery = useQuery({
+    queryKey: [apiV1("/crm/contacts/"), "activity-dialog", debouncedContactSearch],
+    queryFn: () =>
+      fetchJson<any>(apiV1("/crm/contacts/"), {
+        page: 1,
+        limit: 50,
+        ...(debouncedContactSearch.trim() ? { search: debouncedContactSearch.trim() } : {}),
+      }),
+    enabled: open,
+    retry: false,
+  });
+  const customersQuery = useQuery({
+    queryKey: [apiV1("/crm/customers/"), "activity-dialog", debouncedCustomerSearch],
+    queryFn: () =>
+      fetchJson<any>(apiV1("/crm/customers/"), {
+        page: 1,
+        limit: 50,
+        ...(debouncedCustomerSearch.trim() ? { search: debouncedCustomerSearch.trim() } : {}),
+      }),
+    enabled: open,
+    retry: false,
+  });
+
+  const activityTypesQuery = useQuery({
+    queryKey: [apiV1("/crm/activity_types/"), "activity-dialog"],
+    queryFn: () => fetchJson<any>(apiV1("/crm/activity_types/"), { limit: 100 }),
+    enabled: open,
+    retry: false,
+  });
+  const activityTypes = useMemo(
+    () => normalizeEntityArray<{ id: string; key: string; label: string; name?: string }>(activityTypesQuery.data, ["activity_types"]),
+    [activityTypesQuery.data]
+  );
+
+  const deals = useMemo(() => normalizeEntityArray<DealLite>(dealsQuery.data, ["deals"]), [dealsQuery.data]);
+  const contacts = useMemo(() => normalizeEntityArray<ContactLite>(contactsQuery.data, ["contacts"]), [contactsQuery.data]);
+  const accounts = useMemo(() => normalizeEntityArray<AccountLite>(customersQuery.data, ["customers"]), [customersQuery.data]);
+
+  const handleCreateEntity = async (type: "deal" | "contact" | "account", name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || isCreatingEntity) return;
+    setIsCreatingEntity(type);
+    try {
+      if (type === "deal") {
+        const res = await apiRequest("POST", apiV1("/crm/deals/"), { data: { title: trimmed } });
+        const created = await res.json();
+        setDealId(created.id);
+        setDealSearch("");
+        setDealPopoverOpen(false);
+        queryClient.invalidateQueries({ queryKey: [apiV1("/crm/deals/")] });
+      } else if (type === "account") {
+        const res = await apiRequest("POST", apiV1("/crm/customers/"), {
+          data: { name: trimmed, legal_name: trimmed, type: "Business" },
+        });
+        const created = await res.json();
+        setCustomerId(created.id);
+        setCustomerSearch("");
+        setCustomerPopoverOpen(false);
+        queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
+      } else {
+        const res = await apiRequest("POST", apiV1("/crm/contacts/"), {
+          data: { fullname: trimmed },
+        });
+        const created = await res.json();
+        setContactId(created.id ?? created.user_id ?? created.pk);
+        setContactSearch("");
+        setContactPopoverOpen(false);
+        queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
+      }
+      toast({ title: "Created", description: `${type === "deal" ? "Deal" : type === "account" ? "Account" : "Contact"} created.` });
+    } catch (err: any) {
+      toast({ title: "Could not create", description: err?.message || "Failed to create.", variant: "destructive" });
+    } finally {
+      setIsCreatingEntity(null);
+    }
+  };
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -660,6 +838,11 @@ function ActivityDialog({
         setStartDate((activity.content as EventContent)?.start ? new Date((activity.content as EventContent).start!) : undefined);
         setEndDate((activity.content as EventContent)?.end ? new Date((activity.content as EventContent).end!) : undefined);
         setLocation((activity.content as EventContent)?.location || "");
+        setEventStatus(activity.status ?? "planned");
+        setActivityTypeKey(activity.type ?? "");
+        setContactId(activity.contact_id ?? "");
+        setDealId(activity.deal_id ?? "");
+        setCustomerId(activity.customer_id ?? "");
       } else {
         setTitle("");
         setKind(defaultKind);
@@ -674,7 +857,15 @@ function ActivityDialog({
         setStartDate(undefined);
         setEndDate(undefined);
         setLocation("");
+        setEventStatus("planned");
+        setActivityTypeKey("");
+        setContactId("");
+        setDealId("");
+        setCustomerId("");
       }
+      setDealSearch("");
+      setContactSearch("");
+      setCustomerSearch("");
     }
   }, [open, activity, defaultKind]);
 
@@ -715,21 +906,18 @@ function ActivityDialog({
       kind,
       content,
       visibility,
+      status: kind === "event" ? eventStatus : kind === "task" ? status : undefined,
+      type_key: activityTypeKey.trim() || null,
+      contact_id: contactId || null,
+      customer_id: customerId || null,
+      deal_id: (contactId || customerId) && dealId ? dealId : null,
     });
   };
 
   const isEditing = !!activity;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit" : "Create"} {kindConfig[kind]?.label ?? defaultKindConfig.label}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? "Update the activity details below." : "Fill in the details for your new activity."}
-          </DialogDescription>
-        </DialogHeader>
-        
+  const formContent = (
+    <>
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -743,29 +931,46 @@ function ActivityDialog({
               />
             </div>
 
-            {!isEditing && (
+            <div className="space-y-2">
+              <Label>Activity type</Label>
+              <div className="flex gap-2 flex-wrap">
+                {(Object.keys(kindConfig) as ActivityKind[]).map((k) => {
+                  const cfg = kindConfig[k];
+                  const Icon = cfg.icon;
+                  return (
+                    <Button
+                      key={k}
+                      type="button"
+                      variant={kind === k ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setKind(k)}
+                      className="flex-1 min-w-[4rem]"
+                      data-testid={`button-kind-${k}`}
+                    >
+                      <Icon className="h-4 w-4 mr-1" />
+                      {cfg.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activityTypes.length > 0 && (
               <div className="space-y-2">
-                <Label>Type</Label>
-                <div className="flex gap-2">
-                  {(Object.keys(kindConfig) as ActivityKind[]).map((k) => {
-                    const cfg = kindConfig[k];
-                    const Icon = cfg.icon;
-                    return (
-                      <Button
-                        key={k}
-                        type="button"
-                        variant={kind === k ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setKind(k)}
-                        className="flex-1"
-                        data-testid={`button-kind-${k}`}
-                      >
-                        <Icon className="h-4 w-4 mr-1" />
-                        {cfg.label}
-                      </Button>
-                    );
-                  })}
-                </div>
+                <Label>Specific type (optional)</Label>
+                <Select value={activityTypeKey || "__none__"} onValueChange={(v) => setActivityTypeKey(v === "__none__" ? "" : v)}>
+                  <SelectTrigger data-testid="select-activity-type">
+                    <SelectValue placeholder="Default" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Default</SelectItem>
+                    {activityTypes.map((at) => (
+                      <SelectItem key={at.id} value={at.key}>
+                        {at.label || at.name || at.key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -788,6 +993,187 @@ function ActivityDialog({
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Related entities</Label>
+              <p className="text-xs text-muted-foreground">Link to a contact or account first; optionally add a deal.</p>
+              <div className="grid gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-normal text-muted-foreground">Contact</Label>
+                  <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                          {contactId ? (contacts.find((c) => c.id === contactId)?.name ?? contacts.find((c) => c.id === contactId)?.fullname ?? activity?.contact_name ?? contactId) : "Select contact..."}
+                          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="Search or type contact name…"
+                            value={contactSearch}
+                            onValueChange={setContactSearch}
+                          />
+                          <CommandList>
+                            {contactsQuery.isLoading && (
+                              <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Searching…
+                              </div>
+                            )}
+                            <CommandGroup>
+                              <CommandItem
+                                value="__none__"
+                                onSelect={() => { setContactId(""); setDealId(""); setContactPopoverOpen(false); setContactSearch(""); }}
+                              >
+                                <Check className={`mr-2 h-4 w-4 ${!contactId ? "opacity-100" : "opacity-0"}`} />
+                                <span className="text-muted-foreground">None</span>
+                              </CommandItem>
+                              {contactSearch.trim() && !contactsQuery.isLoading && (
+                                <CommandItem
+                                  value={`__create__${contactSearch.trim()}`}
+                                  onSelect={() => { const name = contactSearch.trim(); if (name) handleCreateEntity("contact", name); }}
+                                  disabled={isCreatingEntity === "contact"}
+                                  className="font-medium"
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  {isCreatingEntity === "contact" ? "Creating..." : `Create contact "${contactSearch.trim()}"`}
+                                </CommandItem>
+                              )}
+                            {contacts.map((c) => (
+                              <CommandItem key={c.id} value={c.id} onSelect={() => { setContactId(c.id); setContactPopoverOpen(false); setContactSearch(""); setDealId(""); }}>
+                                <Check className={`mr-2 h-4 w-4 ${contactId === c.id ? "opacity-100" : "opacity-0"}`} />
+                                {c.name ?? c.fullname ?? c.display_name ?? c.id}
+                              </CommandItem>
+                            ))}
+                            </CommandGroup>
+                            {!contactSearch.trim() && contacts.length === 0 && !contactsQuery.isLoading && (
+                              <CommandEmpty>Type to search or create</CommandEmpty>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-normal text-muted-foreground">Account</Label>
+                  <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                          {customerId ? (accounts.find((a) => a.id === customerId)?.name ?? accounts.find((a) => a.id === customerId)?.legal_name ?? activity?.customer_name ?? customerId) : "Select account..."}
+                          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="Search or type account name…"
+                            value={customerSearch}
+                            onValueChange={setCustomerSearch}
+                          />
+                          <CommandList>
+                            {customersQuery.isLoading && (
+                              <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Searching…
+                              </div>
+                            )}
+                            <CommandGroup>
+                              <CommandItem
+                                value="__none__"
+                                onSelect={() => { setCustomerId(""); setDealId(""); setCustomerPopoverOpen(false); setCustomerSearch(""); }}
+                              >
+                                <Check className={`mr-2 h-4 w-4 ${!customerId ? "opacity-100" : "opacity-0"}`} />
+                                <span className="text-muted-foreground">None</span>
+                              </CommandItem>
+                              {customerSearch.trim() && !customersQuery.isLoading && (
+                                <CommandItem
+                                  value={`__create__${customerSearch.trim()}`}
+                                  onSelect={() => { const name = customerSearch.trim(); if (name) handleCreateEntity("account", name); }}
+                                  disabled={isCreatingEntity === "account"}
+                                  className="font-medium"
+                                >
+                                  <Building2 className="mr-2 h-4 w-4" />
+                                  {isCreatingEntity === "account" ? "Creating..." : `Create account "${customerSearch.trim()}"`}
+                                </CommandItem>
+                              )}
+                            {accounts.map((a) => (
+                              <CommandItem key={a.id} value={a.id} onSelect={() => { setCustomerId(a.id); setCustomerPopoverOpen(false); setCustomerSearch(""); setDealId(""); }}>
+                                <Check className={`mr-2 h-4 w-4 ${customerId === a.id ? "opacity-100" : "opacity-0"}`} />
+                                {a.name ?? a.legal_name ?? a.id}
+                              </CommandItem>
+                            ))}
+                            </CommandGroup>
+                            {!customerSearch.trim() && accounts.length === 0 && !customersQuery.isLoading && (
+                              <CommandEmpty>Type to search or create</CommandEmpty>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                </div>
+
+                {(contactId || customerId) && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-normal text-muted-foreground">Deal (optional)</Label>
+                    <Popover open={dealPopoverOpen} onOpenChange={setDealPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                            {dealId ? (deals.find((d) => d.id === dealId)?.title ?? activity?.deal_title ?? dealId) : "Select deal (optional)..."}
+                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search or type deal name…"
+                              value={dealSearch}
+                              onValueChange={setDealSearch}
+                            />
+                            <CommandList>
+                              {dealsQuery.isLoading && (
+                                <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Searching…
+                                </div>
+                              )}
+                              <CommandGroup>
+                                <CommandItem
+                                  value="__none__"
+                                  onSelect={() => { setDealId(""); setDealPopoverOpen(false); setDealSearch(""); }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${!dealId ? "opacity-100" : "opacity-0"}`} />
+                                  <span className="text-muted-foreground">None</span>
+                                </CommandItem>
+                                {dealSearch.trim() && !dealsQuery.isLoading && (
+                                  <CommandItem
+                                    value={`__create__${dealSearch.trim()}`}
+                                    onSelect={() => { const name = dealSearch.trim(); if (name) handleCreateEntity("deal", name); }}
+                                    disabled={isCreatingEntity === "deal"}
+                                    className="font-medium"
+                                  >
+                                    <Briefcase className="mr-2 h-4 w-4" />
+                                    {isCreatingEntity === "deal" ? "Creating..." : `Create deal "${dealSearch.trim()}"`}
+                                  </CommandItem>
+                                )}
+                              {deals.map((d) => (
+                                <CommandItem key={d.id} value={d.id} onSelect={() => { setDealId(d.id); setDealPopoverOpen(false); setDealSearch(""); }}>
+                                  <Check className={`mr-2 h-4 w-4 ${dealId === d.id ? "opacity-100" : "opacity-0"}`} />
+                                  {d.title ?? d.id}
+                                </CommandItem>
+                              ))}
+                              </CommandGroup>
+                              {!dealSearch.trim() && deals.length === 0 && !dealsQuery.isLoading && (
+                                <CommandEmpty>Type to search or create</CommandEmpty>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                  </div>
+                )}
+              </div>
             </div>
 
             {kind === "task" && (
@@ -845,23 +1231,16 @@ function ActivityDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start" data-testid="button-due-date">
-                        <CalendarIcon className="h-4 w-4 mr-2" />
-                        {dueDate ? format(dueDate, "PPP") : "Select date..."}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dueDate}
-                        onSelect={setDueDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label>Due date & time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={toDatetimeLocalValue(dueDate?.toISOString())}
+                    onChange={(e) => {
+                      const v = fromDatetimeLocalValue(e.target.value);
+                      setDueDate(v ? new Date(v) : undefined);
+                    }}
+                    data-testid="input-due-datetime"
+                  />
                 </div>
               </>
             )}
@@ -915,45 +1294,54 @@ function ActivityDialog({
 
             {kind === "event" && (
               <>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={eventStatus} onValueChange={setEventStatus}>
+                    <SelectTrigger data-testid="select-event-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planned">
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${statusColors.planned}`} />
+                          {statusLabels.planned}
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="completed">
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${statusColors.completed}`} />
+                          {statusLabels.completed}
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Start</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start" data-testid="button-start-date">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {startDate ? format(startDate, "PPP") : "Start date..."}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={setStartDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label>Start date & time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={toDatetimeLocalValue(startDate?.toISOString())}
+                      onChange={(e) => {
+                        const v = fromDatetimeLocalValue(e.target.value);
+                        setStartDate(v ? new Date(v) : undefined);
+                      }}
+                      data-testid="input-start-datetime"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>End</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start" data-testid="button-end-date">
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {endDate ? format(endDate, "PPP") : "End date..."}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={endDate}
-                          onSelect={setEndDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Label>End date & time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={toDatetimeLocalValue(endDate?.toISOString())}
+                      onChange={(e) => {
+                        const v = fromDatetimeLocalValue(e.target.value);
+                        setEndDate(v ? new Date(v) : undefined);
+                      }}
+                      data-testid="input-end-datetime"
+                    />
                   </div>
                 </div>
 
@@ -973,7 +1361,7 @@ function ActivityDialog({
         </ScrollArea>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
+          <Button variant="outline" onClick={() => (variant === "inline" ? onCancel?.() : onOpenChange(false))} data-testid="button-cancel">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!title.trim() || isLoading} data-testid="button-save">
@@ -981,6 +1369,33 @@ function ActivityDialog({
             {isEditing ? "Update" : "Create"}
           </Button>
         </DialogFooter>
+    </>
+  );
+
+  if (variant === "inline") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">{isEditing ? "Edit" : "Create"} {kindConfig[kind]?.label ?? defaultKindConfig.label}</h3>
+          {onCancel && (
+            <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+          )}
+        </div>
+        {formContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit" : "Create"} {kindConfig[kind]?.label ?? defaultKindConfig.label}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? "Update the activity details below." : "Fill in the details for your new activity."}
+          </DialogDescription>
+        </DialogHeader>
+        {formContent}
       </DialogContent>
     </Dialog>
   );
@@ -1129,6 +1544,7 @@ export default function Activities() {
       setDialogOpen(false);
       setEditingActivity(null);
       queryClient.invalidateQueries({ queryKey: ["activities"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to update activity", description: error.message, variant: "destructive" });
@@ -1143,6 +1559,7 @@ export default function Activities() {
       toast({ title: "Activity deleted successfully" });
       setDeleteConfirmId(null);
       queryClient.invalidateQueries({ queryKey: ["activities"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete activity", description: error.message, variant: "destructive" });
@@ -1582,7 +1999,26 @@ export default function Activities() {
     <div className="space-y-4" data-testid="page-activities">
       <div className="mt-1">
         <div className="space-y-3">
-          <GlobalTimeline pageSize={20} view={timelineView} onEditActivity={handleEdit} />
+          <GlobalTimeline
+            pageSize={20}
+            view={timelineView}
+            onEditActivity={handleEdit}
+            renderActivityEditForm={({ activity, onSaved, onCancel }) => (
+              <ActivityDialog
+                variant="inline"
+                open={true}
+                onOpenChange={() => {}}
+                activity={activity as Activity}
+                defaultKind="task"
+                onSave={async (data) => {
+                  await updateMutation.mutateAsync({ id: activity.id, data });
+                  onSaved();
+                }}
+                onCancel={onCancel}
+                isLoading={updateMutation.isPending}
+              />
+            )}
+          />
         </div>
       </div>
 

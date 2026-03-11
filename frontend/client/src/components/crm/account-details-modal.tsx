@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Zap,
   Phone,
@@ -11,14 +11,28 @@ import {
   Briefcase,
   ExternalLink,
   Users,
+  Trash2,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/empty-state";
-import { fetchJson } from "@/lib/queryClient";
+import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { isTenantAdminRole } from "@/lib/rbac";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { timelineApi } from "@/lib/timeline/timelineApi";
 import type { TimelineItem } from "@/lib/timeline/types";
 import { TimelineItemCard, ActivityDetailSheet, type ActivityDetailData } from "@/components/timeline/TimelineItemCard";
@@ -41,6 +55,7 @@ export interface AccountDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string | null;
+  onDeleted?: () => void;
 }
 
 interface DealLite {
@@ -150,9 +165,29 @@ function TimelineNode({ timestamp, children }: { timestamp: string; children: Re
   );
 }
 
-export function AccountDetailsModal({ open, onOpenChange, accountId }: AccountDetailsModalProps) {
+export function AccountDetailsModal({ open, onOpenChange, accountId, onDeleted }: AccountDetailsModalProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
   const [activityDetailOpen, setActivityDetailOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const canDelete = isTenantAdminRole(user?.role);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", apiV1(`/crm/customers/${id}/`));
+    },
+    onSuccess: () => {
+      toast({ title: "Account deleted", description: "The account has been deleted successfully." });
+      onOpenChange(false);
+      onDeleted?.();
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete account", description: error.message, variant: "destructive" });
+    },
+  });
 
   const handleActivityClick = (item: TimelineItem) => {
     if (item.type === "activity") {
@@ -237,6 +272,18 @@ export function AccountDetailsModal({ open, onOpenChange, accountId }: AccountDe
                     <h2 className="text-lg font-semibold leading-tight">{account.name}</h2>
                     {account.type && (
                       <Badge variant="secondary" className="mt-1 capitalize">{account.type}</Badge>
+                    )}
+                    {canDelete && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="mt-3 w-full"
+                        onClick={() => setDeleteConfirmOpen(true)}
+                        data-testid="button-delete-account"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Delete account
+                      </Button>
                     )}
                   </div>
 
@@ -368,6 +415,27 @@ export function AccountDetailsModal({ open, onOpenChange, accountId }: AccountDe
         onOpenChange={setActivityDetailOpen}
         activity={selectedActivity?.type === "activity" ? (selectedActivity as ActivityDetailData) : null}
       />
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent data-testid="dialog-delete-account-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {account?.name}? This will remove the account and related records (contacts link, addresses). Deals linked to this account will be unlinked. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-account">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => accountId && deleteMutation.mutate(accountId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-account"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

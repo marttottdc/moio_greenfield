@@ -62,12 +62,20 @@ export const captureApi = {
   /** Apply the classified entry synchronously; creates activity and returns applied_refs. */
   applySync: async (
     entryId: string,
-    options?: { confirmed_activities?: ConfirmedActivityItem[] }
+    options?: {
+      confirmed_activities?: ConfirmedActivityItem[];
+      deal_id?: string | null;
+      contact_id?: string | null;
+      customer_id?: string | null;
+    }
   ): Promise<ApplySyncResponse> => {
+    const data: Record<string, unknown> = {};
+    if (options?.confirmed_activities) data.confirmed_activities = options.confirmed_activities;
+    if (options?.deal_id) data.deal_id = options.deal_id;
+    if (options?.contact_id) data.contact_id = options.contact_id;
+    if (options?.customer_id) data.customer_id = options.customer_id;
     const res = await apiRequest("POST", apiV1(`/capture/entries/${entryId}/apply-sync/`), {
-      data: options?.confirmed_activities
-        ? { confirmed_activities: options.confirmed_activities }
-        : undefined,
+      data: Object.keys(data).length ? data : undefined,
     });
     return res.json();
   },

@@ -54,6 +54,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -650,7 +651,56 @@ export default function CRM() {
     }
   };
 
-  const hideSubmenuOnMobile = isMobile && activeTab === "contacts";
+  const isContactsOrAccounts = activeTab === "contacts" || activeTab === "accounts";
+  const hideSubmenuOnMobile = isMobile && isContactsOrAccounts;
+
+  const contactsTitle = activeTab === "accounts" ? t("crm.accounts") : t("crm.contacts");
+  const contactsSubtitle = activeTab === "accounts" ? t("crm.accounts_description") : t("crm.contacts_description");
+
+  const contactsAccountsContent = (
+    <div className="flex flex-col gap-4">
+      {/* Header: title + subtitle (dynamic per tab) */}
+      <div className="text-center md:text-left">
+        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">{contactsTitle}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{contactsSubtitle}</p>
+      </div>
+
+      {/* Tabs: Contacts | Accounts */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as CRMTabType)} className="w-full">
+        <TabsList className="w-full md:w-auto grid grid-cols-2">
+          <TabsTrigger value="contacts" className="gap-1.5" data-testid="tab-contacts">
+            <Users className="h-4 w-4" />
+            {t("crm.contacts")}
+          </TabsTrigger>
+          <TabsTrigger value="accounts" className="gap-1.5" data-testid="tab-accounts">
+            <Building2 className="h-4 w-4" />
+            {t("crm.accounts")}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Centered search bar */}
+        <div className="flex justify-center mt-4">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={activeTab === "accounts" ? t("crm.search_accounts") : t("crm.search_contacts")}
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="input-crm-search"
+            />
+          </div>
+        </div>
+
+        <TabsContent value="contacts" className="mt-4 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <ContactsTab searchQuery={searchQuery} openContactId={openContactId} setOpenContactId={setOpenContactId} />
+        </TabsContent>
+        <TabsContent value="accounts" className="mt-4 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <AccountsTab searchQuery={searchQuery} openAccountId={openAccountId} setOpenAccountId={setOpenAccountId} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 
   return (
     <div className="flex h-full">
@@ -686,27 +736,40 @@ export default function CRM() {
       )}
 
       <div className="flex-1 flex flex-col bg-muted/20 overflow-hidden min-w-0">
-        <div className={`flex items-center justify-between gap-4 pl-2 pr-4 py-3 border-b border-border ${hideSubmenuOnMobile ? "flex-row gap-2" : ""}`}>
-          {!hideSubmenuOnMobile ? <Breadcrumbs items={breadcrumbs} /> : <span className="text-sm font-medium truncate">{t("crm.contacts")}</span>}
-          <div className={`relative flex-1 min-w-0 ${hideSubmenuOnMobile ? "max-w-full" : "w-72"}`}>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder={renderSearchPlaceholder()}
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              data-testid="input-crm-search"
-            />
-          </div>
-        </div>
-        
-        <div className={cn(
-          "flex-1 overflow-y-auto py-4",
-          hideSubmenuOnMobile ? "px-4" : "pl-2 pr-4",
-          "pb-24 md:pb-4"
-        )}>
-          {renderContent()}
-        </div>
+        {isContactsOrAccounts ? (
+          <>
+            <div className={cn(
+              "flex-1 overflow-y-auto p-4 md:p-6",
+              "pb-24 md:pb-6"
+            )}>
+              {contactsAccountsContent}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`flex items-center justify-between gap-4 pl-2 pr-4 py-3 border-b border-border ${hideSubmenuOnMobile ? "flex-row gap-2" : ""}`}>
+              <Breadcrumbs items={breadcrumbs} />
+              <div className={`relative flex-1 min-w-0 max-w-72`}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder={renderSearchPlaceholder()}
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-crm-search"
+                />
+              </div>
+            </div>
+            
+            <div className={cn(
+              "flex-1 overflow-y-auto py-4",
+              "pl-2 pr-4",
+              "pb-24 md:pb-4"
+            )}>
+              {renderContent()}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -982,7 +1045,7 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
           <Select
             value={accountIdFilter ?? "all"}
             onValueChange={(v) => {
@@ -990,7 +1053,7 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
               setAccountIdFilter(id);
             }}
           >
-            <SelectTrigger className="w-[200px] h-8" data-testid="select-account-filter">
+            <SelectTrigger className="w-full min-w-0 sm:w-[200px] h-8" data-testid="select-account-filter">
               <SelectValue placeholder="All accounts" />
             </SelectTrigger>
             <SelectContent>
@@ -1029,79 +1092,81 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
             {contacts.map((contact: any) => (
               <div
                 key={contact.id}
-                className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate cursor-pointer w-full min-w-0"
+                className="flex items-start gap-3 p-4 rounded-lg border bg-card hover-elevate cursor-pointer w-full min-w-0"
                 onClick={() => handleContactClick(contact)}
                 data-testid={`card-contact-${contact.id}`}
               >
-                <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold mt-0.5">
                   {contact.name?.charAt(0).toUpperCase() || "?"}
                 </div>
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="font-medium truncate" title={contact.name}>{contact.name}</p>
-                  <p className="text-sm text-muted-foreground truncate min-h-[1.25rem]" title={contact.account_name || undefined}>
-                    {contact.account_name || ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  {contact.email ? (
-                    <a
-                      href={`mailto:${contact.email}`}
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-                      aria-label="Email"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </a>
-                  ) : (
-                    <span
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
-                      aria-label="Email unavailable"
-                      title="No email"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </span>
-                  )}
-                  {contact.phone ? (
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-                      aria-label="Call"
-                    >
-                      <Phone className="h-4 w-4" />
-                    </a>
-                  ) : (
-                    <span
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
-                      aria-label="Phone unavailable"
-                      title="No phone"
-                    >
-                      <Phone className="h-4 w-4" />
-                    </span>
-                  )}
-                  {contact.phone ? (
-                    <a
-                      href={`https://wa.me/${(contact.phone || "").replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-                      aria-label="WhatsApp"
-                    >
-                      <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
-                    </a>
-                  ) : (
-                    <span
-                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-[#25D366]/40 cursor-not-allowed pointer-events-none"
-                      aria-label="WhatsApp unavailable"
-                      title="No phone for WhatsApp"
-                    >
-                      <SiWhatsapp className="h-4 w-4" />
-                    </span>
-                  )}
+                  <p className="font-medium line-clamp-2" title={contact.name}>{contact.name}</p>
+                  <div className="flex items-center justify-between gap-2 mt-1 min-h-[2rem]">
+                    <p className="text-sm text-muted-foreground truncate flex-1 min-w-0" title={contact.account_name || undefined}>
+                      {contact.account_name || "\u00A0"}
+                    </p>
+                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {contact.email ? (
+                        <a
+                          href={`mailto:${contact.email}`}
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                          aria-label="Email"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <span
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
+                          aria-label="Email unavailable"
+                          title="No email"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </span>
+                      )}
+                      {contact.phone ? (
+                        <a
+                          href={`tel:${contact.phone}`}
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                          aria-label="Call"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <span
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
+                          aria-label="Phone unavailable"
+                          title="No phone"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </span>
+                      )}
+                      {contact.phone ? (
+                        <a
+                          href={`https://wa.me/${(contact.phone || "").replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                          aria-label="WhatsApp"
+                        >
+                          <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                        </a>
+                      ) : (
+                        <span
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md text-[#25D366]/40 cursor-not-allowed pointer-events-none"
+                          aria-label="WhatsApp unavailable"
+                          title="No phone for WhatsApp"
+                        >
+                          <SiWhatsapp className="h-4 w-4" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 {contact.company && (
-                  <p className="text-sm text-muted-foreground hidden md:block shrink-0">{contact.company}</p>
+                  <p className="text-sm text-muted-foreground hidden md:block shrink-0 mt-0.5">{contact.company}</p>
                 )}
                 {contact.type && (
-                  <Badge variant="secondary" className="shrink-0">{contact.type}</Badge>
+                  <Badge variant="secondary" className="shrink-0 mt-0.5">{contact.type}</Badge>
                 )}
               </div>
             ))}
@@ -1111,14 +1176,14 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
       </div>
 
       {(totalItems > 0 || totalPages > 1) && (
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-sm text-muted-foreground" data-testid="text-contacts-count">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2">
+          <p className="text-sm text-muted-foreground text-center sm:text-left" data-testid="text-contacts-count">
             {totalItems === 0
               ? "No contacts"
               : `Showing ${startItem}-${endItem} of ${totalItems} contact${totalItems !== 1 ? "s" : ""}`}
           </p>
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <p className="text-sm text-muted-foreground hidden sm:block">
                 Page {currentPage} of {totalPages}
               </p>
@@ -1169,9 +1234,22 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
   openAccountId?: string | null;
   setOpenAccountId: (id: string | null) => void;
 }) {
+  const isMobile = useIsMobile();
+  const { setAction } = useAppBarAction();
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const openCreate = useCallback(() => {
+    setIsEditorOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setAction({ onClick: openCreate, label: "Add account" });
+      return () => setAction(null);
+    }
+  }, [isMobile, setAction, openCreate]);
 
   useEffect(() => {
     setPage(1);
@@ -1214,80 +1292,91 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
             ? "No accounts"
             : `Showing ${startItem}-${endItem} of ${totalItems} account${totalItems !== 1 ? "s" : ""}`}
         </p>
-        <Button data-testid="button-add-account" onClick={() => setIsEditorOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Account
-        </Button>
+        {!isMobile && (
+          <Button data-testid="button-add-account" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Account
+          </Button>
+        )}
       </div>
 
-      <GlassPanel className="p-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : isError ? (
-          <ErrorDisplay error={error as Error} endpoint="api/v1/crm/customers" />
-        ) : customers.length === 0 ? (
-          <EmptyState
-            title="No accounts found"
-            description={searchQuery ? "Try adjusting your search." : "Add your first account (customer) to get started."}
-          />
-        ) : (
-          <div className="space-y-2">
-            {customers.map((account: CRMAccount) => (
-              <div
-                key={account.id}
-                className="flex items-center gap-4 p-3 rounded-lg border bg-card hover-elevate cursor-pointer"
-                onClick={() => handleAccountClick(account)}
-                data-testid={`card-account-${account.id}`}
-              >
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
+      <div className={isMobile ? "-mx-4" : ""}>
+        <GlassPanel className={cn("w-full min-w-0 overflow-hidden", isMobile ? "py-4 px-0 rounded-none" : "p-4")}>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : isError ? (
+            <ErrorDisplay error={error as Error} endpoint="api/v1/crm/customers" />
+          ) : customers.length === 0 ? (
+            <EmptyState
+              title="No accounts found"
+              description={searchQuery ? "Try adjusting your search." : "Add your first account (customer) to get started."}
+            />
+          ) : (
+            <div className="space-y-2 w-full min-w-0">
+              {customers.map((account: CRMAccount) => (
+                <div
+                  key={account.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate cursor-pointer w-full min-w-0"
+                  onClick={() => handleAccountClick(account)}
+                  data-testid={`card-account-${account.id}`}
+                >
+                  <div className="h-10 w-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="font-medium truncate" title={account.name}>{account.name}</p>
+                    <p className="text-sm text-muted-foreground truncate min-h-[1.25rem]" title={account.email || account.phone || undefined}>
+                      {account.email || account.phone || (account.legal_name && account.legal_name !== account.name ? account.legal_name : "No contact info")}
+                    </p>
+                  </div>
+                  {account.type && (
+                    <Badge variant="secondary" className="shrink-0 capitalize">{account.type}</Badge>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{account.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {account.email || account.phone || (account.legal_name && account.legal_name !== account.name ? account.legal_name : "No contact info")}
-                  </p>
-                </div>
-                {account.type && (
-                  <Badge variant="secondary" className="capitalize">{account.type}</Badge>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </GlassPanel>
+              ))}
+            </div>
+          )}
+        </GlassPanel>
+      </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+      {(totalItems > 0 || totalPages > 1) && (
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2">
+          <p className="text-sm text-muted-foreground text-center sm:text-left">
+            {totalItems === 0
+              ? "No accounts"
+              : `Showing ${startItem}-${endItem} of ${totalItems} account${totalItems !== 1 ? "s" : ""}`}
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1 || isLoading}
-              data-testid="button-accounts-prev"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages || isLoading}
-              data-testid="button-accounts-next"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Page {currentPage} of {totalPages}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1 || isLoading}
+                data-testid="button-accounts-prev"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages || isLoading}
+                data-testid="button-accounts-next"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1295,6 +1384,10 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
         open={Boolean(openAccountId)}
         onOpenChange={(open) => !open && setOpenAccountId(null)}
         accountId={openAccountId ?? null}
+        onDeleted={() => {
+          setOpenAccountId(null);
+          queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
+        }}
       />
       <AccountEditorModal
         open={isEditorOpen}

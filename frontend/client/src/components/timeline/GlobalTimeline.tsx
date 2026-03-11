@@ -272,6 +272,7 @@ export function GlobalTimeline(props: {
   pageSize?: number;
   view?: "cards" | "table" | "calendar";
   onEditActivity?: (activity: any) => void;
+  renderActivityEditForm?: (props: { activity: ActivityDetailData; onSaved: () => void; onCancel: () => void }) => React.ReactNode;
 }) {
   const pageSize = props.pageSize ?? 20;
   const view = props.view ?? "cards";
@@ -421,6 +422,11 @@ export function GlobalTimeline(props: {
           open={activityDetailOpen}
           onOpenChange={setActivityDetailOpen}
           activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+          onEdit={(a) => {
+            setActivityDetailOpen(false);
+            props.onEditActivity?.(a);
+          }}
+          renderActivityEditForm={props.renderActivityEditForm}
         />
       </>
     );
@@ -513,6 +519,11 @@ export function GlobalTimeline(props: {
           open={activityDetailOpen}
           onOpenChange={setActivityDetailOpen}
           activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+          onEdit={(a) => {
+            setActivityDetailOpen(false);
+            props.onEditActivity?.(a);
+          }}
+          renderActivityEditForm={props.renderActivityEditForm}
         />
       </div>
     );
@@ -527,6 +538,11 @@ export function GlobalTimeline(props: {
         open={activityDetailOpen}
         onOpenChange={setActivityDetailOpen}
         activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+        onEdit={(a) => {
+          setActivityDetailOpen(false);
+          props.onEditActivity?.(a);
+        }}
+        renderActivityEditForm={props.renderActivityEditForm}
       />
       <div className="flex items-center justify-center pt-2">
         <Button variant="outline" onClick={handleLoadMore} disabled={!canLoadMore || query.isFetching}>

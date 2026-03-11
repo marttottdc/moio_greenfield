@@ -80,6 +80,21 @@ def _assign_activity_anchor_kwargs(anchor_model: str, anchor_id: str) -> dict:
     return {}
 
 
+def _activity_anchor_kwargs_with_overrides(
+    *,
+    entry,
+    contact_id_override: str | None = None,
+    customer_id_override: str | None = None,
+) -> dict:
+    """Merge anchor kwargs with optional contact/customer overrides for dual linking."""
+    base = _assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id)
+    if contact_id_override:
+        base["contact_id"] = contact_id_override
+    if customer_id_override:
+        base["customer_id"] = customer_id_override
+    return base
+
+
 def _user_timezone(user) -> str:
     prefs = getattr(user, "preferences", None)
     if isinstance(prefs, dict):
@@ -319,17 +334,57 @@ def _default_event_datetime(*, user_tz: str) -> Tuple[datetime, datetime]:
     return now, now
 
 
+def _ensure_default_pipeline(tenant):
+    """Ensure tenant has a default pipeline (and stages). Creates one if none exists."""
+    from crm.models import Pipeline, PipelineStage
+
+    pipeline = Pipeline.objects.filter(tenant=tenant, is_default=True).first()
+    if pipeline:
+        return pipeline
+    # Use any existing pipeline and set it as default if none is default
+    pipeline = Pipeline.objects.filter(tenant=tenant).first()
+    if pipeline:
+        pipeline.is_default = True
+        pipeline.save(update_fields=["is_default"])
+        return pipeline
+    # Create default pipeline with stages
+    pipeline = Pipeline.objects.create(
+        tenant=tenant,
+        name="Sales Pipeline",
+        description="Default sales pipeline",
+        is_default=True,
+    )
+    default_stages = [
+        {"name": "Qualification", "order": 1, "probability": 10, "color": "#94a3b8"},
+        {"name": "Proposal", "order": 2, "probability": 30, "color": "#60a5fa"},
+        {"name": "Negotiation", "order": 3, "probability": 60, "color": "#fbbf24"},
+        {"name": "Won", "order": 4, "probability": 100, "is_won_stage": True, "color": "#22c55e"},
+        {"name": "Lost", "order": 5, "probability": 0, "is_lost_stage": True, "color": "#ef4444"},
+    ]
+    for stage_data in default_stages:
+        PipelineStage.objects.create(tenant=tenant, pipeline=pipeline, **stage_data)
+    return pipeline
+
+
 def _apply_confirmed_activities(
     *,
     confirmed: list[dict[str, Any]],
     entry: ActivityCaptureEntry,
     actor,
     user_tz: str,
+    deal_id_override: str | None = None,
+    contact_id_override: str | None = None,
+    customer_id_override: str | None = None,
 ) -> dict[str, list[str]]:
     """Create ActivityRecords and Deals from user-confirmed list (task, event, deal)."""
     from crm.services.activity_service import activity_manager
     from crm.models import Deal, Pipeline, PipelineStage
 
+    anchor_kwargs = _activity_anchor_kwargs_with_overrides(
+        entry=entry,
+        contact_id_override=contact_id_override,
+        customer_id_override=customer_id_override,
+    )
     activity_ids: list[str] = []
     deal_ids: list[str] = []
     for item in confirmed:
@@ -362,8 +417,10 @@ def _apply_confirmed_activities(
                 "visibility": entry.visibility,
                 "status": "planned",
                 "scheduled_at": when,
-                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
+                **anchor_kwargs,
             }
+            if deal_id_override:
+                payload["deal_id"] = deal_id_override
             if owner_user:
                 payload["owner_id"] = str(owner_user.id)
             activity = activity_manager.create_activity(
@@ -399,8 +456,10 @@ def _apply_confirmed_activities(
                 "status": status,
                 "scheduled_at": start_at,
                 "duration_minutes": duration_minutes,
-                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
+                **anchor_kwargs,
             }
+            if deal_id_override:
+                payload["deal_id"] = deal_id_override
             # Eventos: el autor (actor) es el responsable; no se asigna owner_id distinto
             activity = activity_manager.create_activity(
                 payload,
@@ -409,10 +468,11 @@ def _apply_confirmed_activities(
                 activity_type=None,
             )
         elif kind == "deal":
-            contact_id = None
-            if entry.anchor_model == CaptureAnchorModel.CONTACT:
-                contact_id = entry.anchor_id
+            contact_id = anchor_kwargs.get("contact_id")
+            customer_id = anchor_kwargs.get("customer_id")
             pipeline = Pipeline.objects.filter(tenant=entry.tenant, is_default=True).first()
+            if pipeline is None:
+                pipeline = _ensure_default_pipeline(entry.tenant)
             stage = None
             if pipeline:
                 stage = PipelineStage.objects.filter(pipeline=pipeline).order_by("order").first()
@@ -429,6 +489,7 @@ def _apply_confirmed_activities(
                 title=title,
                 description=description or "",
                 contact_id=contact_id,
+                customer_id=customer_id,
                 pipeline=pipeline,
                 stage=stage,
                 value=value,
@@ -449,12 +510,46 @@ def _apply_confirmed_activities(
     return {"activity_record_ids": activity_ids, "deal_ids": deal_ids}
 
 
-def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> dict[str, Any]:
+def apply_capture_entry_to_activities(
+    *,
+    entry: ActivityCaptureEntry,
+    actor,
+    deal_id_override: str | None = None,
+    contact_id_override: str | None = None,
+    customer_id_override: str | None = None,
+) -> dict[str, Any]:
     """
     Create canonical ActivityRecord rows from entry.final/classification.
     Returns dict with applied refs.
+    When both contact and customer are provided (anchor + override), ensures CustomerContact link exists.
     """
     from crm.services.activity_service import activity_manager
+    from crm.models import CustomerContact, Contact, Customer
+
+    # Resolve final contact_id and customer_id (anchor + overrides)
+    anchor_kwargs = _activity_anchor_kwargs_with_overrides(
+        entry=entry,
+        contact_id_override=contact_id_override,
+        customer_id_override=customer_id_override,
+    )
+    contact_id = anchor_kwargs.get("contact_id")
+    customer_id = anchor_kwargs.get("customer_id")
+
+    # Link contact to account (CustomerContact) when both are provided
+    if contact_id and customer_id:
+        try:
+            contact = Contact.objects.filter(tenant=entry.tenant).filter(
+                Q(pk=contact_id) | Q(user_id=contact_id)
+            ).first()
+            if contact and Customer.objects.filter(tenant=entry.tenant, id=customer_id).exists():
+                CustomerContact.objects.get_or_create(
+                    tenant=entry.tenant,
+                    contact=contact,
+                    customer_id=customer_id,
+                    defaults={"role": ""},
+                )
+        except Exception:
+            pass  # Don't fail apply if linking fails
 
     classification = entry.final or entry.classification or {}
     if not isinstance(classification, dict):
@@ -466,7 +561,13 @@ def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> 
     confirmed = classification.get("confirmed_activities")
     if isinstance(confirmed, list) and confirmed:
         result = _apply_confirmed_activities(
-            confirmed=confirmed, entry=entry, actor=actor, user_tz=user_tz
+            confirmed=confirmed,
+            entry=entry,
+            actor=actor,
+            user_tz=user_tz,
+            deal_id_override=deal_id_override,
+            contact_id_override=contact_id_override,
+            customer_id_override=customer_id_override,
         )
         if result["activity_record_ids"] or result["deal_ids"]:
             return {"activity_record_ids": result["activity_record_ids"], "deal_ids": result["deal_ids"]}
@@ -483,27 +584,42 @@ def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> 
         ]
         if to_apply:
             result = _apply_confirmed_activities(
-                confirmed=to_apply, entry=entry, actor=actor, user_tz=user_tz
+                confirmed=to_apply,
+                entry=entry,
+                actor=actor,
+                user_tz=user_tz,
+                deal_id_override=deal_id_override,
+                contact_id_override=contact_id_override,
+                customer_id_override=customer_id_override,
             )
             if result["activity_record_ids"] or result["deal_ids"]:
                 return {"activity_record_ids": result["activity_record_ids"], "deal_ids": result["deal_ids"]}
 
     # Default fallback: single past event (e.g. note-only)
+    fallback_anchor = _activity_anchor_kwargs_with_overrides(
+        entry=entry,
+        contact_id_override=contact_id_override,
+        customer_id_override=customer_id_override,
+    )
+
     def _create_past_event(title: str, body: str = ""):
         start_at, end_at = _default_event_datetime(user_tz=user_tz)
         duration_minutes = max(0, int((end_at - start_at).total_seconds() // 60))
+        payload = {
+            "kind": "event",
+            "title": title or "Event",
+            "content": {"start": start_at, "end": end_at, "location": None, "participants": []},
+            "source": "system",
+            "visibility": entry.visibility,
+            "status": "completed",
+            "scheduled_at": start_at,
+            "duration_minutes": duration_minutes,
+            **fallback_anchor,
+        }
+        if deal_id_override:
+            payload["deal_id"] = deal_id_override
         activity = activity_manager.create_activity(
-            {
-                "kind": "event",
-                "title": title or "Event",
-                "content": {"start": start_at, "end": end_at, "location": None, "participants": []},
-                "source": "system",
-                "visibility": entry.visibility,
-                "status": "completed",
-                "scheduled_at": start_at,
-                "duration_minutes": duration_minutes,
-                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
-            },
+            payload,
             tenant=entry.tenant,
             user=actor,
             activity_type=None,

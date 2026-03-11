@@ -17,6 +17,7 @@ from crm.models import Contact, Customer
 
 from crm.api.contacts.serializers import ContactCreateSerializer
 from crm.api.mixins import ContactAPIMixin, ProtectedAPIView, _UNSET, _error
+from tenancy.rbac import user_has_role
 from crm.services.contact_service import ContactService
 from crm.services.contact import sync_whatsapp_blocklist, normalize_phone_e164
 from moio_platform.core.events import emit_event
@@ -367,7 +368,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
     @extend_schema(
         summary="Delete contact",
-        description="Permanently delete a contact.",
+        description="Permanently delete a contact. Requires tenant_admin role. Cascades to related records.",
         tags=[Tags.CRM_CONTACTS],
         responses={
             200: OpenApiResponse(description="Contact deleted successfully"),
@@ -375,6 +376,11 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
         },
     )
     def delete(self, request, contact_id):
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return _error("unauthenticated", "Authentication required", status.HTTP_401_UNAUTHORIZED)
+        if not (getattr(user, "is_superuser", False) or user_has_role(user, "tenant_admin")):
+            return _error("permission_denied", "Only tenant admins can delete contacts", status.HTTP_403_FORBIDDEN)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)

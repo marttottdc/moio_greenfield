@@ -219,7 +219,8 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-moio-client-version',  # Important: Allow the custom header
+    'x-moio-client-version',
+    'x-moio-tenant',  # Required for multi-tenant POST requests
 ]
 
 CSRF_TRUSTED_ORIGINS = [

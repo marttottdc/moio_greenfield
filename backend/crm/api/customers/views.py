@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from crm.models import Customer, Address
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
+from tenancy.rbac import user_has_role
 
 try:
     from django.contrib.postgres.search import TrigramSimilarity, TrigramWordSimilarity
@@ -256,6 +257,11 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
         return Response(self._serialize_customer(customer))
 
     def delete(self, request, customer_id):
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return _error("unauthenticated", "Authentication required", status.HTTP_401_UNAUTHORIZED)
+        if not (getattr(user, "is_superuser", False) or user_has_role(user, "tenant_admin")):
+            return _error("permission_denied", "Only tenant admins can delete accounts", status.HTTP_403_FORBIDDEN)
         customer = self._get_customer(request, customer_id)
         if not customer:
             return _error("customer_not_found", "Customer not found", status.HTTP_404_NOT_FOUND)
