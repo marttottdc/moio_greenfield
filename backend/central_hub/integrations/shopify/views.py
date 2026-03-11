@@ -250,6 +250,10 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
             # Public app URL (tunnel / production URL)
             "app_url": (portal_config.my_url or "") if portal_config else "",
             # Derived URLs shown to the user for Shopify app partner setup
+            "install_url": (
+                f"{(portal_config.my_url or '').rstrip('/')}/api/v1/integrations/shopify/oauth/install/"
+                if portal_config else ""
+            ),
             "oauth_callback_url": _build_redirect_uri(portal_config) if portal_config else "",
             "webhook_base_url": (
                 f"{(portal_config.my_url or '').rstrip('/')}/api/v1/integrations/shopify/webhook/"

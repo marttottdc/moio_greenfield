@@ -27,6 +27,7 @@ interface ShopifyEmbedConfig {
   enabled: boolean;
   // Platform / tunnel
   app_url: string;
+  install_url: string;
   oauth_callback_url: string;
   webhook_base_url: string;
   // Connection
@@ -606,6 +607,7 @@ export default function ShopifyEmbedPage() {
                   URLs to register in the Shopify Partner Dashboard
                 </p>
                 {[
+                  { label: "App URL", value: config.install_url },
                   { label: "OAuth callback URL", value: config.oauth_callback_url },
                   { label: "Webhook base URL", value: config.webhook_base_url },
                 ].map(({ label, value }) => (
