@@ -234,19 +234,36 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
         ).first()
 
         portal_config = _get_portal_config()
+        cfg = config_obj.config if config_obj else {}
+
+        def _mask(val: str) -> str:
+            """Return masked placeholder when a sensitive field is set."""
+            if not val:
+                return ""
+            return "••••••••"
 
         data = {
             "shopify_client_id": (portal_config.shopify_client_id or "") if portal_config else "",
             "instance_id": instance_id,
             "configured": config_obj is not None,
             "enabled": config_obj.enabled if config_obj else False,
-            "store_url": (config_obj.config.get("store_url") or "") if config_obj else "",
-            "api_version": (config_obj.config.get("api_version") or "2024-01") if config_obj else "2024-01",
-            "direction": (config_obj.config.get("direction") or "receive") if config_obj else "receive",
-            "receive_products": bool(config_obj.config.get("receive_products", True)) if config_obj else True,
-            "receive_customers": bool(config_obj.config.get("receive_customers", True)) if config_obj else True,
-            "receive_orders": bool(config_obj.config.get("receive_orders", True)) if config_obj else True,
-            "receive_inventory": bool(config_obj.config.get("receive_inventory", True)) if config_obj else True,
+            # Connection
+            "store_url": cfg.get("store_url") or "",
+            "access_token": _mask(cfg.get("access_token") or ""),
+            "access_token_set": bool(cfg.get("access_token")),
+            "api_version": cfg.get("api_version") or "2024-01",
+            "webhook_secret": _mask(cfg.get("webhook_secret") or ""),
+            "webhook_secret_set": bool(cfg.get("webhook_secret")),
+            # Direction
+            "direction": cfg.get("direction") or "receive",
+            # Receive toggles
+            "receive_products": bool(cfg.get("receive_products", True)),
+            "receive_customers": bool(cfg.get("receive_customers", True)),
+            "receive_orders": bool(cfg.get("receive_orders", True)),
+            "receive_inventory": bool(cfg.get("receive_inventory", True)),
+            # Send toggles (future)
+            "send_inventory_updates": bool(cfg.get("send_inventory_updates", False)),
+            "send_order_updates": bool(cfg.get("send_order_updates", False)),
             # Sync metadata
             "last_sync_metadata": (config_obj.metadata or {}) if config_obj else {},
         }
