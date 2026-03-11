@@ -22,6 +22,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -533,7 +535,7 @@ function IntegrationConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div
@@ -587,7 +589,7 @@ function IntegrationConfigModal({
             </TabsList>
           ) : null}
 
-          <TabsContent value="config" className="space-y-4 mt-4">
+          <TabsContent value="config" className="space-y-4 mt-4 overflow-y-auto max-h-[65vh] pr-1">
             {isLoadingSchema ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
@@ -610,7 +612,35 @@ function IntegrationConfigModal({
                 const isSavedSensitive = field.sensitive && detailData?.is_configured;
                 
                 return (
-                  <div key={`${fieldName}-${index}`} className="space-y-2">
+                  <div key={`${fieldName}-${index}`} className={fieldType === "boolean" ? "py-1" : "space-y-2"}>
+                    {fieldType === "boolean" ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <Label htmlFor={fieldName} className="text-sm font-medium shrink-0">
+                            {fieldLabel}
+                            {field.required && <span className="text-destructive ml-1">*</span>}
+                          </Label>
+                          {field.description && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                {field.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <Switch
+                          id={fieldName}
+                          checked={configValues[fieldName] === true}
+                          onCheckedChange={(checked) => updateValue(fieldName, checked)}
+                          data-testid={`switch-${fieldName}`}
+                          className="shrink-0"
+                        />
+                      </div>
+                    ) : (
+                    <>
                     <div className="flex items-center justify-between">
                       <Label htmlFor={fieldName}>
                         {fieldLabel}
@@ -633,19 +663,7 @@ function IntegrationConfigModal({
                         </Button>
                       )}
                     </div>
-                    {fieldType === "boolean" ? (
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id={fieldName}
-                          checked={configValues[fieldName] === true}
-                          onCheckedChange={(checked) => updateValue(fieldName, checked)}
-                          data-testid={`switch-${fieldName}`}
-                        />
-                        <Label htmlFor={fieldName} className="text-sm text-muted-foreground">
-                          {configValues[fieldName] ? "Enabled" : "Disabled"}
-                        </Label>
-                      </div>
-                    ) : fieldName === "default_model" && isOpenai ? (
+                    {fieldName === "default_model" && isOpenai ? (
                       openaiModelsList.length > 0 ? (
                         <Select
                           value={(configValues[fieldName] as string) ?? ""}
@@ -702,6 +720,8 @@ function IntegrationConfigModal({
                       <p className="text-xs text-muted-foreground">
                         Saved {formatLastSync(detailData.updated_at) ?? "—"}
                       </p>
+                    )}
+                    </>
                     )}
                   </div>
                 );

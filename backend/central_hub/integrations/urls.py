@@ -21,6 +21,7 @@ from central_hub.integrations.views import (
     IntegrationSchemaView,
     IntegrationConfigListView,
     IntegrationConfigDetailView,
+    IntegrationConfigTestView,
     IntegrationCategoriesView,
     IntegrationPublicConfigView,
     WhatsappEmbeddedSignupConfigView,
@@ -56,5 +57,6 @@ urlpatterns = [
     ),
     path("<str:slug>/", IntegrationConfigListView.as_view(), name="integration_config_list"),
     path("<str:slug>/<str:instance_id>/", IntegrationConfigDetailView.as_view(), name="integration_config_detail"),
+    path("<str:slug>/<str:instance_id>/test/", IntegrationConfigTestView.as_view(), name="integration_config_test"),
     path("<str:slug>/<str:instance_id>/public/", IntegrationPublicConfigView.as_view(), name="integration_public_config"),
 ]

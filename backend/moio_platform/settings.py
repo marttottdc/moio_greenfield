@@ -145,14 +145,6 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = [
-    *(
-        [
-            "tenancy.host_rewrite.HostRewriteFromJWTMiddleware",
-            "django_tenants.middleware.main.TenantMainMiddleware",
-        ]
-        if DJANGO_TENANTS_ENABLED
-        else []
-    ),
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
