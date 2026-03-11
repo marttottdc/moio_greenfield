@@ -377,3 +377,7 @@ class LocalizationUpdateSerializer(serializers.Serializer):
     language = serializers.ChoiceField(choices=("en", "es", "pt"), required=False)
     timezone = serializers.CharField(required=False)
     currency = serializers.CharField(max_length=3, required=False)
+
+
+class LocationUpdateSerializer(serializers.Serializer):
+    address = serializers.CharField(max_length=500, required=True)

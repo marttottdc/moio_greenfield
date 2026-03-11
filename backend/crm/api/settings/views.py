@@ -29,8 +29,9 @@ from .serializers import (
     BaseConfigSerializer,
     PreferenceUpdateSerializer,
     LocalizationUpdateSerializer,
+    LocationUpdateSerializer,
 )
-from .preferences import build_user_preferences, update_user_preferences
+from .preferences import build_user_preferences, update_user_preferences, update_user_location
 
 logger = logging.getLogger(__name__)
 
@@ -420,3 +421,22 @@ class LocalizationViewSet(viewsets.ViewSet):
             "timezone": updated.get("timezone", "UTC"),
             "currency": updated.get("currency", "USD"),
         })
+
+
+class LocationViewSet(viewsets.ViewSet):
+    """GET/PATCH /api/v1/settings/location/ — last_location guardada cada ~5 min para usar en actividades."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocationUpdateSerializer
+
+    def retrieve(self, request, *args, **kwargs) -> Response:
+        prefs = build_user_preferences(request.user, None)
+        return Response({
+            "last_location": prefs.get("last_location") or None,
+            "last_location_updated_at": prefs.get("last_location_updated_at") or None,
+        })
+
+    def partial_update(self, request, *args, **kwargs) -> Response:
+        serializer = self.serializer_class(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        result = update_user_location(request.user, serializer.validated_data["address"])
+        return Response(result)

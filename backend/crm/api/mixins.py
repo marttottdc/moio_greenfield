@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Callable
 
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, QuerySet
 from django.utils import timezone
@@ -95,6 +96,20 @@ class PaginationMixin:
     def _get_tenant_or_none(self, request):
         return getattr(request.user, "tenant", None)
 
+    def _ensure_tenant_schema(self, request):
+        """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
+        tenant = getattr(request.user, "tenant", None)
+        if not tenant or not getattr(tenant, "schema_name", None):
+            return
+        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            return
+        try:
+            from django.db import connection
+
+            connection.set_tenant(tenant)
+        except Exception:
+            pass
+
     def _paginate(
         self,
         queryset: QuerySet,
@@ -102,6 +117,7 @@ class PaginationMixin:
         serializer: Optional[Callable] = None,
         items_key: Optional[str] = None,
     ) -> Dict[str, Any]:
+        self._ensure_tenant_schema(request)
         page, limit = self._parse_page_params(request)
         start = (page - 1) * limit
         end = start + limit
@@ -348,7 +364,11 @@ class ContactAPIMixin:
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             return Contact.objects.none()
-        return Contact.objects.filter(tenant=tenant).select_related("ctype")
+        return (
+            Contact.objects.filter(tenant=tenant)
+            .select_related("ctype")
+            .prefetch_related("customer_contacts__customer")
+        )
 
     def _default_activity_summary(self) -> Dict[str, Optional[Any]]:
         return {
@@ -449,12 +469,20 @@ class ContactAPIMixin:
                 contact.last_contacted_at or contact.last_seen_at or contact.updated
             )
 
+        account_name = None
+        if hasattr(contact, "customer_contacts"):
+            for cc in contact.customer_contacts.all():
+                if getattr(cc, "customer", None) and getattr(cc.customer, "name", None):
+                    account_name = cc.customer.name
+                    break
+
         return {
             "id": str(contact.pk),
             "name": contact.fullname or contact.display_name or contact.whatsapp_name or contact.email,
             "email": contact.email or None,
             "phone": contact.phone or None,
             "company": contact.company or None,
+            "account_name": account_name,
             "type": contact.ctype.name if contact.ctype else None,
             "is_blacklisted": bool(getattr(contact, "is_blacklisted", False)),
             "do_not_contact": bool(getattr(contact, "do_not_contact", False)),

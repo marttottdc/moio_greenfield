@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays, User, Building2, Briefcase, Eye } from "lucide-react";
+import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays, User, Building2, Briefcase, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +10,11 @@ import { captureApi } from "@/lib/capture/captureApi";
 import { fetchJson } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
 import type { TimelineItem } from "@/lib/timeline/types";
-import { getItemWhen } from "@/lib/timeline/timelineRowModel";
+import { getItemWhen, getItemDayKey } from "@/lib/timeline/timelineRowModel";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { format, isSameDay, startOfDay } from "date-fns";
 import { GlobalTimelineTable } from "./GlobalTimelineTable";
 import { ActivityDetailSheet, RelatedEntityLabel, type ActivityDetailData } from "./TimelineItemCard";
 
@@ -268,7 +270,7 @@ function TimelineItemCard({ item, onActivityClick }: { item: TimelineItem; onAct
 
 export function GlobalTimeline(props: {
   pageSize?: number;
-  view?: "cards" | "table";
+  view?: "cards" | "table" | "calendar";
   onEditActivity?: (activity: any) => void;
 }) {
   const pageSize = props.pageSize ?? 20;
@@ -277,6 +279,7 @@ export function GlobalTimeline(props: {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
   const [activityDetailOpen, setActivityDetailOpen] = useState(false);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
 
   const handleActivityClick = (item: TimelineItem) => {
     if (item.type === "activity") {
@@ -420,6 +423,98 @@ export function GlobalTimeline(props: {
           activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
         />
       </>
+    );
+  }
+
+  if (view === "calendar") {
+    const itemDates = items.reduce((acc, item) => {
+      const when = getItemWhen(item);
+      const key = getItemDayKey(when);
+      if (!key) return acc;
+      const list = acc.get(key) ?? [];
+      list.push(item);
+      acc.set(key, list);
+      return acc;
+    }, new Map<string, TimelineItem[]>());
+
+    const calendarModifiers = {
+      hasItem: (date: Date) => itemDates.has(getItemDayKey(date.toISOString())),
+    };
+
+    const filteredByDate = selectedCalendarDate
+      ? items.filter((item) => {
+          const when = getItemWhen(item);
+          if (!when) return false;
+          return isSameDay(new Date(when), selectedCalendarDate);
+        })
+      : items;
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 h-full">
+        <div className="lg:sticky lg:top-0 lg:self-start bg-card border rounded-lg p-4">
+          <Calendar
+            mode="single"
+            selected={selectedCalendarDate}
+            onSelect={setSelectedCalendarDate}
+            defaultMonth={new Date()}
+            modifiers={calendarModifiers}
+            components={{
+              IconLeft: ({ className, ...p }) => <ChevronLeft className={cn("h-4 w-4", className)} {...p} />,
+              IconRight: ({ className, ...p }) => <ChevronRight className={cn("h-4 w-4", className)} {...p} />,
+              DayContent: ({ date, activeModifiers }) => (
+                <span className="flex flex-col items-center justify-center gap-0.5">
+                  <span>{date.getDate()}</span>
+                  {activeModifiers?.hasItem && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+                  )}
+                </span>
+              ),
+            }}
+            className="rounded-md"
+          />
+          {selectedCalendarDate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-3"
+              onClick={() => setSelectedCalendarDate(undefined)}
+            >
+              Show all
+            </Button>
+          )}
+        </div>
+        <div className="space-y-3 overflow-y-auto">
+          {selectedCalendarDate && (
+            <p className="text-sm text-muted-foreground">
+              {format(selectedCalendarDate, "MMMM d, yyyy")}
+            </p>
+          )}
+          {filteredByDate.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="No items"
+              description={selectedCalendarDate ? "No activities on this date" : "Select a date or create activities"}
+            />
+          ) : (
+            <>
+              {filteredByDate.map((item) => (
+                <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onActivityClick={handleActivityClick} />
+              ))}
+              {canLoadMore && (
+                <Button variant="outline" onClick={handleLoadMore} disabled={query.isFetching}>
+                  {query.isFetching && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Load more
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+        <ActivityDetailSheet
+          open={activityDetailOpen}
+          onOpenChange={setActivityDetailOpen}
+          activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
+        />
+      </div>
     );
   }
 

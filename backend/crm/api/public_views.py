@@ -317,6 +317,22 @@ class ContactAPIMixin:
         "phone": "phone",
     }
 
+    def _ensure_tenant_schema(self, request):
+        """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
+        from django.conf import settings
+
+        tenant = getattr(request.user, "tenant", None)
+        if not tenant or not getattr(tenant, "schema_name", None):
+            return
+        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            return
+        try:
+            from django.db import connection
+
+            connection.set_tenant(tenant)
+        except Exception:
+            pass
+
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:
             return None
@@ -331,7 +347,11 @@ class ContactAPIMixin:
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             return Contact.objects.none()
-        return Contact.objects.filter(tenant=tenant).select_related("ctype")
+        return (
+            Contact.objects.filter(tenant=tenant)
+            .select_related("ctype")
+            .prefetch_related("customer_contacts__customer")
+        )
 
     def _default_activity_summary(self) -> Dict[str, Optional[Any]]:
         return {
@@ -435,12 +455,19 @@ class ContactAPIMixin:
         account_ids = [
             str(cc.customer_id) for cc in contact.customer_contacts.all()
         ] if hasattr(contact, "customer_contacts") else []
+        account_name = None
+        if hasattr(contact, "customer_contacts"):
+            for cc in contact.customer_contacts.all():
+                if getattr(cc, "customer", None) and getattr(cc.customer, "name", None):
+                    account_name = cc.customer.name
+                    break
         return {
             "id": str(contact.pk),
             "name": contact.fullname or contact.display_name or contact.whatsapp_name or contact.email,
             "email": contact.email or None,
             "phone": contact.phone or None,
             "company": contact.company or None,
+            "account_name": account_name,
             "type": contact.ctype.name if contact.ctype else None,
             "is_blacklisted": bool(getattr(contact, "is_blacklisted", False)),
             "tags": tags,
@@ -461,17 +488,20 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
             return None
         return (
             Contact.objects.select_related("ctype")
+            .prefetch_related("customer_contacts__customer")
             .filter(tenant=tenant, pk=contact_id)
             .first()
         )
 
     def get(self, request, contact_id):
+        self._ensure_tenant_schema(request)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
         return Response(self._serialize_contact(contact))
 
     def patch(self, request, contact_id):
+        self._ensure_tenant_schema(request)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
@@ -578,6 +608,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 @extend_schema(tags=["contacts"])
 class ContactsSummaryView(ContactAPIMixin, ProtectedAPIView):
     def get(self, request):
+        self._ensure_tenant_schema(request)
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             return Response({
@@ -653,6 +684,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         return {"contacts": contacts, "pagination": pagination}
 
     def get(self, request):
+        self._ensure_tenant_schema(request)
         queryset = self._base_queryset(request)
         account_id = request.query_params.get("account_id")
         if account_id:
@@ -695,6 +727,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         return Response(self._paginate(queryset, request))
 
     def post(self, request):
+        self._ensure_tenant_schema(request)
         payload = request.data or {}
         raw_name = payload.get("name") or payload.get("fullname") or payload.get("whatsapp_name")
         if not raw_name:
@@ -779,6 +812,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
 @extend_schema(tags=["contacts"])
 class ContactExportView(ContactAPIMixin, ProtectedAPIView):
     def get(self, request):
+        self._ensure_tenant_schema(request)
         export_format = (request.query_params.get("format") or "csv").lower()
         if export_format not in {"csv", "json"}:
             return _error("invalid_format", "format must be csv or json", status.HTTP_400_BAD_REQUEST)

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/empty-state";
 import { captureApi } from "@/lib/capture/captureApi";
 import type { TimelineItem } from "@/lib/timeline/types";
 import { ReportActivityModal } from "@/components/capture/ReportActivityModal";
+import { useUserLocation } from "@/hooks/use-user-location";
 import { fetchJson } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
 
@@ -75,6 +76,7 @@ function MiniTimelineRow({ item }: { item: TimelineItem }) {
 
 export function GlobalTimelineWidget() {
   const [reportOpen, setReportOpen] = useState(false);
+  const { lastLocation } = useUserLocation();
 
   const query = useQuery({
     queryKey: ["timeline", "global", "widget", "merged"],
@@ -157,7 +159,11 @@ export function GlobalTimelineWidget() {
         </div>
       )}
 
-      <ReportActivityModal open={reportOpen} onOpenChange={setReportOpen} />
+      <ReportActivityModal
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        userGeoAddress={lastLocation}
+      />
     </GlassPanel>
   );
 }

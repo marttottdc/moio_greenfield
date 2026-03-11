@@ -39,7 +39,11 @@ export function PageHeader({
     <div className={clsx('flex items-center justify-between gap-4 flex-wrap', className)}>
       {/* Left side - Title and description */}
       <div className="flex items-center gap-3">
-        {showSidebarTrigger && <SidebarTrigger data-testid="button-sidebar-toggle" />}
+        {showSidebarTrigger && (
+          <span className="hidden md:inline-flex">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+          </span>
+        )}
         <div>
           <Heading as="h1" className="!text-3xl sm:!text-4xl" data-testid="text-page-title">
             {title}

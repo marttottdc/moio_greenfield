@@ -184,7 +184,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { logout } = useAuth();
   const { toast } = useToast();
-  const { open: sidebarOpen, toggleSidebar } = useSidebar();
+  const { open: sidebarOpen, toggleSidebar, setOpenMobile } = useSidebar();
   const { theme, toggleTheme } = useTheme();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -483,7 +483,11 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive} data-testid={`link-${item.title.toLowerCase()}`} tooltip={item.title}>
-                      <Link href={item.url} className="group-data-[collapsible=icon]:justify-center">
+                      <Link
+                        href={item.url}
+                        className="group-data-[collapsible=icon]:justify-center"
+                        onClick={() => setOpenMobile(false)}
+                      >
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                       </Link>
@@ -569,24 +573,24 @@ export function AppSidebar() {
             )}
           </Tooltip>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => setProfileModalOpen(true)} data-testid="menu-profile">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); setProfileModalOpen(true); }} data-testid="menu-profile">
               <UserCircle className="h-4 w-4 mr-2" />
               {t("menu.view_profile")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setPreferencesModalOpen(true)} data-testid="menu-preferences">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); setPreferencesModalOpen(true); }} data-testid="menu-preferences">
               <Sliders className="h-4 w-4 mr-2" />
               {t("menu.preferences")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setPasswordModalOpen(true)} data-testid="menu-change-password">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); setPasswordModalOpen(true); }} data-testid="menu-change-password">
               <KeyRound className="h-4 w-4 mr-2" />
               {t("menu.change_password")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setApiKeyModalOpen(true)} data-testid="menu-api-key">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); setApiKeyModalOpen(true); }} data-testid="menu-api-key">
               <Key className="h-4 w-4 mr-2" />
               {t("menu.api_key")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={toggleTheme} data-testid="menu-theme-toggle">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); toggleTheme(); }} data-testid="menu-theme-toggle">
               {theme === "dark" ? (
                 <Sun className="h-4 w-4 mr-2" />
               ) : (
@@ -595,7 +599,7 @@ export function AppSidebar() {
               {theme === "dark" ? t("menu.light_mode") : t("menu.dark_mode")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setLogoutConfirmOpen(true)} data-testid="menu-logout">
+            <DropdownMenuItem onClick={() => { setOpenMobile(false); setLogoutConfirmOpen(true); }} data-testid="menu-logout">
               <LogOut className="h-4 w-4 mr-2" />
               {t("menu.logout")}
             </DropdownMenuItem>

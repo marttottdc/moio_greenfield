@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
@@ -10,6 +11,44 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.png"],
+      manifest: {
+        name: "moio CRM Platform",
+        short_name: "moio",
+        description: "Manage your customer contacts, campaigns, and workflow automation with moio CRM. Uses location for activities and supports push notifications.",
+        theme_color: "#0f172a",
+        background_color: "#ffffff",
+        display: "standalone",
+        orientation: "portrait-primary",
+        scope: "/",
+        start_url: "/",
+        icons: [
+          { src: "/favicon.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        ],
+        categories: ["business", "productivity"],
+        prefer_related_applications: false,
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        navigateFallback: "/index.html",
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB (app bundle ~2.3 MB)
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/nominatim\.openstreetmap\.org\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "nominatim-cache",
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: { enabled: false },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -45,6 +84,9 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
+    },
+    hmr: {
+      overlay: false,
     },
   },
   test: {

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, VariantProps } from "class-variance-authority"
-import { PanelLeftIcon } from "lucide-react"
+import { Menu, PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -258,7 +258,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, isMobile } = useSidebar()
 
   return (
     <Button
@@ -266,15 +266,37 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      className={cn("h-7 w-7 md:h-7 md:w-7", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      {isMobile ? <Menu className="h-5 w-5" /> : <PanelLeftIcon />}
       <span className="sr-only">Toggle Sidebar</span>
+    </Button>
+  )
+}
+
+function MobileSidebarTrigger({ className, ...props }: React.ComponentProps<typeof Button>) {
+  const { toggleSidebar, isMobile } = useSidebar()
+  if (!isMobile) return null
+
+  return (
+    <Button
+      data-sidebar="mobile-trigger"
+      variant="ghost"
+      size="icon"
+      className={cn(
+        "fixed left-4 top-4 z-50 h-10 w-10 rounded-lg border bg-background shadow-md md:hidden",
+        className
+      )}
+      onClick={toggleSidebar}
+      aria-label="Open menu"
+      {...props}
+    >
+      <Menu className="h-5 w-5" />
     </Button>
   )
 }
@@ -700,6 +722,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  MobileSidebarTrigger,
   Sidebar,
   SidebarContent,
   SidebarFooter,

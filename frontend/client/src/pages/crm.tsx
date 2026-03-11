@@ -23,6 +23,7 @@ import {
   ChevronRight,
   X,
   Phone,
+  Mail,
   MessageSquare,
   ArrowLeft,
   Eye,
@@ -65,9 +66,13 @@ import { ContactDetailsModal, type ContactDetailsContact } from "@/components/cr
 import { AccountDetailsModal } from "@/components/crm/account-details-modal";
 import { AccountEditorModal } from "@/components/crm/account-editor-modal";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { apiV1, getAuthHeaders } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useAppBarAction } from "@/contexts/AppBarActionContext";
 import { Contact, PaginatedResponse } from "@/lib/moio-types";
+import { SiWhatsapp } from "react-icons/si";
 
 type CRMTabType = "overview" | "contacts" | "accounts" | "master_data" | "analytics";
 
@@ -502,6 +507,7 @@ function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
 
 export default function CRM() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [location, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const queryParams = useQueryParams();
@@ -644,41 +650,45 @@ export default function CRM() {
     }
   };
 
+  const hideSubmenuOnMobile = isMobile && activeTab === "contacts";
+
   return (
     <div className="flex h-full">
-      <div className="w-64 border-r border-border bg-background flex flex-col shrink-0">
-        <div className="p-3 border-b border-border">
-          <h2 className="font-semibold text-sm">{t("crm.title")}</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{t("crm.description")}</p>
+      {!hideSubmenuOnMobile && (
+        <div className="w-64 border-r border-border bg-background flex flex-col shrink-0">
+          <div className="p-3 border-b border-border">
+            <h2 className="font-semibold text-sm">{t("crm.title")}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{t("crm.description")}</p>
+          </div>
+          <div className="p-2 space-y-1 border-b border-border">
+            {crmSections.map((section) => {
+              const Icon = section.icon;
+              const isActive = activeTab === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveTab(section.id as CRMTabType)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                    isActive 
+                      ? "bg-accent text-accent-foreground" 
+                      : "text-muted-foreground hover-elevate"
+                  }`}
+                  data-testid={`nav-${section.id}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(section.labelKey)}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="p-2 space-y-1 border-b border-border">
-          {crmSections.map((section) => {
-            const Icon = section.icon;
-            const isActive = activeTab === section.id;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => setActiveTab(section.id as CRMTabType)}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                  isActive 
-                    ? "bg-accent text-accent-foreground" 
-                    : "text-muted-foreground hover-elevate"
-                }`}
-                data-testid={`nav-${section.id}`}
-              >
-                <Icon className="h-4 w-4" />
-                {t(section.labelKey)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      
-      <div className="flex-1 flex flex-col bg-muted/20 overflow-hidden">
-        <div className="flex items-center justify-between gap-4 pl-2 pr-4 py-3 border-b border-border">
-          <Breadcrumbs items={breadcrumbs} />
-          <div className="relative w-72">
+      )}
+
+      <div className="flex-1 flex flex-col bg-muted/20 overflow-hidden min-w-0">
+        <div className={`flex items-center justify-between gap-4 pl-2 pr-4 py-3 border-b border-border ${hideSubmenuOnMobile ? "flex-row gap-2" : ""}`}>
+          {!hideSubmenuOnMobile ? <Breadcrumbs items={breadcrumbs} /> : <span className="text-sm font-medium truncate">{t("crm.contacts")}</span>}
+          <div className={`relative flex-1 min-w-0 ${hideSubmenuOnMobile ? "max-w-full" : "w-72"}`}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder={renderSearchPlaceholder()}
@@ -690,7 +700,11 @@ export default function CRM() {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto pl-2 pr-4 py-4">
+        <div className={cn(
+          "flex-1 overflow-y-auto py-4",
+          hideSubmenuOnMobile ? "px-4" : "pl-2 pr-4",
+          "pb-24 md:pb-4"
+        )}>
           {renderContent()}
         </div>
       </div>
@@ -890,6 +904,8 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
   openContactId?: string | null;
   setOpenContactId: (id: string | null) => void;
 }) {
+  const isMobile = useIsMobile();
+  const { setAction } = useAppBarAction();
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [accountIdFilter, setAccountIdFilter] = useState<string | null>(null);
@@ -933,17 +949,24 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
     queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts")] });
   };
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     setEditorMode("create");
     setEditorContact(null);
     setIsEditorOpen(true);
-  };
+  }, []);
 
   const openEdit = (contactToEdit: CRMContact) => {
     setEditorMode("edit");
     setEditorContact(contactToEdit);
     setIsEditorOpen(true);
   };
+
+  useEffect(() => {
+    if (isMobile) {
+      setAction({ onClick: openCreate, label: "Add contact" });
+      return () => setAction(null);
+    }
+  }, [isMobile, setAction, openCreate]);
 
   const handleEditFromDetails = (contact: ContactDetailsContact) => {
     setOpenContactId(null);
@@ -960,11 +983,6 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-sm text-muted-foreground" data-testid="text-contacts-count">
-            {totalItems === 0 
-              ? "No contacts" 
-              : `Showing ${startItem}-${endItem} of ${totalItems} contact${totalItems !== 1 ? "s" : ""}`}
-          </p>
           <Select
             value={accountIdFilter ?? "all"}
             onValueChange={(v) => {
@@ -983,13 +1001,16 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-contact">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Contact
-        </Button>
+        {!isMobile && (
+          <Button onClick={openCreate} data-testid="button-add-contact">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
+        )}
       </div>
 
-      <GlassPanel className="p-4">
+      <div className={isMobile ? "-mx-4" : ""}>
+        <GlassPanel className={cn("w-full min-w-0 overflow-hidden", isMobile ? "py-4 px-0 rounded-none" : "p-4")}>
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
@@ -1004,62 +1025,125 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
             description={searchQuery ? "Try adjusting your search." : "Add your first contact to get started."}
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 w-full min-w-0">
             {contacts.map((contact: any) => (
               <div
                 key={contact.id}
-                className="flex items-center gap-4 p-3 rounded-lg border bg-card hover-elevate cursor-pointer"
+                className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate cursor-pointer w-full min-w-0"
                 onClick={() => handleContactClick(contact)}
                 data-testid={`card-contact-${contact.id}`}
               >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
                   {contact.name?.charAt(0).toUpperCase() || "?"}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{contact.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {contact.email || contact.phone || "No contact info"}
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="font-medium truncate" title={contact.name}>{contact.name}</p>
+                  <p className="text-sm text-muted-foreground truncate min-h-[1.25rem]" title={contact.account_name || undefined}>
+                    {contact.account_name || ""}
                   </p>
                 </div>
+                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {contact.email ? (
+                    <a
+                      href={`mailto:${contact.email}`}
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                      aria-label="Email"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <span
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
+                      aria-label="Email unavailable"
+                      title="No email"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </span>
+                  )}
+                  {contact.phone ? (
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                      aria-label="Call"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <span
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground/40 cursor-not-allowed pointer-events-none"
+                      aria-label="Phone unavailable"
+                      title="No phone"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </span>
+                  )}
+                  {contact.phone ? (
+                    <a
+                      href={`https://wa.me/${(contact.phone || "").replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                      aria-label="WhatsApp"
+                    >
+                      <SiWhatsapp className="h-4 w-4 text-[#25D366]" />
+                    </a>
+                  ) : (
+                    <span
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-[#25D366]/40 cursor-not-allowed pointer-events-none"
+                      aria-label="WhatsApp unavailable"
+                      title="No phone for WhatsApp"
+                    >
+                      <SiWhatsapp className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
                 {contact.company && (
-                  <p className="text-sm text-muted-foreground hidden md:block">{contact.company}</p>
+                  <p className="text-sm text-muted-foreground hidden md:block shrink-0">{contact.company}</p>
                 )}
                 {contact.type && (
-                  <Badge variant="secondary">{contact.type}</Badge>
+                  <Badge variant="secondary" className="shrink-0">{contact.type}</Badge>
                 )}
               </div>
             ))}
           </div>
         )}
       </GlassPanel>
+      </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+      {(totalItems > 0 || totalPages > 1) && (
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-sm text-muted-foreground" data-testid="text-contacts-count">
+            {totalItems === 0
+              ? "No contacts"
+              : `Showing ${startItem}-${endItem} of ${totalItems} contact${totalItems !== 1 ? "s" : ""}`}
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1 || isLoading}
-              data-testid="button-prev-page"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages || isLoading}
-              data-testid="button-next-page"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Page {currentPage} of {totalPages}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1 || isLoading}
+                data-testid="button-prev-page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages || isLoading}
+                data-testid="button-next-page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

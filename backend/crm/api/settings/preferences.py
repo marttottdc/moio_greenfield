@@ -79,3 +79,15 @@ def update_user_preferences(user, config: SimpleNamespace | None, data: Dict[str
     user.save(update_fields=["preferences"])
     _sync_profile_from_preferences(user, updated)
     return updated
+
+
+def update_user_location(user, address: str) -> Dict[str, Any]:
+    """Update last_location and last_location_updated_at in user.preferences (used every ~5 min)."""
+    from django.utils import timezone
+
+    stored = dict(user.preferences or {})
+    stored["last_location"] = address
+    stored["last_location_updated_at"] = timezone.now().isoformat()
+    user.preferences = stored
+    user.save(update_fields=["preferences"])
+    return {"last_location": address, "last_location_updated_at": stored["last_location_updated_at"]}

@@ -6,6 +6,7 @@ import type {
   ClassifySyncRequest,
   ClassifySyncResponse,
   ApplySyncResponse,
+  ConfirmedActivityItem,
 } from "./types";
 
 export interface CaptureEntriesListResponse {
@@ -59,8 +60,15 @@ export const captureApi = {
   },
 
   /** Apply the classified entry synchronously; creates activity and returns applied_refs. */
-  applySync: async (entryId: string): Promise<ApplySyncResponse> => {
-    const res = await apiRequest("POST", apiV1(`/capture/entries/${entryId}/apply-sync/`), {});
+  applySync: async (
+    entryId: string,
+    options?: { confirmed_activities?: ConfirmedActivityItem[] }
+  ): Promise<ApplySyncResponse> => {
+    const res = await apiRequest("POST", apiV1(`/capture/entries/${entryId}/apply-sync/`), {
+      data: options?.confirmed_activities
+        ? { confirmed_activities: options.confirmed_activities }
+        : undefined,
+    });
     return res.json();
   },
 };

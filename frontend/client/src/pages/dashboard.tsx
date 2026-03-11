@@ -129,9 +129,9 @@ export default function Dashboard() {
       <div className="space-y-6">
         {isLoading ? (
           <div className="space-y-4">
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-20 w-40" />
+                <Skeleton key={i} className="h-20 w-full min-w-[140px] max-w-[200px] sm:w-40" />
               ))}
             </div>
             <Skeleton className="h-[400px] w-full" />

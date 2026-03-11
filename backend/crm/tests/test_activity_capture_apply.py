@@ -13,7 +13,7 @@ from crm.services.activity_capture_service import apply_capture_entry_to_activit
 class ApplyCaptureEntryToActivitiesTests(SimpleTestCase):
     @patch("crm.services.activity_capture_service.has_calendar_conflicts", return_value=False)
     @patch("crm.services.activity_service.activity_manager", new_callable=MagicMock)
-    def test_apply_creates_task_activityrecord_from_intent(self, activity_manager_mock, _conflicts_mock):
+    def test_apply_creates_task_activityrecord_from_suggested_activities(self, activity_manager_mock, _conflicts_mock):
         due = datetime(2026, 2, 18, 9, 0, tzinfo=dt_timezone.utc)
         entry = SimpleNamespace(
             tenant=SimpleNamespace(id="tenant-id"),
@@ -24,14 +24,14 @@ class ApplyCaptureEntryToActivitiesTests(SimpleTestCase):
             summary="Follow up tomorrow 9am",
             classification={
                 "summary": "Follow up tomorrow 9am",
-                "intent": {
-                    "create_task": {
-                        "do": True,
+                "suggested_activities": [
+                    {
+                        "kind": "task",
                         "title": "Follow up",
-                        "due_at": due.isoformat().replace("+00:00", "Z"),
+                        "proposed_due_at": due.isoformat().replace("+00:00", "Z"),
                         "priority": "HIGH",
                     }
-                },
+                ],
             },
             final=None,
         )
@@ -49,9 +49,9 @@ class ApplyCaptureEntryToActivitiesTests(SimpleTestCase):
         self.assertEqual(kwargs["status"], "planned")
         self.assertEqual(kwargs["deal_id"], entry.anchor_id)
 
-    @patch("crm.services.activity_capture_service.has_calendar_conflicts", return_value=True)
+    @patch("crm.services.activity_capture_service.has_calendar_conflicts", return_value=False)
     @patch("crm.services.activity_service.activity_manager", new_callable=MagicMock)
-    def test_apply_routes_calendar_conflict_as_error(self, activity_manager_mock, _conflicts_mock):
+    def test_apply_creates_event_from_suggested_activities(self, activity_manager_mock, _conflicts_mock):
         start = datetime(2026, 2, 18, 10, 0, tzinfo=dt_timezone.utc)
         end = start + timedelta(minutes=30)
         entry = SimpleNamespace(
@@ -63,20 +63,27 @@ class ApplyCaptureEntryToActivitiesTests(SimpleTestCase):
             summary="Meeting tomorrow 10",
             classification={
                 "summary": "Meeting tomorrow 10",
-                "intent": {
-                    "create_appointment": {
-                        "do": True,
+                "suggested_activities": [
+                    {
+                        "kind": "event",
                         "title": "Meeting",
-                        "start_at": start.isoformat().replace("+00:00", "Z"),
-                        "end_at": end.isoformat().replace("+00:00", "Z"),
-                        "book_calendar": True,
+                        "proposed_start_at": start.isoformat().replace("+00:00", "Z"),
+                        "proposed_end_at": end.isoformat().replace("+00:00", "Z"),
+                        "status": "planned",
                     }
-                },
+                ],
             },
             final=None,
         )
         actor = SimpleNamespace(preferences={"timezone": "UTC"})
 
-        with self.assertRaisesRegex(ValueError, "calendar_conflict_detected"):
-            apply_capture_entry_to_activities(entry=entry, actor=actor)
+        created_activity = SimpleNamespace(id="activity-2", save=MagicMock())
+        activity_manager_mock.create_activity.return_value = created_activity
+
+        refs = apply_capture_entry_to_activities(entry=entry, actor=actor)
+
+        self.assertEqual(refs["activity_record_ids"], ["activity-2"])
+        kwargs = activity_manager_mock.create_activity.call_args.args[0]
+        self.assertEqual(kwargs["kind"], "event")
+        self.assertEqual(kwargs["title"], "Meeting")
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -35,6 +35,7 @@ def _serialize_capture_entry(entry: ActivityCaptureEntry, isoformat) -> Dict[str
         "llm_model": entry.llm_model,
         "prompt_version": entry.prompt_version,
         "classification": entry.classification,
+        "suggested_activities": entry.suggested_activities or [],
         "summary": entry.summary,
         "confidence": entry.confidence,
         "needs_review": entry.needs_review,
@@ -187,7 +188,7 @@ class CaptureEntryNoteOnlyView(_CaptureSerializerMixin, PaginationMixin, Protect
                 _ensure_mutable(entry)
                 # Force a note-only final output (no intents)
                 summary = (entry.summary or "").strip() or "Note"
-                entry.final = {"summary": summary, "intent": {}}
+                entry.final = {"summary": summary, "suggested_activities": []}
                 entry.needs_review = False
                 entry.status = CaptureStatus.REVIEWED
                 entry.save(update_fields=["final", "needs_review", "status", "updated_at"])
@@ -342,12 +343,22 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
         except Exception as exc:
             return _error("classification_failed", str(exc), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        # OpenAI call can take 10–30s; DB connection may go stale. Close to force a fresh one.
+        connection.close()
+        # Re-set tenant on the new connection (django-tenants: fresh conn may default to public).
+        from django.conf import settings
+        if getattr(settings, "DJANGO_TENANTS_ENABLED", False) and getattr(tenant, "schema_name", None):
+            connection.set_tenant(tenant)
+
         classification_payload = output.model_dump()
+        suggested = classification_payload.get("suggested_activities")
+        suggested_list = suggested if isinstance(suggested, list) else []
         with transaction.atomic():
             entry = ActivityCaptureEntry.objects.select_for_update().get(id=entry.id)
             _ensure_mutable(entry)
             entry.raw_llm_response = classification_payload
             entry.classification = classification_payload
+            entry.suggested_activities = suggested_list
             entry.summary = classification_payload.get("summary")
             entry.confidence = classification_payload.get("confidence")
             entry.needs_review = True  # Always require confirmation when using sync classify
@@ -357,6 +368,7 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
                 update_fields=[
                     "raw_llm_response",
                     "classification",
+                    "suggested_activities",
                     "summary",
                     "confidence",
                     "needs_review",
@@ -367,7 +379,7 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
             )
 
         user_tz = _user_timezone_for_request(request)
-        proposed_activity = build_proposed_activity_from_classification(
+        proposed = build_proposed_activity_from_classification(
             entry=entry,
             classification=classification_payload,
             user_tz=user_tz,
@@ -377,7 +389,9 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
             {
                 "entry": self._serialize(entry),
                 "classification": classification_payload,
-                "proposed_activity": proposed_activity,
+                "suggested_activities": proposed.get("suggested_activities", proposed.get("proposed_activities", [])),
+                "proposed_activity": proposed.get("proposed_activity"),
+                "proposed_activities": proposed.get("proposed_activities", []),
             },
             status=status.HTTP_200_OK,
         )
@@ -404,35 +418,68 @@ class CaptureEntryApplySyncView(_CaptureSerializerMixin, PaginationMixin, Protec
 
         payload = request.data or {}
         final_override = payload.get("final")
+        confirmed_activities = payload.get("confirmed_activities")
 
+        # Build final: use confirmed_activities (user edits) or final override or classification
+        if isinstance(confirmed_activities, list) and confirmed_activities:
+            base = dict(entry.classification or {})
+            base["confirmed_activities"] = confirmed_activities
+            final_to_use = base
+        elif isinstance(final_override, dict):
+            final_to_use = final_override
+        else:
+            final_to_use = entry.classification or {}
+
+        is_append = entry.status == CaptureStatus.APPLIED
         try:
             with transaction.atomic():
                 entry = ActivityCaptureEntry.objects.select_for_update().select_related("actor").get(id=entry.id)
-                _ensure_mutable(entry)
-                entry.final = final_override if isinstance(final_override, dict) else (entry.classification or {})
+                if not is_append:
+                    _ensure_mutable(entry)
+                entry.final = final_to_use
                 entry.needs_review = False
-                entry.status = CaptureStatus.REVIEWED
+                if not is_append:
+                    entry.status = CaptureStatus.REVIEWED
                 entry.save(update_fields=["final", "needs_review", "status", "updated_at"])
         except ValueError as exc:
             return _error("invalid_state", str(exc), status.HTTP_400_BAD_REQUEST)
 
         try:
-            refs = apply_capture_entry_to_activities(entry=entry, actor=request.user)
+            result = apply_capture_entry_to_activities(entry=entry, actor=request.user)
         except ValueError as exc:
             return _error("apply_failed", str(exc), status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             return _error("apply_failed", str(exc), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        # Normalize to applied_refs: [{model, id}, ...] for API/timeline
+        activity_ids = result.get("activity_record_ids") or []
+        deal_ids = result.get("deal_ids") or []
+        new_refs = [
+            *[{"model": "crm.activity", "id": aid} for aid in activity_ids],
+            *[{"model": "crm.deal", "id": did} for did in deal_ids],
+        ]
+
         with transaction.atomic():
             entry = ActivityCaptureEntry.objects.select_for_update().get(id=entry.id)
-            entry.applied_refs = refs
+            if is_append and entry.applied_refs:
+                existing = list(entry.applied_refs) if isinstance(entry.applied_refs, list) else []
+                seen = {f"{r.get('model')}:{r.get('id')}" for r in existing if isinstance(r, dict)}
+                for r in new_refs:
+                    key = f"{r.get('model')}:{r.get('id')}"
+                    if key not in seen:
+                        seen.add(key)
+                        existing.append(r)
+                applied_refs = existing
+            else:
+                applied_refs = new_refs
+            entry.applied_refs = applied_refs
             entry.status = CaptureStatus.APPLIED
             entry.save(update_fields=["applied_refs", "status", "updated_at"])
 
         return Response(
             {
                 "entry": self._serialize(entry),
-                "applied_refs": refs,
+                "applied_refs": applied_refs,
             },
             status=status.HTTP_200_OK,
         )

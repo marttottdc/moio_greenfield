@@ -1585,6 +1585,8 @@ def classify_capture_entry(self, entry_id: str):
         raise self.retry(exc=exc, countdown=120)
 
     payload = output.model_dump()
+    suggested = payload.get("suggested_activities")
+    suggested_list = suggested if isinstance(suggested, list) else []
 
     needs_review = bool(payload.get("needs_review")) or float(payload.get("confidence") or 0.0) < AUTO_APPLY_MIN_CONFIDENCE
     new_status = CaptureStatus.NEEDS_REVIEW if needs_review else CaptureStatus.CLASSIFIED
@@ -1593,6 +1595,7 @@ def classify_capture_entry(self, entry_id: str):
         locked = ActivityCaptureEntry.objects.select_for_update().get(id=entry.id)
         locked.raw_llm_response = payload
         locked.classification = payload
+        locked.suggested_activities = suggested_list
         locked.summary = payload.get("summary")
         locked.confidence = payload.get("confidence")
         locked.needs_review = needs_review
@@ -1602,6 +1605,7 @@ def classify_capture_entry(self, entry_id: str):
             update_fields=[
                 "raw_llm_response",
                 "classification",
+                "suggested_activities",
                 "summary",
                 "confidence",
                 "needs_review",
@@ -1681,7 +1685,13 @@ def apply_capture_entry(self, entry_id: str):
         )
 
     try:
-        refs = apply_capture_entry_to_activities(entry=entry, actor=entry.actor)
+        result = apply_capture_entry_to_activities(entry=entry, actor=entry.actor)
+        activity_ids = result.get("activity_record_ids") or []
+        deal_ids = result.get("deal_ids") or []
+        refs = [
+            *[{"model": "crm.activity", "id": aid} for aid in activity_ids],
+            *[{"model": "crm.deal", "id": did} for did in deal_ids],
+        ]
     except Exception as exc:
         logger.exception("apply_capture_entry failed")
         with transaction.atomic():

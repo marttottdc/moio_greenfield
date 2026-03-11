@@ -164,7 +164,7 @@ export function GlobalTimelineTable(props: {
   const compactCell = "p-2 align-middle text-xs";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
       {dayKeys.map((dayKey) => {
         const dayRows = byDay.get(dayKey) ?? [];
         const isTodayDate = dayKey && isToday(new Date(dayKey + "T12:00:00"));
@@ -181,7 +181,7 @@ export function GlobalTimelineTable(props: {
                 </Badge>
               )}
             </div>
-            <Table className={compactTable}>
+            <Table className={cn(compactTable, "min-w-[720px]")}>
               <TableHeader>
                 <TableRow className="border-b">
                   <TableHead className={`w-[72px] ${compactHead}`}>When</TableHead>

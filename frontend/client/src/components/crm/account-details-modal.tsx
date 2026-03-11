@@ -217,7 +217,7 @@ export function AccountDetailsModal({ open, onOpenChange, accountId }: AccountDe
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col"
+        className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none"
         data-testid="dialog-account-details"
       >
         <div className="grid grid-cols-1 md:grid-cols-[20rem_1fr] flex-1 overflow-hidden min-h-0">

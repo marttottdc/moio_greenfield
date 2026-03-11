@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -44,6 +44,9 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorDisplay } from "@/components/error-display";
 import { GlobalTimeline } from "@/components/timeline/GlobalTimeline";
 import { ReportActivityModal } from "@/components/capture/ReportActivityModal";
+import { useAppBarAction } from "@/contexts/AppBarActionContext";
+import { useUserLocation } from "@/hooks/use-user-location";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { captureApi } from "@/lib/capture/captureApi";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -542,8 +545,8 @@ function EventsCalendarView({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 h-full">
-      <div className="lg:sticky lg:top-0 lg:self-start bg-card border rounded-lg p-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 lg:gap-6 h-full">
+      <div className="lg:sticky lg:top-0 lg:self-start bg-card border rounded-lg p-4 order-2 lg:order-1">
         <Calendar
           mode="single"
           selected={selectedDate}
@@ -566,7 +569,7 @@ function EventsCalendarView({
           </div>
         )}
       </div>
-      <div className="space-y-3 overflow-y-auto">
+      <div className="space-y-3 overflow-y-auto order-1 lg:order-2">
         {selectedDate && (
           <div className="text-sm text-muted-foreground mb-2">
             Showing events for {format(selectedDate, "MMMM d, yyyy")}
@@ -986,16 +989,14 @@ function ActivityDialog({
 export default function Activities() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { lastLocation } = useUserLocation();
+  const { setAction } = useAppBarAction();
+  const isMobile = useIsMobile();
   const isEmbedded = new URLSearchParams(window.location.search).get("embed") === "true";
-  const [activeTab, setActiveTab] = useState<ActivitiesTab>(() => {
-    const tab = new URLSearchParams(window.location.search).get("tab");
-    if (tab === "all" || tab === "email" || tab === "timeline") return tab;
-    if (tab === "task" || tab === "note" || tab === "idea" || tab === "event") return tab;
-    return "all";
-  });
-  const [timelineView, setTimelineView] = useState<"cards" | "table">(() => {
+  const [activeTab] = useState<ActivitiesTab>("timeline");
+  const [timelineView, setTimelineView] = useState<"cards" | "table" | "calendar">(() => {
     const view = new URLSearchParams(window.location.search).get("view");
-    if (view === "table" || view === "cards") return view;
+    if (view === "table" || view === "cards" || view === "calendar") return view;
     return "cards";
   });
   const [search, setSearch] = useState("");
@@ -1047,15 +1048,19 @@ export default function Activities() {
 
   const activitiesPath = apiV1("/activities/");
 
+  const openReportActivity = useCallback(() => setReportActivityOpen(true), []);
+
+  useEffect(() => {
+    setAction({ onClick: openReportActivity, label: "Log activity" });
+    return () => setAction(null);
+  }, [setAction, openReportActivity]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    params.set("tab", activeTab);
-    if (activeTab === "timeline") {
-      params.set("view", timelineView);
-    }
+    params.set("view", timelineView);
     const next = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next}`);
-  }, [activeTab, timelineView]);
+  }, [timelineView]);
 
   const effectivePageSize = activeTab === "event" ? 500 : pageSize;
 
@@ -1525,487 +1530,76 @@ export default function Activities() {
     },
   });
 
+  const activitiesNavBar = (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full" data-testid="activities-nav-bar">
+      <ToggleGroup
+        type="single"
+        value={timelineView}
+        onValueChange={(v) => v && (v === "cards" || v === "table" || v === "calendar") && setTimelineView(v)}
+        className="flex-shrink-0"
+        data-testid="timeline-view-toggle"
+      >
+        <ToggleGroupItem value="cards" aria-label="Cards view">
+          <LayoutGrid className="h-4 w-4 mr-1" />
+          Cards
+        </ToggleGroupItem>
+        <ToggleGroupItem value="table" aria-label="Table view">
+          <Table2 className="h-4 w-4 mr-1" />
+          Table
+        </ToggleGroupItem>
+        <ToggleGroupItem value="calendar" aria-label="Calendar view">
+          <CalendarIcon className="h-4 w-4 mr-1" />
+          Calendar
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative w-full sm:w-auto sm:min-w-[200px] max-w-sm sm:max-w-none">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search activities..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search"
+          />
+        </div>
+        {!isMobile && (
+          <Button
+            variant="default"
+            onClick={() => setReportActivityOpen(true)}
+            data-testid="button-report-activity"
+            className="flex-shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Log activity
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   const activitiesContent = (
     <div className="space-y-4" data-testid="page-activities">
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as ActivitiesTab); setPage(1); }}>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 sticky top-0 z-10 bg-background py-2 -mt-2">
-          <TabsList className="flex-shrink-0">
-            <TabsTrigger value="all" data-testid="tab-all">
-              All
-            </TabsTrigger>
-            <TabsTrigger value="timeline" data-testid="tab-timeline">
-              <Clock className="h-4 w-4 mr-1" />
-              Timeline
-            </TabsTrigger>
-            <TabsTrigger value="task" data-testid="tab-task">
-              <CheckSquare className="h-4 w-4 mr-1" />
-              Tasks
-            </TabsTrigger>
-            <TabsTrigger value="note" data-testid="tab-note">
-              <StickyNote className="h-4 w-4 mr-1" />
-              Notes
-            </TabsTrigger>
-            <TabsTrigger value="idea" data-testid="tab-idea">
-              <Lightbulb className="h-4 w-4 mr-1" />
-              Ideas
-            </TabsTrigger>
-            <TabsTrigger value="event" data-testid="tab-event">
-              <CalendarDays className="h-4 w-4 mr-1" />
-              Events
-            </TabsTrigger>
-            <TabsTrigger value="email" data-testid="tab-email">
-              <Mail className="h-4 w-4 mr-1" />
-              Email
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="flex items-center gap-2 flex-1 w-full lg:w-auto">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search activities..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="pl-9"
-                data-testid="input-search"
-              />
-            </div>
-
-            <Select value={visibilityFilter} onValueChange={(v) => { setVisibilityFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-[130px]" data-testid="select-visibility-filter">
-                <SelectValue placeholder="Visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              data-testid="button-sort-order"
-            >
-              {sortOrder === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-
-            {activeTab !== "email" && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setReportActivityOpen(true)}
-                  data-testid="button-report-activity"
-                  className="flex-shrink-0"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Log activity
-                </Button>
-                <Button onClick={handleNewActivity} data-testid="button-new-activity" className="flex-shrink-0">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {isActivityKind(activeTab) ? `Create ${kindConfig[activeTab].label}` : "New Activity"}
-                </Button>
-              </>
-            )}
-          </div>
+      <div className="mt-1">
+        <div className="space-y-3">
+          <GlobalTimeline pageSize={20} view={timelineView} onEditActivity={handleEdit} />
         </div>
-      </Tabs>
-
-      <div className="mt-4">
-        {activeTab === "timeline" ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Global timeline across your CRM activity and captured notes.
-              </p>
-              <ToggleGroup
-                type="single"
-                value={timelineView}
-                onValueChange={(v) => v && (v === "cards" || v === "table") && setTimelineView(v)}
-                className="flex-shrink-0"
-                data-testid="timeline-view-toggle"
-              >
-                <ToggleGroupItem value="cards" aria-label="Cards view">
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Cards
-                </ToggleGroupItem>
-                <ToggleGroupItem value="table" aria-label="Table view">
-                  <Table2 className="h-4 w-4 mr-1" />
-                  Table
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            <GlobalTimeline pageSize={20} view={timelineView} onEditActivity={handleEdit} />
-          </div>
-        ) : activeTab === "email" ? (
-          <div className="space-y-3">
-            {emailUserQuery.isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : emailUserQuery.error ? (
-              <ErrorDisplay error={emailUserQuery.error} endpoint="/api/v1/integrations/email/flow/accounts?scope=user" />
-            ) : personalEmailAccounts.length === 0 ? (
-              <EmptyState title="No personal email account" description="Connect a personal email account in Settings." />
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  {personalEmailAccounts.map((acc) => (
-                    <label key={acc.id} className="flex items-center gap-2 border rounded-full px-3 py-1 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={emailAccountsSelected.includes(acc.id)}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setEmailAccountsSelected((prev) =>
-                            checked ? [...prev, acc.id] : prev.filter((id) => id !== acc.id)
-                          );
-                        }}
-                      />
-                      <span className="truncate max-w-[220px]">{acc.external_account.email_address}</span>
-                      <Badge variant="secondary">Personal</Badge>
-                    </label>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={loadMoreEmailMessages} disabled={!hasMoreEmail}>
-                    {hasMoreEmail ? "Load more" : "No more messages"}
-                  </Button>
-                </div>
-
-                <div className="flex gap-4 min-h-[70vh]">
-                  <div className="w-96 border rounded-lg bg-card flex flex-col">
-                    <div className="border-b px-3 py-2 font-semibold">Inbox</div>
-                    <div className="flex-1 overflow-y-auto">
-                      {mergedEmailMessages.length === 0 ? (
-                        <div className="p-4">
-                          <EmptyState title="No messages" description="Messages will appear here once fetched." />
-                        </div>
-                      ) : (
-                        mergedEmailMessages.map((msg) => (
-                          <div
-                            key={`${msg.accountId}-${msg.id}`}
-                            className={`p-3 border-b cursor-pointer ${selectedEmailMessage?.id === msg.id ? "bg-muted" : ""}`}
-                            onClick={() => {
-                              setSelectedEmailMessage({ accountId: msg.accountId, id: msg.id });
-                              fetchEmailDetail(msg.accountId, msg.id).catch(() =>
-                                toast({ title: "Failed to load message", variant: "destructive" })
-                              );
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-sm font-semibold truncate">{msg.subject || "(no subject)"}</div>
-                              <span className="text-xs text-muted-foreground">
-                                {msg.received_at ? formatRelativeTime(msg.received_at) : ""}
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              From: {msg.from} → {msg.to?.[0] ?? ""}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 border rounded-lg bg-card p-4 space-y-4">
-                    {selectedEmailDetail ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold text-lg">{selectedEmailDetail.subject || "(no subject)"}</div>
-                            <div className="text-sm text-muted-foreground">From: {selectedEmailDetail.from}</div>
-                            <div className="text-sm text-muted-foreground">To: {selectedEmailDetail.to?.join(", ")}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() =>
-                                selectedEmailMessage &&
-                                emailDeleteMutation.mutate({
-                                  accountId: selectedEmailMessage.accountId,
-                                  id: selectedEmailMessage.id,
-                                })
-                              }
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                        {selectedEmailDetail.html ? (
-                          <div className="border rounded-md p-3 text-sm" dangerouslySetInnerHTML={{ __html: selectedEmailDetail.html }} />
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap">{selectedEmailDetail.text}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground text-sm">Select a message to view details.</div>
-                    )}
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">Compose</h3>
-                      <Select
-                        value={emailComposeForm.accountId}
-                        onValueChange={(v) => setEmailComposeForm((prev) => ({ ...prev, accountId: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select account" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {personalEmailAccounts.map((acc) => (
-                            <SelectItem key={acc.id} value={acc.id}>
-                              {acc.external_account.email_address}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        placeholder="To (comma separated)"
-                        value={emailComposeForm.to}
-                        onChange={(e) => setEmailComposeForm((prev) => ({ ...prev, to: e.target.value }))}
-                      />
-                      <Input
-                        placeholder="Subject"
-                        value={emailComposeForm.subject}
-                        onChange={(e) => setEmailComposeForm((prev) => ({ ...prev, subject: e.target.value }))}
-                      />
-                      <Textarea
-                        placeholder="Body (text)"
-                        value={emailComposeForm.text}
-                        onChange={(e) => setEmailComposeForm((prev) => ({ ...prev, text: e.target.value }))}
-                        rows={4}
-                      />
-                      <Input
-                        type="file"
-                        multiple
-                        onChange={(e) =>
-                          setEmailComposeForm((prev) => ({
-                            ...prev,
-                            attachments: e.target.files ? Array.from(e.target.files) : [],
-                          }))
-                        }
-                      />
-                      <Button onClick={() => emailSendMutation.mutate()} disabled={emailSendMutation.isPending}>
-                        {emailSendMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        Send
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        ) : isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <ErrorDisplay 
-            error={error}
-            action={{ label: "Retry", onClick: () => refetch() }}
-          />
-        ) : activeTab === "event" ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {calendarTenantQuery.isLoading || calendarUserQuery.isLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : calendarTenantQuery.error || calendarUserQuery.error ? (
-                <ErrorDisplay error={calendarTenantQuery.error || calendarUserQuery.error} />
-              ) : calendarAccounts.length === 0 ? (
-                <EmptyState title="No calendar accounts" description="Connect a calendar account in Settings." />
-              ) : (
-                calendarAccounts.map((acc) => (
-                  <label key={acc.id} className="flex items-center gap-2 border rounded-full px-3 py-1 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedCalendarAccounts.includes(acc.id)}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setSelectedCalendarAccounts((prev) =>
-                          checked ? [...prev, acc.id] : prev.filter((id) => id !== acc.id)
-                        );
-                      }}
-                    />
-                    {acc.external_account.provider === "google" ? (
-                      <SiGoogle className="h-4 w-4" />
-                    ) : (
-                      <CalendarIconLucide className="h-4 w-4" />
-                    )}
-                    <span className="truncate max-w-[160px]">{acc.external_account.email_address}</span>
-                    <Badge variant={acc.external_account.ownership === "tenant" ? "default" : "secondary"}>
-                      {acc.external_account.ownership === "tenant" ? "Company" : "Personal"}
-                    </Badge>
-                  </label>
-                ))
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleNewCalendarEvent} disabled={calendarAccounts.length === 0}>
-                <Plus className="h-4 w-4 mr-1" />
-                New Event
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadMoreCalendarEvents}
-                disabled={!hasMoreCalendar}
-              >
-                {hasMoreCalendar ? "Load more" : "No more events"}
-              </Button>
-            </div>
-
-            {mergedCalendarEvents.length === 0 ? (
-              <EmptyState
-                icon={CalendarDays}
-                title="No events"
-                description="Events from selected accounts will appear here."
-              />
-            ) : (
-              <div className="space-y-3">
-                {mergedCalendarEvents.map((event) => (
-                  <div key={`${event.accountId}-${event.id}`} className="border rounded-md p-3 flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {event.accountId}
-                        </Badge>
-                        <span className="font-medium">{event.title}</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground flex flex-col">
-                        <span>Start: {formatDateTime(event.start)}</span>
-                        <span>End: {formatDateTime(event.end)}</span>
-                      </div>
-                      {event.attendees && event.attendees.length > 0 && (
-                        <div className="text-xs text-muted-foreground">Attendees: {event.attendees.join(", ")}</div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditCalendarEvent(event.accountId, event)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteCalendarEvent(event.accountId, event.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (activeTab === "all" ? mergedAllItems.length === 0 : activities.length === 0) ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <EmptyState
-              icon={activeTab === "all" ? Clock : isActivityKind(activeTab) ? kindConfig[activeTab].icon : Clock}
-              title={`No ${
-                activeTab === "all"
-                  ? "activities"
-                  : isActivityKind(activeTab)
-                  ? kindConfig[activeTab].label.toLowerCase() + "s"
-                  : "items"
-              } found`}
-              description={search ? "Try adjusting your search" : "Create your first activity to get started"}
-            />
-            <Button onClick={handleNewActivity} className="mt-4" data-testid="button-empty-new">
-              <Plus className="h-4 w-4 mr-2" />
-              {activeTab === "all" ? "New Activity" : isActivityKind(activeTab) ? `Create ${kindConfig[activeTab].label}` : "New Activity"}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {activeTab === "all"
-              ? mergedAllItems.map((it) =>
-                  it.type === "capture" ? (
-                    <CapturedNoteCard key={`capture-${it.entry.id}`} entry={it.entry} />
-                  ) : it.activity.kind === "task" ? (
-                    <TaskCard
-                      key={`activity-${it.activity.id}`}
-                      activity={it.activity}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onToggleComplete={handleToggleComplete}
-                      isUpdating={toggleCompleteMutation.isPending}
-                    />
-                  ) : (
-                    <ActivityCard
-                      key={`activity-${it.activity.id}`}
-                      activity={it.activity}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  )
-                )
-              : activities.map((activity) =>
-                  activity.kind === "task" ? (
-                    <TaskCard
-                      key={activity.id}
-                      activity={activity}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onToggleComplete={handleToggleComplete}
-                      isUpdating={toggleCompleteMutation.isPending}
-                    />
-                  ) : (
-                    <ActivityCard
-                      key={activity.id}
-                      activity={activity}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  )
-                )}
-          </div>
-        )}
-
-        {totalPages > 1 && activeTab !== "event" && (
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-              data-testid="button-prev-page"
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === totalPages}
-              onClick={() => setPage(page + 1)}
-              data-testid="button-next-page"
-            >
-              Next
-            </Button>
-          </div>
-        )}
       </div>
 
       <ActivityDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         activity={editingActivity}
-        defaultKind={isActivityKind(activeTab) ? activeTab : "task"}
+        defaultKind="task"
         onSave={handleSave}
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
 
-      <ReportActivityModal open={reportActivityOpen} onOpenChange={setReportActivityOpen} />
+      <ReportActivityModal
+        open={reportActivityOpen}
+        onOpenChange={setReportActivityOpen}
+        userGeoAddress={lastLocation}
+      />
 
       <Dialog open={calendarEventDialogOpen} onOpenChange={setCalendarEventDialogOpen}>
         <DialogContent>
@@ -2120,7 +1714,7 @@ export default function Activities() {
   }
 
   return (
-    <PageLayout title={t("activities.title")} description={t("activities.description")}>
+    <PageLayout title={t("activities.title")} description={t("activities.description")} toolbar={activitiesNavBar} toolbarClassName="py-2" className="pt-2">
       {activitiesContent}
     </PageLayout>
   );

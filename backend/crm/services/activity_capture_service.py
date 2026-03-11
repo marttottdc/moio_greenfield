@@ -89,6 +89,34 @@ def _user_timezone(user) -> str:
     return "UTC"
 
 
+def _user_language(user) -> str:
+    """Return user's preferred language (e.g. en, es, pt) for activity creation."""
+    prefs = getattr(user, "preferences", None)
+    if isinstance(prefs, dict):
+        lang = prefs.get("language")
+        if isinstance(lang, str) and lang.strip():
+            return lang.strip().lower()[:5]  # e.g. "en", "es", "pt-BR"
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "locale", None):
+        return str(profile.locale).strip().lower()[:5]
+    return "en"
+
+
+def _default_follow_up_datetime(*, user_tz: str) -> datetime:
+    """Return a reasonable default for follow-up: ~3 business days from now."""
+    from datetime import timedelta
+
+    now = timezone.now()
+    # Simple: add 3 days; for production you might skip weekends
+    default = now + timedelta(days=3)
+    try:
+        from zoneinfo import ZoneInfo
+
+        return default.astimezone(ZoneInfo(user_tz))
+    except Exception:
+        return default
+
+
 def _parse_iso_dt(value: Optional[str], *, user_tz: str) -> Optional[datetime]:
     if not value:
         return None
@@ -172,34 +200,60 @@ def get_openai_config_for_tenant(*, tenant) -> OpenAIConfig:
     raise ValueError("OpenAI integration is not configured/enabled for this tenant")
 
 
-def build_system_prompt(
+def build_activity_suggestion_prompt(
     *,
     tenant_name: str,
     current_utc_iso: str,
     user_tz: str,
+    user_lang: str,
     anchor_model: str,
     anchor_label: str,
     anchor_id: str,
     raw_text: str,
 ) -> str:
+    lang_names = {"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French"}
+    lang_label = lang_names.get(user_lang.split("-")[0].lower(), "English")
     return (
-        "You are Moio, a precise CRM activity classifier for {tenant_name}.\n"
+        "You are Moio, a helpful activity suggester for the CRM of {tenant_name}.\n"
         "Current server time (UTC): {current_utc_iso}\n"
         "User timezone: {user_tz}\n"
+        "User language: {user_lang} ({lang_label}). Output all titles, descriptions, reasons in {lang_label}.\n"
         "Anchor record: {anchor_model} \"{anchor_label}\" (ID: {anchor_id})\n\n"
-        "Classify the sales note below. Resolve relative dates/times into full ISO strings using the user's timezone.\n"
-        "If any date/time or entity is ambiguous, set needs_review=true and list clear reasons.\n"
-        "Output ONLY valid JSON matching the ClassificationOutput schema.\n\n"
-        "Sales note:\n"
-        "\"\"\"{raw_text}\"\"\"\n"
+        "TASK: Read the sales note and suggest activities to register in the CRM.\n"
+        "Put ALL activities in suggested_activities—this is the ONLY output for activities. One item per activity.\n\n"
+        "Activity kinds (use exactly these):\n"
+        "- kind 'event': Interactions with contacts (calls, meetings, coffees, visits, messages). Past: status='completed'. Future: status='planned'.\n"
+        "  Use proposed_start_at / proposed_end_at. If time vague → needs_time_confirmation=true.\n"
+        "- kind 'task': Internal work (prepare presentation, update quote, send docs, review internally).\n"
+        "  Use proposed_due_at (usually 1 day before any related meeting if applicable).\n"
+        "- kind 'deal': Business opportunity (potential projects, interest in buying, negotiation, possible sale).\n"
+        "  Optional: proposed_value (number), proposed_currency (3-letter code).\n\n"
+        "Rules:\n"
+        "1. Always include a completed 'event' (status='completed') for any past interaction mentioned.\n"
+        "2. If a follow-up meeting/review is agreed → add a planned 'event'.\n"
+        "3. If preparation is implied (presentation, quote, docs to review/show) → add a 'task' with due before the meeting.\n"
+        "4. If multiple opportunities/projects mentioned → create separate 'deal' for each.\n"
+        "5. Suggest a follow-up 'event' (planned, ~7 days ahead, needs_time_confirmation=true) when momentum exists but no date set.\n"
+        "6. Resolve relative dates to ISO-8601 in {user_tz}.\n"
+        "7. List EVERY activity in suggested_activities—past events, tasks, future events, deals. Do not omit any.\n\n"
+        "Examples:\n\n"
+        "Input: 'Tuve un café con Pedro Suárez, acordamos que preparo la cotización y nos juntamos el jueves para revisarla'\n"
+        "→ 3 items in suggested_activities: (1) event 'Café con Pedro Suárez' status=completed, (2) task 'Preparar cotización' proposed_due_at before jueves, (3) event 'Revisión de cotización con Pedro' status=planned start jueves\n\n"
+        "Input: 'Tuve una llamada con Carlos, quedamos en revisar una presentación la semana que viene'\n"
+        "→ 3 items: completed event (llamada), task (preparar presentación), planned event (revisión)\n\n"
+        "Input: 'tomé un cafe con Carla, acordamos juntarnos para revisar la cotizacion el proximo lunes'\n"
+        "→ 3 items: completed event (café), task (preparar cotización), planned event (revisión lunes)\n\n"
+        "Think step by step: past interactions → preparation tasks → future meetings → opportunities. Then output JSON with full suggested_activities list.\n\n"
+        "The sales note is provided as the user input."
     ).format(
         tenant_name=tenant_name,
         current_utc_iso=current_utc_iso,
         user_tz=user_tz,
+        user_lang=user_lang,
+        lang_label=lang_label,
         anchor_model=anchor_model,
         anchor_label=anchor_label,
         anchor_id=anchor_id,
-        raw_text=raw_text,
     )
 
 
@@ -254,6 +308,147 @@ def create_capture_entry(
         return entry, True
 
 
+def _default_event_datetime(*, user_tz: str) -> Tuple[datetime, datetime]:
+    """Ocurrió en una fecha/hora — no hay fin, solo el momento del registro. start == end."""
+    now = timezone.now()
+    try:
+        from zoneinfo import ZoneInfo
+        now = now.astimezone(ZoneInfo(user_tz))
+    except Exception:
+        pass
+    return now, now
+
+
+def _apply_confirmed_activities(
+    *,
+    confirmed: list[dict[str, Any]],
+    entry: ActivityCaptureEntry,
+    actor,
+    user_tz: str,
+) -> dict[str, list[str]]:
+    """Create ActivityRecords and Deals from user-confirmed list (task, event, deal)."""
+    from crm.services.activity_service import activity_manager
+    from crm.models import Deal, Pipeline, PipelineStage
+
+    activity_ids: list[str] = []
+    deal_ids: list[str] = []
+    for item in confirmed:
+        if not isinstance(item, dict):
+            continue
+        kind = (item.get("kind") or "event").lower()
+        title = (item.get("title") or "").strip() or "Activity"
+        description = (item.get("description") or entry.raw_text or "").strip()
+
+        owner_id = item.get("owner_id")
+        owner_user = None
+        if owner_id and str(owner_id).strip():
+            from tenancy.models import MoioUser
+            owner_user = MoioUser.objects.filter(tenant=entry.tenant, id=owner_id).first()
+
+        if kind == "task":
+            due_at = _parse_iso_dt(item.get("due_at") or item.get("proposed_due_at"), user_tz=user_tz)
+            when = due_at or _default_follow_up_datetime(user_tz=user_tz)
+            priority = _priority_to_int(item.get("priority"))
+            payload = {
+                "kind": "task",
+                "title": title,
+                "content": {
+                    "description": description,
+                    "due_date": when,
+                    "priority": priority,
+                    "status": "open",
+                },
+                "source": "system",
+                "visibility": entry.visibility,
+                "status": "planned",
+                "scheduled_at": when,
+                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
+            }
+            if owner_user:
+                payload["owner_id"] = str(owner_user.id)
+            activity = activity_manager.create_activity(
+                payload,
+                tenant=entry.tenant,
+                user=actor,
+                activity_type=None,
+            )
+        elif kind == "event":
+            start_at = _parse_iso_dt(item.get("start_at") or item.get("proposed_start_at"), user_tz=user_tz)
+            end_at = _parse_iso_dt(item.get("end_at") or item.get("proposed_end_at"), user_tz=user_tz)
+            if not start_at or not end_at:
+                # El evento se asume en la fecha/hora en que se está registrando
+                start_at, end_at = _default_event_datetime(user_tz=user_tz)
+            duration_minutes = max(0, int((end_at - start_at).total_seconds() // 60))
+            participants = item.get("attendees") or item.get("participants") or []
+            if isinstance(participants, list):
+                participants = [str(p) for p in participants if p]
+            status = (item.get("status") or "planned").lower()
+            if status not in ("planned", "completed"):
+                status = "planned"
+            payload = {
+                "kind": "event",
+                "title": title,
+                "content": {
+                    "start": start_at,
+                    "end": end_at,
+                    "location": item.get("location"),
+                    "participants": participants,
+                },
+                "source": "system",
+                "visibility": entry.visibility,
+                "status": status,
+                "scheduled_at": start_at,
+                "duration_minutes": duration_minutes,
+                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
+            }
+            # Eventos: el autor (actor) es el responsable; no se asigna owner_id distinto
+            activity = activity_manager.create_activity(
+                payload,
+                tenant=entry.tenant,
+                user=actor,
+                activity_type=None,
+            )
+        elif kind == "deal":
+            contact_id = None
+            if entry.anchor_model == CaptureAnchorModel.CONTACT:
+                contact_id = entry.anchor_id
+            pipeline = Pipeline.objects.filter(tenant=entry.tenant, is_default=True).first()
+            stage = None
+            if pipeline:
+                stage = PipelineStage.objects.filter(pipeline=pipeline).order_by("order").first()
+            from decimal import Decimal
+            value = Decimal("0")
+            if item.get("proposed_value"):
+                try:
+                    value = Decimal(str(item["proposed_value"]))
+                except Exception:
+                    pass
+            currency = (item.get("proposed_currency") or "USD").strip()[:3]
+            deal = Deal.objects.create(
+                tenant=entry.tenant,
+                title=title,
+                description=description or "",
+                contact_id=contact_id,
+                pipeline=pipeline,
+                stage=stage,
+                value=value,
+                currency=currency,
+                status="open",
+                created_by=actor,
+                owner=actor,
+            )
+            deal_ids.append(str(deal.id))
+            continue
+        else:
+            continue
+
+        activity.originating_capture_entry = entry
+        activity.save(update_fields=["originating_capture_entry"])
+        activity_ids.append(str(activity.id))
+
+    return {"activity_record_ids": activity_ids, "deal_ids": deal_ids}
+
+
 def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> dict[str, Any]:
     """
     Create canonical ActivityRecord rows from entry.final/classification.
@@ -266,100 +461,47 @@ def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> 
         classification = {}
 
     user_tz = _user_timezone(actor)
-    applied: list[str] = []
 
-    # Always allow “note-only” fallback when asked, or when no structured intent exists.
-    intent = (classification.get("intent") or {}) if isinstance(classification.get("intent"), dict) else {}
-
-    def _create_note(body: str, title: str):
-        activity = activity_manager.create_activity(
-            {
-                "kind": "note",
-                "title": title or "Note",
-                "content": {"body": body, "tags": []},
-                "source": "manual",
-                "visibility": entry.visibility,
-                "status": "completed",
-                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
-            },
-            tenant=entry.tenant,
-            user=actor,
-            activity_type=None,
+    # User-confirmed activities (from apply-sync with user edits)
+    confirmed = classification.get("confirmed_activities")
+    if isinstance(confirmed, list) and confirmed:
+        result = _apply_confirmed_activities(
+            confirmed=confirmed, entry=entry, actor=actor, user_tz=user_tz
         )
-        activity.originating_capture_entry = entry
-        activity.save(update_fields=["originating_capture_entry"])
-        applied.append(str(activity.id))
+        if result["activity_record_ids"] or result["deal_ids"]:
+            return {"activity_record_ids": result["activity_record_ids"], "deal_ids": result["deal_ids"]}
 
-    # Task intent
-    create_task = intent.get("create_task") if isinstance(intent, dict) else None
-    if isinstance(create_task, dict) and create_task.get("do") is True:
-        title = (create_task.get("title") or classification.get("summary") or "").strip() or "Follow-up"
-        due_at = _parse_iso_dt(create_task.get("due_at"), user_tz=user_tz)
-        if due_at is None:
-            # If missing/invalid date, fallback to needs-review behavior at higher level
-            raise ValueError("task_due_at_missing")
-        priority = _priority_to_int(create_task.get("priority"))
-        activity = activity_manager.create_activity(
-            {
-                "kind": "task",
-                "title": title,
-                "content": {
-                    "description": classification.get("summary") or entry.raw_text,
-                    "due_date": due_at,
-                    "priority": priority,
-                    "status": "open",
-                },
-                "source": "system",
-                "visibility": entry.visibility,
-                "status": "planned",
-                "scheduled_at": due_at,
-                **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
-            },
-            tenant=entry.tenant,
-            user=actor,
-            activity_type=None,
-        )
-        activity.originating_capture_entry = entry
-        activity.save(update_fields=["originating_capture_entry"])
-        applied.append(str(activity.id))
+    # suggested_activities is the single source of truth (from classification or entry)
+    suggested = classification.get("suggested_activities")
+    if not suggested and hasattr(entry, "suggested_activities") and entry.suggested_activities:
+        suggested = entry.suggested_activities
+    if isinstance(suggested, list) and suggested:
+        to_apply = [
+            dict(item) if isinstance(item, dict) else {}
+            for item in suggested
+            if isinstance(item, dict) and item.get("kind")
+        ]
+        if to_apply:
+            result = _apply_confirmed_activities(
+                confirmed=to_apply, entry=entry, actor=actor, user_tz=user_tz
+            )
+            if result["activity_record_ids"] or result["deal_ids"]:
+                return {"activity_record_ids": result["activity_record_ids"], "deal_ids": result["deal_ids"]}
 
-    # Appointment intent (maps to ActivityRecord kind='event')
-    create_appt = intent.get("create_appointment") if isinstance(intent, dict) else None
-    if isinstance(create_appt, dict) and create_appt.get("do") is True:
-        title = (create_appt.get("title") or classification.get("summary") or "").strip() or "Meeting"
-        start_at = _parse_iso_dt(create_appt.get("start_at"), user_tz=user_tz)
-        end_at = _parse_iso_dt(create_appt.get("end_at"), user_tz=user_tz)
-        if not start_at or not end_at:
-            raise ValueError("appointment_time_missing")
-
-        if bool(create_appt.get("book_calendar")) is True:
-            # Commit-time conflict check against connected calendars.
-            if has_calendar_conflicts(user=actor, start_at=start_at, end_at=end_at):
-                raise ValueError("calendar_conflict_detected")
+    # Default fallback: single past event (e.g. note-only)
+    def _create_past_event(title: str, body: str = ""):
+        start_at, end_at = _default_event_datetime(user_tz=user_tz)
         duration_minutes = max(0, int((end_at - start_at).total_seconds() // 60))
-        attendees = create_appt.get("attendees")
-        participants: list[str] = []
-        if isinstance(attendees, list):
-            for a in attendees:
-                if isinstance(a, dict):
-                    email = a.get("email") or a.get("address")
-                    if email:
-                        participants.append(str(email))
         activity = activity_manager.create_activity(
             {
                 "kind": "event",
-                "title": title,
-                "content": {
-                    "start": start_at,
-                    "end": end_at,
-                    "location": create_appt.get("location"),
-                    "participants": participants,
-                },
+                "title": title or "Event",
+                "content": {"start": start_at, "end": end_at, "location": None, "participants": []},
                 "source": "system",
                 "visibility": entry.visibility,
-                "status": "planned",
+                "status": "completed",
                 "scheduled_at": start_at,
-                "duration_minutes": duration_minutes or None,
+                "duration_minutes": duration_minutes,
                 **_assign_activity_anchor_kwargs(entry.anchor_model, entry.anchor_id),
             },
             tenant=entry.tenant,
@@ -368,14 +510,56 @@ def apply_capture_entry_to_activities(*, entry: ActivityCaptureEntry, actor) -> 
         )
         activity.originating_capture_entry = entry
         activity.save(update_fields=["originating_capture_entry"])
-        applied.append(str(activity.id))
+        return str(activity.id)
 
-    if not applied:
-        # Default behavior: store as a note
-        title = (classification.get("summary") or "").strip() or "Note"
-        _create_note(entry.raw_text, title=title)
+    title = (classification.get("summary") or "").strip() or "Event"
+    aid = _create_past_event(title=title, body=entry.raw_text or "")
+    return {"activity_record_ids": [aid], "deal_ids": []}
 
-    return {"activity_record_ids": applied}
+
+def _suggested_item_to_proposed(item: dict[str, Any], user_tz: str, summary: str, raw_text: str) -> dict[str, Any]:
+    """Convert SuggestedActivityItem dict to proposed activity format for UI."""
+    kind = (item.get("kind") or "event").lower()
+    if kind not in ("task", "event", "deal"):
+        kind = "event"
+    title = (item.get("title") or "").strip() or "Activity"
+    desc = (item.get("description") or summary or raw_text or "").strip()
+    if kind == "task":
+        due_at = _parse_iso_dt(item.get("proposed_due_at"), user_tz=user_tz)
+        return {
+            "kind": "task",
+            "title": title,
+            "description": desc,
+            "due_at": due_at.isoformat() if due_at else None,
+            "priority": item.get("priority") or "MEDIUM",
+            "reason": item.get("reason"),
+            "needs_time_confirmation": bool(item.get("needs_time_confirmation")),
+        }
+    if kind == "event":
+        start_at = _parse_iso_dt(item.get("proposed_start_at"), user_tz=user_tz)
+        end_at = _parse_iso_dt(item.get("proposed_end_at"), user_tz=user_tz)
+        return {
+            "kind": "event",
+            "title": title,
+            "description": desc,
+            "status": (item.get("status") or "planned").lower(),
+            "start_at": start_at.isoformat() if start_at else None,
+            "end_at": end_at.isoformat() if end_at else None,
+            "location": item.get("location"),
+            "attendees": item.get("attendees") or [],
+            "reason": item.get("reason"),
+            "needs_time_confirmation": bool(item.get("needs_time_confirmation")),
+        }
+    if kind == "deal":
+        return {
+            "kind": "deal",
+            "title": title,
+            "description": desc,
+            "proposed_value": item.get("proposed_value"),
+            "proposed_currency": item.get("proposed_currency") or "USD",
+            "reason": item.get("reason"),
+        }
+    return {"kind": "event", "title": title, "description": desc}
 
 
 def build_proposed_activity_from_classification(
@@ -386,42 +570,37 @@ def build_proposed_activity_from_classification(
 ) -> dict[str, Any]:
     """
     Build a preview payload of what would be created by apply_capture_entry_to_activities.
-    Does not create any ActivityRecord. Used for sync classify + confirm flow.
+    Returns suggested_activities (list for user to confirm/edit) and proposed_activity (first for backward compat).
     """
-    intent = (classification.get("intent") or {}) if isinstance(classification.get("intent"), dict) else {}
     summary = (classification.get("summary") or "").strip() or (entry.raw_text or "")[:500]
-    create_task = intent.get("create_task") if isinstance(intent.get("create_task"), dict) else None
-    create_appt = intent.get("create_appointment") if isinstance(intent.get("create_appointment"), dict) else None
+    raw_text = entry.raw_text or ""
 
-    if create_task and create_task.get("do") is True:
-        due_at = _parse_iso_dt(create_task.get("due_at"), user_tz=user_tz)
-        title = (create_task.get("title") or summary or "").strip() or "Follow-up"
-        return {
-            "kind": "task",
-            "title": title,
-            "due_at": due_at.isoformat() if due_at else None,
-            "priority": create_task.get("priority") or "MEDIUM",
-            "description": summary or entry.raw_text,
-        }
+    # Primary: use suggested_activities from classification or entry (stored on capture record)
+    suggested = classification.get("suggested_activities")
+    if not suggested and hasattr(entry, "suggested_activities") and entry.suggested_activities:
+        suggested = entry.suggested_activities
+    if isinstance(suggested, list) and suggested:
+        activities = [
+            _suggested_item_to_proposed(item, user_tz=user_tz, summary=summary, raw_text=raw_text)
+            for item in suggested
+            if isinstance(item, dict) and item.get("kind")
+        ]
+        if activities:
+            primary = activities[0]
+            return {
+                "suggested_activities": activities,
+                "proposed_activities": activities,
+                "proposed_activity": primary,
+            }
 
-    if create_appt and create_appt.get("do") is True:
-        start_at = _parse_iso_dt(create_appt.get("start_at"), user_tz=user_tz)
-        end_at = _parse_iso_dt(create_appt.get("end_at"), user_tz=user_tz)
-        title = (create_appt.get("title") or summary or "").strip() or "Meeting"
-        return {
-            "kind": "event",
-            "title": title,
-            "start_at": start_at.isoformat() if start_at else None,
-            "end_at": end_at.isoformat() if end_at else None,
-            "location": create_appt.get("location"),
-            "attendees": create_appt.get("attendees") or [],
-        }
-
-    title = (summary or "Note").strip() or "Note"
+    # Fallback: single event when suggested_activities is empty
+    title = (summary or "Event").strip() or "Event"
+    activities = [{"kind": "event", "title": title, "description": entry.raw_text or summary, "status": "completed"}]
+    primary = activities[0]
     return {
-        "kind": "note",
-        "title": title,
-        "body": entry.raw_text or summary,
+        "suggested_activities": activities,
+        "proposed_activities": activities,
+        "proposed_activity": primary,
     }
 
 
@@ -472,15 +651,17 @@ def classify_entry_via_openai(*, entry: ActivityCaptureEntry) -> ClassificationO
     actor = entry.actor
 
     user_tz = _user_timezone(actor)
+    user_lang = _user_language(actor)
     anchor_label = _resolve_anchor_label(
         tenant=tenant, anchor_model=entry.anchor_model, anchor_id=entry.anchor_id
     )
     cfg = get_openai_config_for_tenant(tenant=tenant)
 
-    prompt = build_system_prompt(
+    prompt = build_activity_suggestion_prompt(
         tenant_name=getattr(tenant, "nombre", None) or getattr(tenant, "name", None) or str(tenant),
         current_utc_iso=timezone.now().astimezone(dt_timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         user_tz=user_tz,
+        user_lang=user_lang,
         anchor_model=entry.anchor_model,
         anchor_label=anchor_label,
         anchor_id=entry.anchor_id,
@@ -497,7 +678,8 @@ def classify_entry_via_openai(*, entry: ActivityCaptureEntry) -> ClassificationO
             "channel": "OTHER",
             "direction": "INTERNAL",
             "outcome": "UNKNOWN",
-            "intent": {"create_task": {"do": False}, "create_appointment": {"do": False}},
+            "suggested_activities": [{"kind": "event", "title": summary[:80] or "Event", "reason": "Fallback"}],
+            "temporal_type": "ambiguous",
             "suggest_links": [],
             "needs_review": True,
             "review_reasons": [r for r in reasons if r],
@@ -512,10 +694,11 @@ def classify_entry_via_openai(*, entry: ActivityCaptureEntry) -> ClassificationO
         raise ValueError(note)
 
     # Step 1: try Responses API first (recommended; better caching/cost), then Completions.
+    # Responses API requires non-empty input; pass raw_text as input.
     step1_error: Optional[str] = None
     try:
         return client.structured_parse_via_responses(
-            data="",
+            data=entry.raw_text or " ",
             system_instructions=prompt,
             output_model=ClassificationOutput,
             model=model,

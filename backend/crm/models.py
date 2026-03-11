@@ -1352,6 +1352,7 @@ class ActivityCaptureEntry(TenantScopedModel):
     prompt_version = models.CharField(max_length=20, blank=True, default="v2.0")
     raw_llm_response = models.JSONField(null=True, blank=True)
     classification = models.JSONField(null=True, blank=True)
+    suggested_activities = models.JSONField(null=True, blank=True, default=list)
     summary = models.TextField(null=True, blank=True)
     confidence = models.FloatField(null=True, blank=True)
     needs_review = models.BooleanField(default=False)

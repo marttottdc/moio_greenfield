@@ -25,6 +25,7 @@ interface PageLayoutProps {
   ctaTestId?: string;
   kpiRibbon?: React.ReactNode;
   toolbar?: React.ReactNode;
+  toolbarClassName?: string;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -41,6 +42,7 @@ export function PageLayout({
   ctaTestId,
   kpiRibbon,
   toolbar,
+  toolbarClassName,
   headerAction,
   children,
   className,
@@ -85,7 +87,7 @@ export function PageLayout({
         ref={headerRef}
         className="sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b"
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <PageHeader
             title={title}
             description={description}
@@ -107,7 +109,7 @@ export function PageLayout({
           className="sticky z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b"
           style={{ top: `${headerHeight}px` }}
         >
-          <div className="p-6">{kpiRibbon}</div>
+          <div className="p-4 md:p-6">{kpiRibbon}</div>
         </div>
       )}
 
@@ -117,12 +119,12 @@ export function PageLayout({
           className="sticky z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b"
           style={{ top: `${toolbarTop}px` }}
         >
-          <div className="px-6 py-4">{toolbar}</div>
+          <div className={cn("px-4 py-4 md:px-6", toolbarClassName)}>{toolbar}</div>
         </div>
       )}
 
-      {/* Scrollable Content */}
-      <div className={cn("flex-1 overflow-y-auto p-6", className)}>
+      {/* Scrollable Content - extra pb on mobile for app bar clearance */}
+      <div className={cn("flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6", className)}>
         {children}
       </div>
     </div>

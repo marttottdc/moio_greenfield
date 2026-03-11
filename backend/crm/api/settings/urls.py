@@ -7,6 +7,7 @@ from .views import (
     IntegrationViewSet,
     PreferencesViewSet,
     LocalizationViewSet,
+    LocationViewSet,
 )
 from chatbot.api.views.tenant_tools import TenantToolConfigurationViewSet
 
@@ -48,6 +49,13 @@ localization_view = LocalizationViewSet.as_view(
     }
 )
 
+location_view = LocationViewSet.as_view(
+    {
+        'get': 'retrieve',
+        'patch': 'partial_update',
+    }
+)
+
 urlpatterns = [
     # Tools endpoints - explicit paths to avoid routing conflicts
     path('agents/tools/', tools_viewset, name='settings-agent-tools-list'),
@@ -55,5 +63,6 @@ urlpatterns = [
 ] + router.urls + [
     path('preferences/', preferences_view, name='settings-preferences'),
     path('localization/', localization_view, name='settings-localization'),
+    path('location/', location_view, name='settings-location'),
     path('<slug:integration>/', tenant_settings_view, name='tenant-settings-detail'),
 ]

@@ -102,6 +102,7 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
     ITEMS_KEY = "activities"
 
     def _base_queryset(self, request):
+        self._ensure_tenant_schema(request)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return ActivityRecord.objects.none()
@@ -258,6 +259,7 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
 class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView):
 
     def _get_activity(self, request, activity_id) -> Optional[ActivityRecord]:
+        self._ensure_tenant_schema(request)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return None
@@ -392,6 +394,7 @@ class ActivitySuggestionsView(PaginationMixin, ProtectedAPIView):
         }
 
     def _base_queryset(self, request):
+        self._ensure_tenant_schema(request)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return ActivitySuggestion.objects.none()

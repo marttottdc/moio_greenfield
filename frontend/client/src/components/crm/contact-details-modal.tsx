@@ -281,10 +281,10 @@ export function ContactDetailsModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col"
+        className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none"
         data-testid="dialog-contact-details"
       >
-        <div className="grid grid-cols-1 md:grid-cols-[20rem_1fr] flex-1 overflow-hidden min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-[min(20rem,100%)_1fr] flex-1 overflow-hidden min-h-0">
           {/* Left: Profile */}
           <ScrollArea className="border-r bg-muted/30">
             <div className="p-5 space-y-5">

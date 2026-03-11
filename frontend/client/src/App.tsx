@@ -4,12 +4,16 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppBarActionProvider } from "@/contexts/AppBarActionContext";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileAppBar } from "@/components/mobile-app-bar";
 import { GlobalFooter } from "@/components/global-footer";
 import { CacheBuster } from "@/components/cache-buster";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { UserLocationProvider } from "@/hooks/use-user-location";
 import { LocaleProvider } from "@/contexts/LocaleContext";
 import IndexEntryPage from "@/pages/index-entry";
 import Login from "@/pages/login";
@@ -312,7 +316,8 @@ function AppLayout() {
         "--sidebar-width-icon": "4rem"
       } as React.CSSProperties}
     >
-      <div className="flex h-screen w-full relative bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
+      <AppBarActionProvider>
+      <div className="flex h-screen min-h-[100dvh] w-full relative bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-gradient-to-br from-[#58a6ff]/30 via-blue-200/20 to-transparent rounded-full blur-3xl animate-float" />
           <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-gradient-to-tr from-[#ffba08]/25 via-amber-200/15 to-transparent rounded-full blur-3xl animate-float-delayed" />
@@ -320,13 +325,21 @@ function AppLayout() {
         </div>
         
         <AppSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <main className={isFullBleedPage ? "flex-1 overflow-hidden p-0" : "flex-1 overflow-auto p-4"}>
+        <div className="flex flex-1 flex-col overflow-hidden min-h-0">
+          <main
+            className={cn(
+              "flex-1 overflow-auto",
+              isFullBleedPage ? "p-0" : "p-4 md:pl-4",
+              "pb-24 md:pb-4" /* 96px: app bar + safe-area clearance for mobile */
+            )}
+          >
             <AppRoutes />
           </main>
           <GlobalFooter />
+          <MobileAppBar />
         </div>
       </div>
+      </AppBarActionProvider>
     </SidebarProvider>
   );
 }
@@ -346,11 +359,13 @@ export default function App() {
       <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
-            <LocaleProvider>
-              <CacheBuster>
-                <AppContent />
-              </CacheBuster>
-            </LocaleProvider>
+            <UserLocationProvider>
+              <LocaleProvider>
+                <CacheBuster>
+                  <AppContent />
+                </CacheBuster>
+              </LocaleProvider>
+            </UserLocationProvider>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>

@@ -326,7 +326,7 @@ function DraggableDealCard({ deal, stage, onEdit, onDelete, onWon, onLost, onPro
         <Button 
           size="sm" 
           variant="ghost" 
-          className="flex-1 min-w-0 h-7 text-[10px] text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950 px-1.5"
+          className="flex-1 min-w-0 min-h-[44px] sm:h-7 sm:min-h-0 text-[10px] text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950 px-1.5"
           onClick={(e) => { e.stopPropagation(); onWon(deal); }}
           onPointerDown={(e) => e.stopPropagation()}
           data-testid={`button-won-${deal.id}`}
@@ -763,7 +763,7 @@ export default function Deals() {
             value={activePipeline?.id || ""}
             onValueChange={(value) => setSelectedPipelineId(value)}
           >
-            <SelectTrigger className="w-[200px]" data-testid="select-pipeline">
+            <SelectTrigger className="w-full max-w-[200px]" data-testid="select-pipeline">
               <SelectValue placeholder="Select pipeline" />
             </SelectTrigger>
             <SelectContent>
@@ -777,7 +777,7 @@ export default function Deals() {
         </div>
       )}
 
-      <div className="overflow-visible">
+      <div className="overflow-x-auto overflow-y-visible -mx-4 px-4 md:mx-0 md:px-0">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -805,9 +805,12 @@ export default function Deals() {
             }}
             onDragEnd={handleDragEnd}
           >
-            <div 
-              className="grid gap-2 overflow-visible" 
-              style={{ gridTemplateColumns: `repeat(${Math.min(stages.length, 4)}, minmax(0, 1fr))` }}
+            <div
+              className="grid gap-2 overflow-visible"
+              style={{
+                gridTemplateColumns: `repeat(${stages.length}, minmax(140px, 1fr))`,
+                minWidth: `${Math.max(stages.length * 140, 280)}px`,
+              }}
             >
               {stages.map((stage, index) => {
                 const stageDeals = dealsByStage[stage.id] ?? [];
@@ -898,7 +901,7 @@ export default function Deals() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="deal-value">Value</Label>
                   <Input
@@ -927,7 +930,7 @@ export default function Deals() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="deal-contact">Contact</Label>
                   <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
@@ -957,7 +960,7 @@ export default function Deals() {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0" align="start">
+                    <PopoverContent className="w-[min(300px,calc(100vw-2rem))] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search contacts..." />
                         <CommandList>
@@ -1189,7 +1192,7 @@ export default function Deals() {
                   : "--"}
               </p>
             </div>
-            <div className="flex gap-8">
+            <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
               <div className="flex-1 space-y-3 text-sm">
                 <div className="space-y-1">
                   <span className="text-muted-foreground">Priority</span>
@@ -1212,7 +1215,7 @@ export default function Deals() {
                   </div>
                 )}
               </div>
-              <div className="w-48 shrink-0">
+              <div className="w-full sm:w-48 shrink-0">
                 {(() => {
                     const dealContact = viewingDeal?.contact 
                       ? contacts.find(c => c.id === viewingDeal.contact)

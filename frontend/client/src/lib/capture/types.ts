@@ -58,10 +58,22 @@ export interface ClassifySyncRequest {
 
 /** Proposed activity from classify-sync (e.g. task with due date). */
 export interface ProposedActivity {
+  kind?: string;
   type?: string;
   title?: string;
   due_date?: string;
+  due_at?: string;
   description?: string;
+  body?: string;
+  start_at?: string;
+  end_at?: string;
+  status?: "planned" | "completed";
+  location?: string;
+  attendees?: unknown[];
+  reason?: string;
+  needs_time_confirmation?: boolean;
+  owner_id?: string | null;
+  owner_name?: string | null;
   [key: string]: unknown;
 }
 
@@ -69,7 +81,25 @@ export interface ProposedActivity {
 export interface ClassifySyncResponse {
   entry: { id: string };
   classification?: Record<string, unknown>;
+  suggested_activities?: ProposedActivity[];
   proposed_activity?: ProposedActivity;
+  proposed_activities?: ProposedActivity[];
+}
+
+/** Item to send when applying with user-confirmed edits (dates, times, etc.). */
+export interface ConfirmedActivityItem {
+  kind: "task" | "event" | "deal";
+  title: string;
+  description?: string;
+  due_at?: string;
+  start_at?: string;
+  end_at?: string;
+  status?: "planned" | "completed";
+  location?: string;
+  attendees?: string[];
+  owner_id?: string | null;
+  proposed_value?: string | number;
+  proposed_currency?: string;
 }
 
 /** Response from POST /capture/entries/<id>/apply-sync/ */

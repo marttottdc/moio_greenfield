@@ -15,7 +15,7 @@ def _valid_payload():
         "channel": "OTHER",
         "direction": "INTERNAL",
         "outcome": "UNKNOWN",
-        "intent": {"create_task": {"do": False}, "create_appointment": {"do": False}},
+        "suggested_activities": [],
         "suggest_links": [],
         "needs_review": False,
         "review_reasons": [],
