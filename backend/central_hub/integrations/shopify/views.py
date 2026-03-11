@@ -217,10 +217,12 @@ class ShopifyOAuthCallbackView(APIView):
 @method_decorator(csrf_exempt, name="dispatch")
 class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
     """
-    GET /api/v1/integrations/shopify/embed/config/?instance_id=<id>
+    GET  /api/v1/integrations/shopify/embed/config/?instance_id=<id>
+    PATCH /api/v1/integrations/shopify/embed/config/
 
-    Returns non-sensitive Shopify config data and sync status for the
-    embedded-app React page.
+    GET  – Returns full Shopify config (sensitive fields masked) + platform URLs.
+    PATCH – Saves platform-level settings (app_url, shopify_client_id/secret).
+            These live on PlatformConfiguration, not on IntegrationConfig.
     """
 
     def get(self, request):
@@ -237,13 +239,22 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
         cfg = config_obj.config if config_obj else {}
 
         def _mask(val: str) -> str:
-            """Return masked placeholder when a sensitive field is set."""
             if not val:
                 return ""
             return "••••••••"
 
         data = {
             "shopify_client_id": (portal_config.shopify_client_id or "") if portal_config else "",
+            "shopify_client_id_set": bool((portal_config.shopify_client_id or "") if portal_config else ""),
+            "shopify_client_secret_set": bool((portal_config.shopify_client_secret or "") if portal_config else ""),
+            # Public app URL (tunnel / production URL)
+            "app_url": (portal_config.my_url or "") if portal_config else "",
+            # Derived URLs shown to the user for Shopify app partner setup
+            "oauth_callback_url": _build_redirect_uri(portal_config) if portal_config else "",
+            "webhook_base_url": (
+                f"{(portal_config.my_url or '').rstrip('/')}/api/v1/integrations/shopify/webhook/"
+                if portal_config else ""
+            ),
             "instance_id": instance_id,
             "configured": config_obj is not None,
             "enabled": config_obj.enabled if config_obj else False,
@@ -261,13 +272,52 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
             "receive_customers": bool(cfg.get("receive_customers", True)),
             "receive_orders": bool(cfg.get("receive_orders", True)),
             "receive_inventory": bool(cfg.get("receive_inventory", True)),
-            # Send toggles (future)
+            # Send toggles
             "send_inventory_updates": bool(cfg.get("send_inventory_updates", False)),
             "send_order_updates": bool(cfg.get("send_order_updates", False)),
             # Sync metadata
             "last_sync_metadata": (config_obj.metadata or {}) if config_obj else {},
         }
         return Response(data)
+
+    def patch(self, request):
+        """Save platform-level Shopify app settings (app_url, client credentials)."""
+        tenant = self.get_tenant()
+        if not tenant:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        portal_config = _get_portal_config()
+        if not portal_config:
+            return Response({"error": "Platform configuration not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        changed = False
+
+        app_url = data.get("app_url", "").strip()
+        if app_url and app_url != portal_config.my_url:
+            portal_config.my_url = app_url
+            changed = True
+
+        shopify_client_id = data.get("shopify_client_id", "").strip()
+        if shopify_client_id:
+            portal_config.shopify_client_id = shopify_client_id
+            changed = True
+
+        shopify_client_secret = data.get("shopify_client_secret", "").strip()
+        if shopify_client_secret:
+            portal_config.shopify_client_secret = shopify_client_secret
+            changed = True
+
+        if changed:
+            portal_config.save(update_fields=["my_url", "shopify_client_id", "shopify_client_secret"])
+            # Invalidate the DynamicCsrfMiddleware cache so the new URL is trusted immediately
+            try:
+                from moio_platform.csrf_middleware import DynamicCsrfMiddleware  # noqa: PLC0415
+                DynamicCsrfMiddleware._cache_ts = 0.0
+            except Exception:
+                pass
+
+        return Response({"ok": True, "app_url": portal_config.my_url})
 
 
 # ---------------------------------------------------------------------------

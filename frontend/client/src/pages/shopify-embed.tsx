@@ -20,9 +20,15 @@ import { apiRequest } from "@/lib/api";
 
 interface ShopifyEmbedConfig {
   shopify_client_id: string;
+  shopify_client_id_set: boolean;
+  shopify_client_secret_set: boolean;
   instance_id: string;
   configured: boolean;
   enabled: boolean;
+  // Platform / tunnel
+  app_url: string;
+  oauth_callback_url: string;
+  webhook_base_url: string;
   // Connection
   store_url: string;
   access_token: string;      // masked "••••••••" when set
@@ -37,7 +43,7 @@ interface ShopifyEmbedConfig {
   receive_customers: boolean;
   receive_orders: boolean;
   receive_inventory: boolean;
-  // Send (future)
+  // Send
   send_inventory_updates: boolean;
   send_order_updates: boolean;
   // Meta
@@ -58,6 +64,13 @@ interface LocalConfig {
   receive_inventory: boolean;
   send_inventory_updates: boolean;
   send_order_updates: boolean;
+}
+
+// Platform-level settings saved separately
+interface LocalPlatform {
+  app_url: string;
+  shopify_client_id: string;     // empty = unchanged
+  shopify_client_secret: string; // empty = unchanged
 }
 
 // ── Shopify App Bridge ────────────────────────────────────────────────────────
@@ -331,10 +344,13 @@ export default function ShopifyEmbedPage() {
   const instanceId = qs("instance_id") || "default";
 
   const [local, setLocal] = useState<LocalConfig | null>(null);
+  const [localPlatform, setLocalPlatform] = useState<LocalPlatform | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [platformSaveState, setPlatformSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [syncingType, setSyncingType] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [showClientSecret, setShowClientSecret] = useState(false);
 
   const qc = useQueryClient();
 
@@ -377,7 +393,14 @@ export default function ShopifyEmbedPage() {
         send_order_updates: config.send_order_updates,
       });
     }
-  }, [config, local]);
+    if (config && !localPlatform) {
+      setLocalPlatform({
+        app_url: config.app_url,
+        shopify_client_id: "",       // empty = keep existing
+        shopify_client_secret: "",   // empty = keep existing
+      });
+    }
+  }, [config, local, localPlatform]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const saveMutation = useMutation({
@@ -421,6 +444,32 @@ export default function ShopifyEmbedPage() {
     },
   });
 
+  // ── Platform save (app_url, Shopify client credentials) ───────────────────
+  const platformSaveMutation = useMutation({
+    mutationFn: async (patch: LocalPlatform) => {
+      const payload: Record<string, string> = { app_url: patch.app_url };
+      if (patch.shopify_client_id) payload.shopify_client_id = patch.shopify_client_id;
+      if (patch.shopify_client_secret) payload.shopify_client_secret = patch.shopify_client_secret;
+      const res = await apiRequest("PATCH", "/api/v1/integrations/shopify/embed/config/", payload);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      setPlatformSaveState("saved");
+      setLocalPlatform((prev) =>
+        prev ? { ...prev, shopify_client_id: "", shopify_client_secret: "" } : prev
+      );
+      qc.invalidateQueries({ queryKey: ["shopify-embed-config", instanceId] });
+      toast("Platform settings saved");
+      setTimeout(() => setPlatformSaveState("idle"), 2500);
+    },
+    onError: () => {
+      setPlatformSaveState("error");
+      toast("Failed to save platform settings", true);
+      setTimeout(() => setPlatformSaveState("idle"), 3000);
+    },
+  });
+
   // ── Sync ──────────────────────────────────────────────────────────────────
   const syncMutation = useMutation({
     mutationFn: async (syncType: string) => {
@@ -449,10 +498,22 @@ export default function ShopifyEmbedPage() {
     []
   );
 
+  const updatePlatform = useCallback(
+    <K extends keyof LocalPlatform>(key: K, value: LocalPlatform[K]) =>
+      setLocalPlatform((prev) => (prev ? { ...prev, [key]: value } : prev)),
+    []
+  );
+
   const handleSave = () => {
     if (!local) return;
     setSaveState("saving");
     saveMutation.mutate(local);
+  };
+
+  const handlePlatformSave = () => {
+    if (!localPlatform) return;
+    setPlatformSaveState("saving");
+    platformSaveMutation.mutate(localPlatform);
   };
 
   const handleSync = (type: string) => {
@@ -522,6 +583,93 @@ export default function ShopifyEmbedPage() {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-5 pb-24">
+
+        {/* App & tunnel setup */}
+        {localPlatform && (
+          <Card
+            title="App & tunnel setup"
+            subtitle="Public URL moio listens on — set this to your tunnel URL (ngrok, cloudflared, etc.) or production domain"
+          >
+            <TextInput
+              label="App URL"
+              required
+              value={localPlatform.app_url}
+              onChange={(v) => updatePlatform("app_url", v)}
+              placeholder="https://moio.ngrok.dev"
+              hint="Used for Shopify OAuth callbacks and webhook delivery. Must be publicly reachable by Shopify."
+            />
+
+            {/* Read-only derived URLs for copy-paste into Shopify partner dashboard */}
+            {config?.oauth_callback_url && (
+              <div className="space-y-2 pt-1 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  URLs to register in the Shopify Partner Dashboard
+                </p>
+                {[
+                  { label: "OAuth callback URL", value: config.oauth_callback_url },
+                  { label: "Webhook base URL", value: config.webhook_base_url },
+                ].map(({ label, value }) => (
+                  <div key={label} className="space-y-0.5">
+                    <p className="text-xs text-gray-500">{label}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 truncate">
+                        {value}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(value)}
+                        className="flex-shrink-0 text-xs text-gray-400 hover:text-[#008060] transition-colors"
+                        title="Copy"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Shopify App credentials (client ID / secret) */}
+            <div className="space-y-3 pt-1 border-t border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Shopify App credentials
+              </p>
+              <TextInput
+                label="Client ID"
+                value={localPlatform.shopify_client_id}
+                onChange={(v) => updatePlatform("shopify_client_id", v)}
+                placeholder={config?.shopify_client_id_set ? "Leave blank to keep current" : "From Shopify Partner Dashboard → App → Client credentials"}
+              />
+              <RevealInput
+                label="Client secret"
+                value={localPlatform.shopify_client_secret}
+                onChange={(v) => updatePlatform("shopify_client_secret", v)}
+                placeholder={config?.shopify_client_secret_set ? "Leave blank to keep current" : "From Shopify Partner Dashboard → App → Client credentials"}
+                show={showClientSecret}
+                onToggleShow={() => setShowClientSecret((v) => !v)}
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={handlePlatformSave}
+                disabled={platformSaveState === "saving"}
+                className="px-4 py-1.5 rounded-lg bg-[#008060] hover:bg-[#006e52] text-white text-sm font-semibold transition-colors disabled:opacity-60 shadow-sm"
+              >
+                {platformSaveState === "saving" ? "Saving…" : "Save app settings"}
+              </button>
+              {platformSaveState === "saved" && (
+                <span className="text-sm text-green-700 font-medium">Saved!</span>
+              )}
+              {platformSaveState === "error" && (
+                <span className="text-sm text-red-600">Failed to save</span>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Connection */}
         <Card
