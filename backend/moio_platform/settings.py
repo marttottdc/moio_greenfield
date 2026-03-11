@@ -150,7 +150,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'moio_platform.csrf_middleware.DynamicCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'tenancy.middleware.TenantMiddleware',
@@ -201,8 +201,13 @@ CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True  # For HTTPS
 CSRF_TRUSTED_ORIGINS = [
     'https://moio.ngrok.dev', 'https://devcrm.moio.ai', 'https://api.moio.ai',
-    'https://platform.moio.ai'
+    'https://platform.moio.ai',
 ]
+# If APP_URL env var is set (e.g. a custom ngrok/cloudflared tunnel), trust it
+# statically at startup in addition to the DB-driven DynamicCsrfMiddleware.
+_static_app_url = os.environ.get("APP_URL", "").rstrip("/")
+if _static_app_url and _static_app_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(_static_app_url)
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.replit\.dev$",
