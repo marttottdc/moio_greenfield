@@ -1,0 +1,33 @@
+{% comment %}
+  Moio Chat Widget - App embed block (target: body).
+  Injects data attributes for the storefront script; config is fetched from backend via chat-widget.js.
+  Pass customer.id when logged in so the backend can associate the session.
+{% endcomment %}
+<div
+  id="moio-chat-widget-root"
+  class="moio-chat-widget-embed"
+  data-shop="{{ shop.permanent_domain }}"
+  data-allowed-templates="{{ block.settings.allowed_templates | default: '' }}"
+  data-locale="{{ request.locale.iso_code | default: shop.locale }}"
+  {% if customer %}data-customer-id="{{ customer.id }}"{% endif %}
+  style="display: none;"
+  aria-hidden="true"
+></div>
+
+{% schema %}
+{
+  "name": "Moio Chat",
+  "target": "body",
+  "stylesheet": "chat-widget.css",
+  "javascript": "chat-widget.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "allowed_templates",
+      "label": "Show on templates",
+      "default": "index",
+      "info": "Comma-separated: index, product, collection, cart. Leave empty for all pages."
+    }
+  ]
+}
+{% endschema %}

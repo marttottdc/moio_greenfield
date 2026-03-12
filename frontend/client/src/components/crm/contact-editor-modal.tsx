@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,6 +56,7 @@ interface ContactTypeOption {
   id: string;
   name: string;
   description?: string;
+  is_default?: boolean;
 }
 
 type ContactTypesOptionsResponse = {
@@ -172,6 +174,7 @@ export function ContactEditorModal(props: {
   onClose: () => void;
   onSaved: (contact: any) => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advancedEditEnabled, setAdvancedEditEnabled] = useState(() => props.mode === "create");
@@ -252,11 +255,20 @@ export function ContactEditorModal(props: {
     setAccountSearch("");
   }, [props.open, props.mode, defaultValues, form]);
 
+  useEffect(() => {
+    if (props.mode !== "create" || !props.open) return;
+    const currentType = form.getValues("type");
+    if (currentType) return;
+    const defaultType = contactTypes.find((ct) => ct.is_default);
+    if (defaultType) {
+      form.setValue("type", defaultType.name);
+    }
+  }, [props.mode, props.open, contactTypes, form]);
+
   const tagsValue = watch("tags");
   const tagsPreview = useMemo(() => normalizeTags(tagsValue ?? "") ?? [], [tagsValue]);
 
-  const advancedIdentityDisabledReason =
-    isEdit ? "Not editable yet (backend PATCH doesn’t accept fullname/whatsapp_name/source)." : undefined;
+  const advancedIdentityDisabledReason = isEdit ? t("crm.advanced_readonly_hint") : undefined;
 
   const customFieldsJson = watch("custom_fields_json");
   const activitySummaryJson = watch("activity_summary_json");
@@ -325,8 +337,8 @@ export function ContactEditorModal(props: {
 
         const created = await createContact(payload);
         toast({
-          title: "Contact created",
-          description: "The contact has been created successfully.",
+          title: t("crm.contact_created"),
+          description: t("crm.contact_created_description"),
         });
         props.onSaved(created);
         props.onClose();
@@ -335,8 +347,8 @@ export function ContactEditorModal(props: {
 
       if (!contact?.id) {
         toast({
-          title: "Cannot edit contact",
-          description: "Missing contact id.",
+          title: t("crm.cannot_edit_contact"),
+          description: t("crm.missing_contact_id"),
           variant: "destructive",
         });
         return;
@@ -374,8 +386,8 @@ export function ContactEditorModal(props: {
 
       if (Object.keys(payload).length === 0) {
         toast({
-          title: "No changes",
-          description: "Nothing to update.",
+          title: t("crm.no_changes"),
+          description: t("crm.nothing_to_update"),
         });
         props.onClose();
         return;
@@ -383,25 +395,25 @@ export function ContactEditorModal(props: {
 
       const updated = await patchContact(contact.id, payload);
       toast({
-        title: "Contact updated",
-        description: "The contact has been updated successfully.",
+        title: t("crm.contact_updated"),
+        description: t("crm.contact_updated_description"),
       });
       props.onSaved(updated);
       props.onClose();
     } catch (error: any) {
       toast({
-        title: "Save failed",
-        description: error?.message || "Failed to save contact",
+        title: t("crm.save_failed"),
+        description: error?.message || t("crm.failed_to_save_contact"),
         variant: "destructive",
       });
     }
   };
 
-  const title = props.mode === "create" ? "Add New Contact" : "Edit Contact";
+  const title = props.mode === "create" ? t("crm.add_contact") : t("crm.edit_contact");
   const description =
     props.mode === "create"
-      ? "Fill in the basic fields fast, or open Advanced for more."
-      : "Update contact information. Some advanced identity fields are read-only for now.";
+      ? t("crm.contact_form_description_create")
+      : t("crm.contact_form_description_edit");
 
   return (
     <Dialog open={props.open} onOpenChange={(isOpen) => !isOpen && props.onClose()}>
@@ -424,9 +436,9 @@ export function ContactEditorModal(props: {
                     name="name"
                     render={({ field }) => (
                       <FormItem className="md:col-span-2">
-                        <FormLabel>Name *</FormLabel>
+                        <FormLabel>{t("crm.name_required")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Full name" {...field} data-testid="input-contact-name" />
+                          <Input placeholder={t("crm.placeholder_full_name")} {...field} data-testid="input-contact-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -438,9 +450,9 @@ export function ContactEditorModal(props: {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>{t("crm.email_label")}</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="email@example.com" {...field} data-testid="input-contact-email" />
+                          <Input type="email" placeholder={t("crm.placeholder_email")} {...field} data-testid="input-contact-email" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -452,9 +464,9 @@ export function ContactEditorModal(props: {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel>{t("crm.phone_label")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="+598..." {...field} data-testid="input-contact-phone" />
+                          <Input placeholder={t("crm.phone_placeholder")} {...field} data-testid="input-contact-phone" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -466,7 +478,7 @@ export function ContactEditorModal(props: {
                     name="account"
                     render={({ field }) => (
                       <FormItem className="md:col-span-2">
-                        <FormLabel>Account</FormLabel>
+                        <FormLabel>{t("crm.account_label")}</FormLabel>
                         <Popover open={accountPopoverOpen} onOpenChange={setAccountPopoverOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -480,7 +492,7 @@ export function ContactEditorModal(props: {
                                 )}
                                 data-testid="select-contact-account"
                               >
-                                {accountDisplayName || "Buscar o escribir nombre de cuenta…"}
+                                {accountDisplayName || t("crm.account_search_placeholder")}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </FormControl>
@@ -488,7 +500,7 @@ export function ContactEditorModal(props: {
                           <PopoverContent className="w-[300px] p-0" align="start">
                             <Command shouldFilter={false}>
                               <CommandInput
-                                placeholder="Buscar cuentas…"
+                                placeholder={t("crm.account_search_placeholder")}
                                 value={accountSearch}
                                 onValueChange={setAccountSearch}
                               />
@@ -496,7 +508,7 @@ export function ContactEditorModal(props: {
                                 {accountsSearchQuery.isFetching && (
                                   <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    Buscando…
+                                    {t("crm.searching")}
                                   </div>
                                 )}
                                 <CommandGroup>
@@ -509,7 +521,7 @@ export function ContactEditorModal(props: {
                                     }}
                                   >
                                     <Check className={cn("mr-2 h-4 w-4", (!field.value || field.value === "__none__") ? "opacity-100" : "opacity-0")} />
-                                    <span className="text-muted-foreground">Ninguna</span>
+                                    <span className="text-muted-foreground">{t("crm.account_none")}</span>
                                   </CommandItem>
                                   {accountSearchResults.map((acc) => (
                                     <CommandItem
@@ -535,12 +547,12 @@ export function ContactEditorModal(props: {
                                       }}
                                     >
                                       <Building2 className="mr-2 h-4 w-4" />
-                                      Crear cuenta &quot;{accountSearch.trim()}&quot;
+                                      {t("crm.create_account_name", { name: accountSearch.trim() })}
                                     </CommandItem>
                                   )}
                                 </CommandGroup>
                                 {!accountSearch.trim() && accountSearchResults.length === 0 && (
-                                  <CommandEmpty>Escribe para buscar o crear</CommandEmpty>
+                                  <CommandEmpty>{t("crm.type_to_search_or_create")}</CommandEmpty>
                                 )}
                               </CommandList>
                             </Command>
@@ -556,11 +568,11 @@ export function ContactEditorModal(props: {
                     name="type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Type</FormLabel>
+                        <FormLabel>{t("crm.type_label")}</FormLabel>
                         <Select value={field.value || ""} onValueChange={field.onChange} disabled={contactTypesQuery.isLoading}>
                           <FormControl>
                             <SelectTrigger data-testid="select-contact-type">
-                              <SelectValue placeholder={contactTypesQuery.isLoading ? "Loading..." : "Select type (optional)"} />
+                              <SelectValue placeholder={contactTypesQuery.isLoading ? t("crm.loading") : t("crm.select_type_optional")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -572,10 +584,10 @@ export function ContactEditorModal(props: {
                               ))
                             ) : (
                               <>
-                                <SelectItem value="Lead">Lead</SelectItem>
-                                <SelectItem value="Customer">Customer</SelectItem>
-                                <SelectItem value="Partner">Partner</SelectItem>
-                                <SelectItem value="Vendor">Vendor</SelectItem>
+                                <SelectItem value="Lead">{t("crm.lead")}</SelectItem>
+                                <SelectItem value="Customer">{t("crm.customer")}</SelectItem>
+                                <SelectItem value="Partner">{t("crm.partner")}</SelectItem>
+                                <SelectItem value="Vendor">{t("crm.vendor")}</SelectItem>
                               </>
                             )}
                           </SelectContent>
@@ -594,14 +606,14 @@ export function ContactEditorModal(props: {
                     className="px-0"
                     data-testid="button-toggle-advanced"
                   >
-                    {showAdvanced ? "Hide advanced" : "Show advanced"}
+                    {showAdvanced ? t("crm.hide_advanced") : t("crm.show_advanced")}
                   </Button>
                 </div>
 
                 {isEdit && (
                   <div className="rounded-lg border bg-card p-4">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold">Activity Summary</div>
+                      <div className="text-sm font-semibold">{t("crm.activity_summary_label")}</div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-3 gap-3">
@@ -609,19 +621,19 @@ export function ContactEditorModal(props: {
                         <div className="text-2xl font-semibold">
                           {Number(activitySummaryPreview?.total_deals ?? 0)}
                         </div>
-                        <div className="text-xs text-muted-foreground">Deals</div>
+                        <div className="text-xs text-muted-foreground">{t("crm.deals_count")}</div>
                       </div>
                       <div className="rounded-lg bg-muted/50 p-3 text-center">
                         <div className="text-2xl font-semibold">
                           {Number(activitySummaryPreview?.total_tickets ?? 0)}
                         </div>
-                        <div className="text-xs text-muted-foreground">Tickets</div>
+                        <div className="text-xs text-muted-foreground">{t("crm.tickets_count")}</div>
                       </div>
                       <div className="rounded-lg bg-muted/50 p-3 text-center">
                         <div className="text-2xl font-semibold">
                           {Number(activitySummaryPreview?.total_messages ?? 0)}
                         </div>
-                        <div className="text-xs text-muted-foreground">Messages</div>
+                        <div className="text-xs text-muted-foreground">{t("crm.messages_count")}</div>
                       </div>
                     </div>
 
@@ -633,7 +645,7 @@ export function ContactEditorModal(props: {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel className="text-xs text-muted-foreground">
-                                activity_summary (JSON)
+                                {t("crm.activity_summary_json_label")}
                               </FormLabel>
                               <FormControl>
                                 <Textarea
@@ -648,7 +660,7 @@ export function ContactEditorModal(props: {
                           )}
                         />
                         <p className="text-xs text-muted-foreground mt-2">
-                          Often computed.
+                          {t("crm.activity_summary_placeholder")}
                         </p>
                       </div>
                     )}
@@ -661,10 +673,10 @@ export function ContactEditorModal(props: {
                 <div className="md:border-l md:pl-6">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold">Advanced</div>
+                      <div className="text-sm font-semibold">{t("crm.advanced_label")}</div>
                       {advancedIdentityDisabledReason && (
                         <div className="text-xs text-muted-foreground">
-                          {advancedIdentityDisabledReason}
+                          {t("crm.advanced_readonly_hint")}
                         </div>
                       )}
                     </div>
@@ -676,7 +688,7 @@ export function ContactEditorModal(props: {
                         onClick={() => setAdvancedEditEnabled(true)}
                         data-testid="button-edit-advanced"
                       >
-                        Edit
+                        {t("crm.edit_button")}
                       </Button>
                     )}
                   </div>
@@ -685,12 +697,12 @@ export function ContactEditorModal(props: {
                     <div className="space-y-3">
                       <div className="rounded-lg border bg-card p-3">
                         <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                          Identity
+                          {t("crm.identity_label")}
                         </div>
                         {advancedEditEnabled ? (
                           <div className="mt-2 grid grid-cols-1 gap-3">
                             <div className="space-y-1">
-                              <Label htmlFor="fullname" className="text-xs text-muted-foreground">Full name</Label>
+                              <Label htmlFor="fullname" className="text-xs text-muted-foreground">{t("crm.full_name_label")}</Label>
                               <FormField
                                 control={form.control}
                                 name="fullname"
@@ -699,7 +711,7 @@ export function ContactEditorModal(props: {
                                     <FormControl>
                                       <Input
                                         id="fullname"
-                                        placeholder="Full legal name"
+                                        placeholder={t("crm.full_legal_name_placeholder")}
                                         {...field}
                                         disabled={isEdit}
                                         data-testid="input-contact-fullname"
@@ -713,7 +725,7 @@ export function ContactEditorModal(props: {
                             </div>
 
                             <div className="space-y-1">
-                              <Label htmlFor="whatsapp_name" className="text-xs text-muted-foreground">WhatsApp name</Label>
+                              <Label htmlFor="whatsapp_name" className="text-xs text-muted-foreground">{t("crm.whatsapp_name_label")}</Label>
                               <FormField
                                 control={form.control}
                                 name="whatsapp_name"
@@ -722,7 +734,7 @@ export function ContactEditorModal(props: {
                                     <FormControl>
                                       <Input
                                         id="whatsapp_name"
-                                        placeholder="WhatsApp display name"
+                                        placeholder={t("crm.whatsapp_display_placeholder")}
                                         {...field}
                                         disabled={isEdit}
                                         data-testid="input-contact-whatsapp-name"
@@ -770,7 +782,7 @@ export function ContactEditorModal(props: {
                                   <FormControl>
                                     <Input
                                       id="source"
-                                      placeholder="Website, referral, event..."
+                                      placeholder={t("crm.source_placeholder")}
                                       {...field}
                                       disabled={isEdit}
                                       data-testid="input-contact-source"
@@ -806,10 +818,10 @@ export function ContactEditorModal(props: {
                               name="tags"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel className="text-xs text-muted-foreground">Comma-separated</FormLabel>
+                                  <FormLabel className="text-xs text-muted-foreground">{t("crm.comma_separated")}</FormLabel>
                                   <FormControl>
                                     <Input
-                                      placeholder="vip, priority, spanish"
+                                      placeholder={t("crm.tags_placeholder")}
                                       {...field}
                                       data-testid="input-contact-tags"
                                       className="h-8"
@@ -859,7 +871,7 @@ export function ContactEditorModal(props: {
                               render={({ field }) => (
                                 <FormItem className="flex items-center justify-between gap-3 rounded-md border p-2">
                                   <div className="min-w-0">
-                                    <FormLabel className="text-sm">Do not contact</FormLabel>
+                                    <FormLabel className="text-sm">{t("crm.do_not_contact")}</FormLabel>
                                     <p className="text-xs text-muted-foreground">
                                       Mark as not contactable.
                                     </p>
@@ -877,7 +889,7 @@ export function ContactEditorModal(props: {
                               render={({ field }) => (
                                 <FormItem className="flex items-center justify-between gap-3 rounded-md border p-2">
                                   <div className="min-w-0">
-                                    <FormLabel className="text-sm">Blacklisted</FormLabel>
+                                    <FormLabel className="text-sm">{t("crm.blacklisted")}</FormLabel>
                                     <p className="text-xs text-muted-foreground">
                                       Block across the CRM.
                                     </p>
@@ -893,11 +905,11 @@ export function ContactEditorModal(props: {
                           <div className="mt-2 grid gap-2 text-sm">
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-muted-foreground">Do not contact</span>
-                              <span className="text-sm">{form.getValues("do_not_contact") ? "Yes" : "No"}</span>
+                              <span className="text-sm">{form.getValues("do_not_contact") ? t("crm.yes") : t("crm.no")}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">Blacklisted</span>
-                              <span className="text-sm">{form.getValues("is_blacklisted") ? "Yes" : "No"}</span>
+                              <span className="text-xs text-muted-foreground">{t("crm.blacklisted")}</span>
+                              <span className="text-sm">{form.getValues("is_blacklisted") ? t("crm.yes") : t("crm.no")}</span>
                             </div>
                           </div>
                         )}
@@ -916,7 +928,7 @@ export function ContactEditorModal(props: {
                                 <FormItem>
                                   <FormControl>
                                     <Textarea
-                                      placeholder='{"source":"Website","industry":"Retail"}'
+                                      placeholder={t("crm.custom_fields_placeholder")}
                                       className="min-h-[120px] font-mono text-xs"
                                       {...field}
                                       data-testid="textarea-custom-fields"
@@ -947,10 +959,10 @@ export function ContactEditorModal(props: {
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={props.onClose} disabled={isSubmitting}>
-                Cancel
+                {t("crm.cancel")}
               </Button>
               <Button type="submit" disabled={isSubmitting} data-testid="button-save-contact">
-                {isSubmitting ? "Saving..." : "Save"}
+                {isSubmitting ? t("crm.saving") : t("crm.save")}
               </Button>
             </DialogFooter>
           </form>

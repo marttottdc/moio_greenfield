@@ -46,6 +46,20 @@ export type TenantIntegration = {
   updatedAt: string;
 };
 
+/** Integrations Hub contract: catalog entry from central_hub registry (single source for hub UX) */
+export type HubIntegration = {
+  slug: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  supportsMultiInstance: boolean;
+  authScope: "global" | "tenant" | "user";
+  supportsWebhook: boolean;
+  supportsOauth: boolean;
+  webhookPathSuffix: string;
+};
+
 export type SkillDefinition = {
   id: number;
   key: string;
@@ -81,6 +95,27 @@ export type CurrentUser = {
   displayName: string;
   isPlatformAdmin: boolean;
   isActive: boolean;
+};
+
+export type PlatformConfiguration = {
+  siteName: string;
+  company: string;
+  myUrl: string;
+  logoUrl: string;
+  faviconUrl: string;
+  whatsappWebhookToken: string;
+  whatsappWebhookRedirect: string;
+  fbSystemToken: string;
+  fbMoioBotAppId: string;
+  fbMoioBusinessManagerId: string;
+  fbMoioBotAppSecret: string;
+  fbMoioBotConfigurationId: string;
+  googleOauthClientId: string;
+  googleOauthClientSecret: string;
+  microsoftOauthClientId: string;
+  microsoftOauthClientSecret: string;
+  shopifyClientId: string;
+  shopifyClientSecret: string;
 };
 
 export type NotificationSettings = {
@@ -169,12 +204,15 @@ export type BootstrapPayload = {
   tenants: Tenant[];
   users: PlatformUser[];
   integrations: IntegrationDefinition[];
+  /** Integrations Hub contract catalog (from central_hub registry); use for hub/control plane UX */
+  hubIntegrations?: HubIntegration[];
   globalSkills: SkillDefinition[];
   tenantIntegrations: TenantIntegration[];
   pluginSync: PluginSyncState;
   plugins: PluginRegistryEntry[];
   tenantPlugins: TenantPluginBinding[];
   tenantPluginAssignments: TenantPluginAssignment[];
+  platformConfiguration: PlatformConfiguration | null;
   notificationSettings: NotificationSettings;
 };
 
@@ -201,6 +239,7 @@ export type TenantWorkspace = {
   displayName: string;
   specialtyPrompt: string;
   enabledSkillKeys: string[];
+  toolAllowlist?: string[];
   defaultVendor?: string;
   defaultModel?: string;
   defaultThinking?: string;
@@ -304,4 +343,6 @@ export type TenantBootstrapPayload = {
   plugins: PluginRegistryEntry[];
   tenantPlugins: TenantPluginBinding[];
   tenantPluginAssignments: TenantPluginAssignment[];
+  /** Platform-wide notification settings (shared; read-only in Tenant Admin). */
+  notificationSettings?: NotificationSettings;
 };

@@ -13,6 +13,7 @@ CHANNEL_DESKTOP = 'desktop'
 CHANNEL_WEB = 'web'
 # Extend this list as needed
 CHANNEL_FLOWS = 'flows'
+CHANNEL_SHOPIFY_WEBCHAT = 'shopify_webchat'
 CHANNEL_CHOICES = [
     (CHANNEL_WHATSAPP, 'WhatsApp'),
     (CHANNEL_EMAIL, 'Email'),
@@ -20,6 +21,7 @@ CHANNEL_CHOICES = [
     (CHANNEL_DESKTOP, 'Desktop'),
     (CHANNEL_WEB, 'Web'),
     (CHANNEL_FLOWS, 'Flows'),
+    (CHANNEL_SHOPIFY_WEBCHAT, 'Shopify Webchat'),
 ]
 
 

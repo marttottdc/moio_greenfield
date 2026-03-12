@@ -31,7 +31,14 @@ class IntegrationField:
 
 @dataclass
 class IntegrationDefinition:
-    """Complete definition of an integration type."""
+    """
+    Complete definition of an integration type (Integrations Hub contract).
+
+    Identity: slug, name, category, supports_multi_instance
+    Auth model: auth_scope = global | tenant | user
+    Transport: supports_webhook, supports_oauth, supports_polling
+    Runtime: adapter_module (dotted path to adapter class), webhook_path_suffix
+    """
     slug: str
     name: str
     description: str
@@ -41,6 +48,13 @@ class IntegrationDefinition:
     supports_multi_instance: bool = False
     icon: str = ""
     docs_url: str = ""
+    # Hub contract: auth and transport
+    auth_scope: str = "tenant"  # "global" | "tenant" | "user"
+    supports_webhook: bool = False
+    supports_oauth: bool = False
+    supports_polling: bool = False
+    webhook_path_suffix: str = ""  # e.g. "shopify" -> .../shopify/webhook/
+    adapter_module: str = ""  # e.g. "central_hub.integrations.shopify.adapter.ShopifyAdapter"
     
     def get_field(self, name: str) -> IntegrationField | None:
         """Get a field definition by name."""
@@ -113,6 +127,12 @@ INTEGRATION_REGISTRY: dict[str, IntegrationDefinition] = {
         icon="message-circle",
         enabled_field_legacy="whatsapp_integration_enabled",
         supports_multi_instance=True,
+        auth_scope="tenant",
+        supports_webhook=True,
+        supports_oauth=True,
+        supports_polling=False,
+        webhook_path_suffix="whatsapp",
+        adapter_module="central_hub.integrations.whatsapp.adapter.WhatsAppAdapter",
         fields=[
             IntegrationField(
                 name="token",
@@ -570,6 +590,12 @@ INTEGRATION_REGISTRY: dict[str, IntegrationDefinition] = {
         category="ecommerce",
         icon="shopping-bag",
         supports_multi_instance=True,
+        auth_scope="tenant",
+        supports_webhook=True,
+        supports_oauth=True,
+        supports_polling=False,
+        webhook_path_suffix="shopify",
+        adapter_module="central_hub.integrations.shopify.adapter.ShopifyAdapter",
         fields=[
             IntegrationField(
                 name="direction",

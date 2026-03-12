@@ -64,7 +64,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ErrorDisplay } from "@/components/error-display";
 import { ContactEditorModal } from "@/components/crm/contact-editor-modal";
 import { ContactDetailsModal, type ContactDetailsContact } from "@/components/crm/contact-details-modal";
-import { AccountDetailsModal } from "@/components/crm/account-details-modal";
+import { AccountDetailsModal, type AccountDetailsAccount } from "@/components/crm/account-details-modal";
 import { AccountEditorModal } from "@/components/crm/account-editor-modal";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -1162,7 +1162,7 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
                     </div>
                   </div>
                 </div>
-                {contact.company && (
+                {contact.company && contact.company !== contact.account_name && (
                   <p className="text-sm text-muted-foreground hidden md:block shrink-0 mt-0.5">{contact.company}</p>
                 )}
                 {contact.type && (
@@ -1217,6 +1217,10 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
         onOpenChange={(open) => !open && setOpenContactId(null)}
         contactId={openContactId ?? null}
         onEdit={handleEditFromDetails}
+        onDeleted={() => {
+          setOpenContactId(null);
+          queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
+        }}
       />
       <ContactEditorModal
         open={isEditorOpen}
@@ -1239,8 +1243,15 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [accountToEdit, setAccountToEdit] = useState<AccountDetailsAccount | null>(null);
 
   const openCreate = useCallback(() => {
+    setAccountToEdit(null);
+    setIsEditorOpen(true);
+  }, []);
+
+  const openEdit = useCallback((account: AccountDetailsAccount) => {
+    setAccountToEdit(account);
     setIsEditorOpen(true);
   }, []);
 
@@ -1384,6 +1395,7 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
         open={Boolean(openAccountId)}
         onOpenChange={(open) => !open && setOpenAccountId(null)}
         accountId={openAccountId ?? null}
+        onEdit={openEdit}
         onDeleted={() => {
           setOpenAccountId(null);
           queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
@@ -1391,8 +1403,12 @@ function AccountsTab({ searchQuery, openAccountId, setOpenAccountId }: {
       />
       <AccountEditorModal
         open={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
+        onClose={() => {
+          setIsEditorOpen(false);
+          setAccountToEdit(null);
+        }}
         onSaved={handleAddSuccess}
+        account={accountToEdit}
       />
     </div>
   );
@@ -2050,8 +2066,7 @@ function ContactTypesSection({ onBack }: SectionProps) {
         name: editingType.name,
         description: editingType.description,
         color: editingType.color,
-        // Important: use nullish coalescing (not ||) so we never
-        // accidentally coerce a legitimate value to null.
+        is_default: editingType.is_default ?? false,
         default_agent_id: editingType.default_agent_id ?? null,
       };
       if (isCreating) {
@@ -2271,6 +2286,21 @@ function ContactTypesSection({ onBack }: SectionProps) {
                 <p className="text-xs text-muted-foreground mt-1">
                   Agent to handle contacts of this type by default
                 </p>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label>Default type</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    New contacts will use this type when none is specified
+                  </p>
+                </div>
+                <Switch
+                  checked={editingType.is_default ?? false}
+                  onCheckedChange={(checked) =>
+                    setEditingType((prev) => (prev ? { ...prev, is_default: checked } : prev))
+                  }
+                  data-testid="switch-ctype-default"
+                />
               </div>
             </div>
           )}

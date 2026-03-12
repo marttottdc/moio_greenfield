@@ -1,0 +1,8 @@
+# Theme app extension: Chat widget (app embed)
+# Deploy with: shopify app deploy (from app root with Shopify CLI)
+# See: https://shopify.dev/docs/apps/build/online-store/theme-app-extensions
+
+api_version = "2024-01"
+uid = "9bb983c0-4a63-6917-f668-5f344fd8315f6ff7b89f"
+type = "theme"
+name = "Moio Chat Widget"

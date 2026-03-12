@@ -92,11 +92,13 @@ import { useToast } from "@/hooks/use-toast";
 import { getApiKeyStatus, createApiKey, revokeApiKey } from "@/lib/auth/apiKeyApi";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { isPlatformAdminRole, isTenantAdminRole } from "@/lib/rbac";
+import { PLATFORM_ADMIN_NAMESPACE } from "@/constants/routes";
+import { isPlatformAdminRole, isTenantAdminRole, normalizeAppRole } from "@/lib/rbac";
 
 interface OrganizationSummary {
   id?: string;
   name?: string | null;
+  plan?: string;
 }
 
 interface AuthenticatedUser {
@@ -285,10 +287,28 @@ export function AppSidebar() {
   };
 
   const menuItems = useMemo<MenuItem[]>(() => {
+    const normalizedUserRole = normalizeAppRole(user?.role);
+    const isExactTenantAdmin = normalizedUserRole === "tenant_admin";
+    const tenantAdminPath = "/tenant-admin";
+
     if (navigationData?.items && navigationData.items.length > 0) {
       const mapped = navigationData.items
         .filter((node) => {
           if (node.feature_enabled === false) return false;
+          const isSettingsNode =
+            node.id === "settings" ||
+            String(node.url || "").trim() === "/settings" ||
+            String(node.label || "").trim().toLowerCase() === "settings";
+          if (isSettingsNode) {
+            return false;
+          }
+          const isTenantAdminOnlyNode =
+            node.id === "admin" ||
+            node.id === "platform_admin" ||
+            (node.icon === "admin" && node.url === PLATFORM_ADMIN_NAMESPACE);
+          if (isTenantAdminOnlyNode && !isExactTenantAdmin) {
+            return false;
+          }
           if (node.requires_role && node.requires_role.length > 0 && user?.role) {
             return node.requires_role.includes(user.role);
           }
@@ -298,9 +318,17 @@ export function AppSidebar() {
           const transKey = NAV_ID_TO_TRANSLATION_KEY[node.id] ?? NAV_ID_TO_TRANSLATION_KEY[node.label?.toLowerCase()];
           const title = transKey ? t(transKey) : node.label;
           const isDataLab = node.id === "datalab" || node.label?.toLowerCase() === "data lab";
+          const isTenantAdminOnlyNode =
+            node.id === "admin" ||
+            node.id === "platform_admin" ||
+            (node.icon === "admin" && node.url === PLATFORM_ADMIN_NAMESPACE);
           return {
             title,
-            url: isDataLab ? "/datalab" : (node.url || "#"),
+            url: isTenantAdminOnlyNode
+              ? tenantAdminPath
+              : isDataLab
+                ? "/datalab"
+                : (node.url || "#"),
             icon: node.icon ? iconMap[node.icon] || LayoutDashboard : LayoutDashboard,
           };
         });
@@ -308,26 +336,27 @@ export function AppSidebar() {
       return mapped;
     }
 
+    const plan = (user?.organization?.plan ?? "free").toLowerCase();
+    const isFreeTier = plan === "free";
+
     const items: MenuItem[] = [
       { title: t("menu.dashboard"), url: "/dashboard", icon: LayoutDashboard },
       { title: t("menu.crm"), url: "/crm", icon: Users },
       { title: t("menu.deals"), url: "/deals", icon: Briefcase },
       { title: t("menu.activities"), url: "/activities", icon: CheckSquare },
-      { title: t("menu.communications"), url: "/communications", icon: MessageSquare },
+      ...(!isFreeTier ? [{ title: t("menu.communications"), url: "/communications", icon: MessageSquare }] : []),
       { title: t("menu.tickets"), url: "/tickets", icon: Ticket },
-      { title: t("menu.automation_studio"), url: "/workflows", icon: Workflow },
-      { title: t("menu.agent_console"), url: "/agent-console", icon: Bot },
-      { title: t("menu.data_lab"), url: "/datalab", icon: Database },
+      ...(!isFreeTier ? [
+        { title: t("menu.automation_studio"), url: "/workflows", icon: Workflow },
+        { title: t("menu.agent_console"), url: "/agent-console", icon: Bot },
+        { title: t("menu.data_lab"), url: "/datalab", icon: Database },
+      ] : []),
     ];
 
     const userRole = user?.role;
 
-    if (isTenantAdminRole(userRole)) {
-      items.push({ title: t("menu.settings"), url: "/settings", icon: Settings });
-    }
-
-    if (isTenantAdminRole(userRole)) {
-      items.push({ title: t("menu.platform_admin"), url: "/platform-admin", icon: Shield });
+    if (isExactTenantAdmin) {
+      items.push({ title: t("menu.platform_admin"), url: tenantAdminPath, icon: Shield });
     }
 
     if (isPlatformAdminRole(userRole)) {

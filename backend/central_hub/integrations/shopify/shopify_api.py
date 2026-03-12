@@ -144,7 +144,19 @@ class ShopifyAPIClient:
                 logger.warning(f"Request failed, retrying ({retry_count + 1}/{self.max_retries}): {e}")
                 time.sleep(2 ** retry_count)
                 return self._make_request(method, url, data, params, retry_count + 1)
-            raise ShopifyAPIError(f"API request failed after {self.max_retries} retries: {e}")
+            msg = f"API request failed after {self.max_retries} retries: {e}"
+            status_code = getattr(getattr(e, "response", None), "status_code", None)
+            if status_code == 403:
+                msg += (
+                    " (403 Forbidden: the access token may lack required scopes. "
+                    "Re-run the Shopify install from the app so a new token is issued with read_products, read_customers, read_orders, read_inventory.)"
+                )
+            elif status_code == 401:
+                msg += (
+                    " (401 Unauthorized: the access token may be invalid or expired. "
+                    "Re-run the Shopify install from the app to get a new token.)"
+                )
+            raise ShopifyAPIError(msg)
 
     def _paginate_rest(self, endpoint: str, params: Optional[Dict] = None) -> List[Dict]:
         """
@@ -172,7 +184,7 @@ class ShopifyAPIClient:
                 links = link_header.split(',')
                 for link in links:
                     if 'rel="next"' in link:
-                        next_url = link.split(';')[0].strip('<>')
+                        next_url = link.split(';')[0].strip().strip('<>')
                         break
 
             url = next_url
@@ -297,10 +309,68 @@ class ShopifyAPIClient:
         return self._paginate_rest('webhooks')
 
     def create_webhook(self, webhook_data: Dict) -> Dict:
-        """Create new webhook."""
-        url = self._get_rest_url('webhooks')
-        response = self._make_request('POST', url, data={'webhook': webhook_data})
-        return response.json()['webhook']
+        """
+        Create webhook subscription.
+
+        Shopify's webhook registration is more reliable through Admin GraphQL,
+        especially for compliance topics such as customers/data_request,
+        customers/redact, shop/redact, and app/uninstalled.
+        """
+        topic = str(webhook_data.get("topic") or "").strip()
+        callback_url = str(webhook_data.get("address") or "").strip()
+        if not topic or not callback_url:
+            raise ShopifyAPIError("Webhook topic and address are required")
+
+        graphql_topic = topic.replace("/", "_").replace(".", "_").upper()
+        mutation = """
+        mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+          webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+            userErrors {
+              field
+              message
+            }
+            webhookSubscription {
+              id
+              topic
+              endpoint {
+                __typename
+                ... on WebhookHttpEndpoint {
+                  callbackUrl
+                }
+              }
+            }
+          }
+        }
+        """
+        result = self.graphql_query(
+            mutation,
+            variables={
+                "topic": graphql_topic,
+                "webhookSubscription": {
+                    "callbackUrl": callback_url,
+                    "format": "JSON",
+                },
+            },
+        )
+        payload = (
+            result.get("data", {})
+            .get("webhookSubscriptionCreate", {})
+        )
+        user_errors = payload.get("userErrors") or []
+        if user_errors:
+            joined = "; ".join(err.get("message", "Unknown Shopify webhook error") for err in user_errors)
+            raise ShopifyAPIError(f"Webhook subscription failed: {joined}")
+
+        subscription = payload.get("webhookSubscription") or {}
+        if not subscription:
+            raise ShopifyAPIError("Webhook subscription failed: no subscription returned")
+
+        endpoint = subscription.get("endpoint") or {}
+        return {
+            "id": subscription.get("id", ""),
+            "topic": subscription.get("topic", topic),
+            "address": endpoint.get("callbackUrl", callback_url),
+        }
 
     def delete_webhook(self, webhook_id: Union[str, int]) -> None:
         """Delete webhook."""
@@ -358,6 +428,15 @@ class ShopifyAPIClient:
         params = {'inventory_item_ids': ids_param}
         response = self._make_request('GET', url, params=params)
         return response.json()['inventory_levels']
+
+    def get_inventory_levels_by_location(
+        self, location_id: Union[str, int], limit: int = 1
+    ) -> List[Dict]:
+        """Get inventory levels at a location (tests read_inventory scope)."""
+        url = self._get_rest_url('inventory_levels')
+        params = {'location_ids': str(location_id), 'limit': limit}
+        response = self._make_request('GET', url, params=params)
+        return response.json().get('inventory_levels', [])
 
 
 # ============================================================================

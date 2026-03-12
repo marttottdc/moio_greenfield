@@ -28,6 +28,13 @@ except Exception:  # pragma: no cover
 class AuthViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]  # 🔹 Let DRF’s JWTAuthentication handle this
 
+    def get_permissions(self):
+        # login and refresh must allow unauthenticated requests so clients can obtain a token.
+        # All other actions (me, logout, etc.) require IsAuthenticated.
+        if getattr(self, "action", None) in ("login", "refresh"):
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
         serializer = UserSerializer(request.user, context={"request": request})

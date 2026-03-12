@@ -8,6 +8,8 @@ from .views import (
     PreferencesViewSet,
     LocalizationViewSet,
     LocationViewSet,
+    McpConnectionViewSet,
+    JsonSchemaViewSet,
 )
 from chatbot.api.views.tenant_tools import TenantToolConfigurationViewSet
 
@@ -26,6 +28,14 @@ tool_detail_viewset = TenantToolConfigurationViewSet.as_view({
     'patch': 'partial_update',
     'put': 'update',
     'delete': 'destroy',
+})
+
+mcp_connections_view = McpConnectionViewSet.as_view({
+    'get': 'list',
+})
+
+json_schemas_view = JsonSchemaViewSet.as_view({
+    'get': 'list',
 })
 
 tenant_settings_view = TenantConfigurationViewSet.as_view(
@@ -60,6 +70,8 @@ urlpatterns = [
     # Tools endpoints - explicit paths to avoid routing conflicts
     path('agents/tools/', tools_viewset, name='settings-agent-tools-list'),
     path('agents/tools/<str:tool_name>/', tool_detail_viewset, name='settings-agent-tools-detail'),
+    path('mcp_connections/', mcp_connections_view, name='settings-mcp-connections-list'),
+    path('json_schemas/', json_schemas_view, name='settings-json-schemas-list'),
 ] + router.urls + [
     path('preferences/', preferences_view, name='settings-preferences'),
     path('localization/', localization_view, name='settings-localization'),

@@ -20,8 +20,8 @@ if "openai" not in sys.modules:
     sys.modules["openai"] = openai_stub
 
 
-from moio_runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
-from moio_runtime.standalone_backend import StandaloneAgentBackend
+from agent_console.runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
+from agent_console.runtime.backend import AgentConsoleBackend
 
 
 def _catalog_tool_ids(payload: dict[str, object]) -> set[str]:
@@ -67,7 +67,7 @@ class PluginUserAssignmentTests(unittest.IsolatedAsyncioTestCase):
         )
         self.plugins_dir = self.root / "plugins"
 
-    def _make_backend(self) -> StandaloneAgentBackend:
+    def _make_backend(self) -> AgentConsoleBackend:
         cfg = ReplicaConfig(
             model=ModelConfig(api_key="test-key"),
             skills=SkillsConfig(),
@@ -91,7 +91,7 @@ class PluginUserAssignmentTests(unittest.IsolatedAsyncioTestCase):
             app=AppConfig(),
             sessions_dir=self.root / "sessions",
         )
-        return StandaloneAgentBackend(
+        return AgentConsoleBackend(
             cfg,
             plugin_user_allowlist_resolver=lambda initiator: (
                 ["crm.contacts"] if str((initiator or {}).get("tenantRole", "")).strip().lower() == "admin" else []

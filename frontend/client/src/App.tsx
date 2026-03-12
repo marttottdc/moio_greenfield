@@ -1,5 +1,5 @@
 import "./i18n";
-import { Switch, Route, Redirect, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,8 +15,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { UserLocationProvider } from "@/hooks/use-user-location";
 import { LocaleProvider } from "@/contexts/LocaleContext";
-import IndexEntryPage from "@/pages/index-entry";
 import Login from "@/pages/login";
+import PlatformRouter from "@/pages/platform-router";
 import Dashboard from "@/pages/dashboard";
 import CRM from "@/pages/crm";
 import Deals from "@/pages/deals";
@@ -48,14 +48,49 @@ import NotFound from "@/pages/not-found";
 import DataLabHome from "@/pages/datalab/index";
 import CreateImportDataset from "@/pages/datalab/create/import";
 import CreateDatasetFromCRM from "@/pages/datalab/create/query";
-import ShopifyEmbed from "@/pages/shopify-embed";
+import ShopifyLandingPage from "@/pages/shopify-landing";
+import ShopifyAppErrorPage from "@/pages/shopify-app-error";
+import ShopifyAppInstallPage from "@/pages/shopify-app-install";
+import { SHOPIFY_APP_PATH, isShopifyAppRoute } from "@/constants/shopify";
+import {
+  PLATFORM_ADMIN_NAMESPACE,
+  PLATFORM_ADMIN_PATHS,
+  isPlatformAdminRoute,
+} from "@/constants/routes";
 import DocsHomePage from "@/pages/docs/index";
 import DocsGuidePage from "@/pages/docs/guide";
 import DocsEndpointPage from "@/pages/docs/endpoint";
 import DocsSearchPage from "@/pages/docs/search";
+import { normalizeAppRole } from "@/lib/rbac";
+import { lazy, Suspense } from "react";
 
-function ProtectedRoute({ component: Component }: { component: () => JSX.Element }) {
-  const { isAuthenticated, isLoading } = useAuth();
+const ShopifyEmbed = lazy(() => import("@/pages/shopify-embed"));
+
+function RootRedirect() {
+  const { isAuthenticated, isLoading, hasTenantAccess } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Redirect to="/login" />;
+  if (hasTenantAccess) return <Redirect to="/dashboard" />;
+  return <Redirect to="/platform-router" />;
+}
+
+function ProtectedRoute({
+  component: Component,
+  requiredRole,
+}: {
+  component: () => JSX.Element;
+  requiredRole?: "tenant_admin";
+}) {
+  const { isAuthenticated, isLoading, user, hasTenantAccess } = useAuth();
 
   if (isLoading) {
     return (
@@ -72,7 +107,37 @@ function ProtectedRoute({ component: Component }: { component: () => JSX.Element
     return <Redirect to="/login" />;
   }
 
+  if (requiredRole && normalizeAppRole(user?.role) !== requiredRole) {
+    return <Redirect to={hasTenantAccess ? "/dashboard" : "/platform-router"} />;
+  }
+
   return <Component />;
+}
+
+/** Layout for the platform-admin namespace: only logged-in superusers. Others redirect to avoid loops. */
+function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isSuperuser, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+
+  if (!isSuperuser) {
+    return <Redirect to="/platform-router" />;
+  }
+
+  return <>{children}</>;
 }
 
 function AppRoutes() {
@@ -94,30 +159,51 @@ function AppRoutes() {
       <Route path="/login">
         <Login />
       </Route>
+      <Route path="/platform-router">
+        <PlatformRouter />
+      </Route>
 
+      {/* Legacy desktop-agent-console paths: redirect to Access Hub or canonical routes */}
       <Route path="/desktop-agent-console/platform-admin">
-        <PlatformAdminLegacyPage />
+        <Redirect to={PLATFORM_ADMIN_NAMESPACE} />
       </Route>
       <Route path="/desktop-agent-console/platform-admin/">
-        <PlatformAdminLegacyPage />
+        <Redirect to={PLATFORM_ADMIN_NAMESPACE} />
       </Route>
       <Route path="/desktop-agent-console/tenant-admin">
-        <TenantAdminLegacyPage />
+        <Redirect to="/tenant-admin" />
       </Route>
       <Route path="/desktop-agent-console/tenant-admin/">
-        <TenantAdminLegacyPage />
+        <Redirect to="/tenant-admin" />
       </Route>
       <Route path="/desktop-agent-console/console">
-        <DesktopAgentConsoleConsolePage />
+        <Redirect to="/agent-console" />
       </Route>
       <Route path="/desktop-agent-console/console/">
-        <DesktopAgentConsoleConsolePage />
+        <Redirect to="/agent-console" />
       </Route>
       <Route path="/desktop-agent-console/">
-        <DesktopAgentConsoleAccessHubPage />
+        <Redirect to="/login" />
       </Route>
       <Route path="/desktop-agent-console">
-        <DesktopAgentConsoleAccessHubPage />
+        <Redirect to="/login" />
+      </Route>
+
+      {/* Platform admin: single entry at /platform-admin (Django admin only) */}
+      <Route path={`${PLATFORM_ADMIN_NAMESPACE}/`}>
+        <PlatformAdminLayout>
+          <PlatformAdminLegacyPage />
+        </PlatformAdminLayout>
+      </Route>
+      <Route path={PLATFORM_ADMIN_PATHS.console}>
+        <PlatformAdminLayout>
+          <PlatformAdmin />
+        </PlatformAdminLayout>
+      </Route>
+      <Route path={PLATFORM_ADMIN_NAMESPACE}>
+        <PlatformAdminLayout>
+          <PlatformAdminLegacyPage />
+        </PlatformAdminLayout>
       </Route>
 
       <Route path="/docs/search">
@@ -206,19 +292,19 @@ function AppRoutes() {
         <ProtectedRoute component={AgentConsole} />
       </Route>
       <Route path="/settings">
-        <ProtectedRoute component={Settings} />
-      </Route>
-      <Route path="/platform-admin">
-        <ProtectedRoute component={PlatformAdmin} />
-      </Route>
-      <Route path="/platform-admin/legacy">
-        <ProtectedRoute component={PlatformAdminLegacyPage} />
+        <ProtectedRoute component={Settings} requiredRole="tenant_admin" />
       </Route>
       <Route path="/tenant-admin/legacy">
+        <Redirect to="/tenant-admin" />
+      </Route>
+      <Route path="/tenant-admin/">
+        <ProtectedRoute component={TenantAdminLegacyPage} />
+      </Route>
+      <Route path="/tenant-admin">
         <ProtectedRoute component={TenantAdminLegacyPage} />
       </Route>
       <Route path="/admin">
-        <Redirect to="/platform-admin" />
+        <Redirect to={PLATFORM_ADMIN_NAMESPACE} />
       </Route>
       <Route path="/api-tester">
         <ProtectedRoute component={ApiTester} />
@@ -263,13 +349,31 @@ function AppRoutes() {
         <ProtectedRoute component={DataLabHome} />
       </Route>
       
-      {/* Shopify embedded app – no auth wrapper (App Bridge handles identity) */}
-      <Route path="/shopify-embed">
-        <ShopifyEmbed />
+      {/* Shopify embedded app – no auth wrapper (App Bridge handles identity), lazy loaded */}
+      <Route path={SHOPIFY_APP_PATH}>
+        <Suspense fallback={
+          <div className="flex min-h-screen items-center justify-center bg-[#f6f6f7]">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-[3px] border-[#008060] border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-500">Loading…</p>
+            </div>
+          </div>
+        }>
+          <ShopifyEmbed />
+        </Suspense>
+      </Route>
+      <Route path="/apps/shopify/error">
+        <ShopifyAppErrorPage />
+      </Route>
+      <Route path="/apps/shopify/install">
+        <ShopifyAppInstallPage />
+      </Route>
+      <Route path="/apps/shopify">
+        <ShopifyLandingPage />
       </Route>
 
       <Route path="/">
-        <IndexEntryPage />
+        <RootRedirect />
       </Route>
 
       <Route component={NotFound} />
@@ -281,12 +385,17 @@ function AppLayout() {
   const { isAuthenticated } = useAuth();
   const [location] = useLocation();
   const isDocsPage = /^\/docs(\/|$)/.test(location);
-  const isShopifyEmbed = /^\/shopify-embed(\/|$|\?)/.test(location) || location.startsWith("/shopify-embed");
+  const isShopifyEmbed = isShopifyAppRoute(location);
   const isEntrySurface =
     location === "/" || /^\/desktop-agent-console(\/|$)/.test(location);
 
   // Shopify embedded app – always render without any shell
   if (isShopifyEmbed) {
+    return <AppRoutes />;
+  }
+
+  // Platform admin – no CRM shell, single entry at /platform-admin
+  if (isPlatformAdminRoute(location)) {
     return <AppRoutes />;
   }
 
@@ -306,10 +415,8 @@ function AppLayout() {
     );
   }
 
-  const isLegacyAdminPreview =
-    location === "/platform-admin/legacy" || location === "/tenant-admin/legacy";
-
-  if (isLegacyAdminPreview) {
+  const isTenantAdmin = location.startsWith("/tenant-admin");
+  if (isTenantAdmin) {
     return <AppRoutes />;
   }
 

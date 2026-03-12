@@ -13,24 +13,8 @@ This integration treats Shopify as the authoritative source for:
 The service pulls data FROM Shopify and updates local CRM models.
 It does NOT push data back to Shopify.
 
-Configuration Options:
-- direction: Must be "receive" (this service doesn't support "send")
-- receive_products: Enable/disable product synchronization
-- receive_customers: Enable/disable customer synchronization
-- receive_orders: Enable/disable order synchronization
-- receive_inventory: Enable/disable inventory synchronization
-
-Usage:
-    config = {
-        "direction": "receive",
-        "store_url": "mystore.myshopify.com",
-        "access_token": "shopify_token",
-        "receive_products": True,
-        "receive_customers": True,
-        "receive_orders": True,
-    }
-    service = ShopifySyncService(tenant, config)
-    results = service.sync_all_enabled_data()
+Integrations Hub: get_shopify_config_for_sync() resolves config from
+IntegrationConfig + ShopifyShopInstallation (token from installation when linked).
 """
 
 import logging
@@ -39,7 +23,7 @@ from typing import Dict, List, Optional, Tuple
 from django.db import transaction
 from django.utils import timezone
 
-from crm.lib.shopify_api import ShopifyAPIClient, parse_shopify_timestamp
+from central_hub.integrations.shopify.shopify_api import ShopifyAPIClient, parse_shopify_timestamp
 from crm.models import (
     Product,
     Customer,
@@ -52,6 +36,222 @@ from .models import ShopifyProduct, ShopifyCustomer, ShopifyOrder, ShopifySyncLo
 from tenancy.models import Tenant
 
 logger = logging.getLogger(__name__)
+
+
+def _instance_id_to_shop_domain(instance_id: str) -> str:
+    """Convert instance_id to shop_domain. Instance ID is the store subdomain (e.g. moioplatform or my-store)."""
+    if not instance_id or instance_id == "default":
+        return ""
+    return f"{instance_id}.myshopify.com"
+
+
+def get_shopify_config_for_sync(tenant_id: int, instance_id: str) -> Optional[Dict]:
+    """
+    Resolve Shopify config for sync (Hub contract: token from installation when linked).
+
+    Returns merged config dict with access_token from ShopifyShopInstallation when
+    the shop is linked, so sync uses the canonical installation as source of truth.
+    """
+    from central_hub.integrations.models import (
+        IntegrationConfig,
+        ShopifyShopLink,
+        ShopifyShopLinkStatus,
+    )
+
+    # Normalize tenant_id (Celery may pass str)
+    try:
+        tid = int(tenant_id)
+    except (TypeError, ValueError):
+        logger.warning("get_shopify_config_for_sync: invalid tenant_id=%s", tenant_id)
+        return None
+    try:
+        tenant = Tenant.objects.get(id=tid)
+    except Tenant.DoesNotExist:
+        logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s tenant not found", tid, instance_id)
+        return None
+    config_obj = IntegrationConfig.get_for_tenant(
+        tenant=tenant,
+        slug="shopify",
+        instance_id=instance_id,
+    )
+    if not config_obj:
+        logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s no IntegrationConfig", tid, instance_id)
+        return None
+    if not config_obj.enabled:
+        logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s config disabled", tid, instance_id)
+        return None
+    config = dict(config_obj.config or {})
+    shop_domain = _instance_id_to_shop_domain(instance_id)
+    if shop_domain:
+        link = ShopifyShopLink.objects.filter(
+            shop_domain=shop_domain,
+            tenant_id=tid,
+            status=ShopifyShopLinkStatus.LINKED,
+        ).select_related("installation").first()
+        installation = getattr(link, "installation", None) if link else None
+        if not link:
+            logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s shop_domain=%s no LINKED link", tid, instance_id, shop_domain)
+        elif not installation:
+            logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s link has no installation", tid, instance_id)
+        elif getattr(installation, "uninstalled_at", None):
+            logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s installation uninstalled", tid, instance_id)
+        elif not (installation.offline_access_token or "").strip():
+            logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s installation has no token", tid, instance_id)
+        # Only use token from installation when it's still valid (not uninstalled)
+        if (
+            installation
+            and getattr(installation, "uninstalled_at", None) is None
+            and (installation.offline_access_token or "").strip()
+        ):
+            # Refresh expiring token if needed (Shopify Dec 2025+)
+            from central_hub.integrations.shopify.token_refresh import (
+                installation_token_needs_refresh,
+                refresh_shopify_installation_token,
+            )
+            if installation_token_needs_refresh(installation):
+                refresh_shopify_installation_token(installation)
+            config["access_token"] = installation.offline_access_token
+            config["store_url"] = shop_domain
+            config["api_version"] = (installation.api_version or config.get("api_version") or "2024-01")
+            logger.debug("get_shopify_config_for_sync: using installation token for tenant_id=%s instance_id=%s", tid, instance_id)
+    # Prefer token from installation; fall back to stored config for legacy/unlinked setups
+    if not config.get("access_token"):
+        logger.info("get_shopify_config_for_sync: tenant_id=%s instance_id=%s no access_token in config (link/installation missing or empty)", tid, instance_id)
+        return None
+    return config
+
+
+def test_stored_token_against_shopify(
+    shop_domain: Optional[str] = None,
+    tenant_id: Optional[int] = None,
+    instance_id: Optional[str] = None,
+    call_products: bool = True,
+    call_customers: bool = False,
+    call_orders: bool = False,
+    call_inventory: bool = True,
+) -> Dict:
+    """
+    Use the stored token to call Shopify REST API and verify access for each enabled resource.
+
+    Call with either:
+      - shop_domain: uses ShopifyShopInstallation token directly.
+      - tenant_id + instance_id: uses get_shopify_config_for_sync (same path as sync tasks).
+
+    Each call_* flag triggers a lightweight limit=1 read to verify API scope access.
+
+    Returns dict with: ok (bool), shop_info, products_preview, customers_preview,
+    orders_preview, inventory_preview, error, status_code.
+    """
+    from central_hub.integrations.models import ShopifyShopInstallation
+    from central_hub.integrations.shopify.shopify_api import ShopifyAPIClient, ShopifyAPIError
+
+    result = {
+        "ok": False, "shop_info": None,
+        "products_preview": None, "products_count": None,
+        "customers_preview": None, "customers_count": None,
+        "orders_preview": None, "orders_count": None,
+        "inventory_preview": None, "inventory_count": None,
+        "error": None, "status_code": None,
+    }
+    config = None
+    if shop_domain:
+        installation = ShopifyShopInstallation.objects.filter(
+            shop_domain=shop_domain,
+            uninstalled_at__isnull=True,
+        ).first()
+        if not installation or not (installation.offline_access_token or "").strip():
+            result["error"] = f"No installation or token for shop_domain={shop_domain}"
+            return result
+        store_url = shop_domain
+        access_token = installation.offline_access_token
+        api_version = (installation.api_version or "2024-01").strip() or "2024-01"
+        config = {"store_url": store_url, "access_token": access_token, "api_version": api_version}
+    elif tenant_id is not None and instance_id:
+        config = get_shopify_config_for_sync(int(tenant_id), instance_id)
+        if not config:
+            result["error"] = f"get_shopify_config_for_sync returned None for tenant_id={tenant_id} instance_id={instance_id}"
+            return result
+    else:
+        result["error"] = "Provide either shop_domain or (tenant_id + instance_id)"
+        return result
+
+    def _append_error(msg: str):
+        result["error"] = (result["error"] + "; " + msg) if result.get("error") else msg
+
+    try:
+        client = ShopifyAPIClient(
+            store_url=config["store_url"],
+            access_token=config["access_token"],
+            api_version=config.get("api_version", "2024-01"),
+        )
+        shop_info = client.get_shop_info()
+        result["shop_info"] = shop_info
+        result["ok"] = True
+
+        def _test_resource(resource: str, count_params: Optional[Dict] = None):
+            """Fetch count.json for a resource — lightest call to verify scope access."""
+            url = client._get_rest_url(f"{resource}/count")
+            resp = client._make_request("GET", url, params=count_params)
+            data = resp.json()
+            return data.get("count", 0)
+
+        if call_products:
+            try:
+                count = _test_resource("products")
+                result["products_preview"] = []
+                result["products_count"] = count
+            except ShopifyAPIError as e:
+                _append_error(f"products failed: {e}")
+                resp = getattr(e, "response", None)
+                if resp is not None and result.get("status_code") is None:
+                    result["status_code"] = getattr(resp, "status_code", None)
+                result["ok"] = False
+
+        if call_customers:
+            try:
+                count = _test_resource("customers")
+                result["customers_preview"] = []
+                result["customers_count"] = count
+            except ShopifyAPIError as e:
+                _append_error(f"customers failed: {e}")
+                resp = getattr(e, "response", None)
+                if resp is not None and result.get("status_code") is None:
+                    result["status_code"] = getattr(resp, "status_code", None)
+                result["ok"] = False
+
+        if call_orders:
+            try:
+                count = _test_resource("orders", {"status": "any"})
+                result["orders_preview"] = []
+                result["orders_count"] = count
+            except ShopifyAPIError as e:
+                _append_error(f"orders failed: {e}")
+                resp = getattr(e, "response", None)
+                if resp is not None and result.get("status_code") is None:
+                    result["status_code"] = getattr(resp, "status_code", None)
+                result["ok"] = False
+
+        if call_inventory and result.get("shop_info"):
+            primary_location_id = result["shop_info"].get("primary_location_id")
+            if primary_location_id:
+                try:
+                    inv_levels = client.get_inventory_levels_by_location(primary_location_id, limit=250)
+                    result["inventory_preview"] = []
+                    result["inventory_count"] = len(inv_levels) if inv_levels else 0
+                except ShopifyAPIError as e:
+                    _append_error(f"inventory_levels failed: {e}")
+                    resp = getattr(e, "response", None)
+                    if resp is not None and result.get("status_code") is None:
+                        result["status_code"] = getattr(resp, "status_code", None)
+                    result["ok"] = False
+    except ShopifyAPIError as e:
+        result["error"] = str(e)
+        resp = getattr(e, "response", None)
+        if resp is not None:
+            result["status_code"] = getattr(resp, "status_code", None)
+    except Exception as e:
+        result["error"] = str(e)
+    return result
 
 
 class ShopifySyncService:

@@ -7,6 +7,7 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from rest_framework import serializers
 
+from central_hub.capabilities import get_effective_capabilities
 from central_hub.rbac import ROLE_ORDER, _user_group_names
 
 UserModel = get_user_model()
@@ -167,9 +168,19 @@ class MoioUserWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: Dict[str, Any]):
         request = self.context.get("request")
-        tenant = getattr(getattr(request, "user", None), "tenant", None)
+        actor = getattr(request, "user", None)
+        tenant = getattr(actor, "tenant", None)
         if tenant is None:
             raise serializers.ValidationError({"tenant": "Authenticated user must belong to a tenant"})
+
+        eff = get_effective_capabilities(actor, tenant)
+        seats_limit = eff.limits.get("seats")
+        if seats_limit is not None:
+            current_count = UserModel.objects.filter(tenant=tenant, is_active=True).count()
+            if current_count >= seats_limit:
+                raise serializers.ValidationError(
+                    {"seats": f"User limit reached ({seats_limit} users). Upgrade your plan to add more users."}
+                )
 
         role = validated_data.pop("role", None)
         password = validated_data.pop("password", None)

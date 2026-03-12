@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Zap,
@@ -12,11 +13,24 @@ import {
   ExternalLink,
   Users,
   Trash2,
+  Pencil,
+  MoreHorizontal,
+  MapPin,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/empty-state";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
@@ -55,6 +69,7 @@ export interface AccountDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accountId: string | null;
+  onEdit?: (account: AccountDetailsAccount) => void;
   onDeleted?: () => void;
 }
 
@@ -80,9 +95,39 @@ function formatTimelineDateShort(ts?: string): string {
   if (!ts) return "";
   try {
     const d = new Date(ts);
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   } catch {
     return ts;
+  }
+}
+
+function formatRelativeDate(ts?: string | null): string {
+  if (!ts) return "—";
+  try {
+    const d = new Date(ts);
+    const now = Date.now();
+    const diffMs = now - d.getTime();
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days < 1) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days} days`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks`;
+    if (days < 365) {
+      const months = Math.floor(days / 30);
+      return months === 1 ? "About 1 month" : `About ${months} months`;
+    }
+    const years = Math.floor(days / 365);
+    return years === 1 ? "About 1 year" : `About ${years} years`;
+  } catch {
+    return ts ?? "—";
   }
 }
 
@@ -103,52 +148,11 @@ function groupByDate(items: { created_at?: string }[]): Map<string, { created_at
   return map;
 }
 
-function DealCard({ deal }: { deal: DealLite }) {
-  const valueStr =
-    typeof deal.value === "number"
-      ? new Intl.NumberFormat(undefined, { style: "currency", currency: deal.currency ?? "USD" }).format(deal.value)
-      : deal.value ?? "—";
-  return (
-    <Link href="/deals">
-      <div className="p-3 rounded-lg border bg-card text-sm space-y-2 hover:bg-muted/50 transition-colors cursor-pointer">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium truncate">{deal.title}</span>
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {(deal.stage_name ?? deal.stage) && (
-            <Badge variant="secondary" className="text-xs">{deal.stage_name ?? deal.stage}</Badge>
-          )}
-          <span className="text-xs text-muted-foreground">{valueStr}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ContactCard({ contact, onView }: { contact: ContactLite; onView: (id: string) => void }) {
-  return (
-    <div
-      className="p-3 rounded-lg border bg-card text-sm space-y-2 hover:bg-muted/50 transition-colors cursor-pointer"
-      onClick={() => onView(contact.id)}
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-medium truncate">{contact.name ?? "Unknown"}</span>
-      </div>
-      <p className="text-xs text-muted-foreground truncate">
-        {contact.email || contact.phone || "No contact info"}
-      </p>
-    </div>
-  );
-}
-
 function VerticalTimelineRail({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative pl-6">
       <div className="absolute left-[5px] top-0 bottom-0 w-px bg-border" />
-      <div className="space-y-4">
-        {children}
-      </div>
+      <div className="space-y-4">{children}</div>
     </div>
   );
 }
@@ -165,7 +169,80 @@ function TimelineNode({ timestamp, children }: { timestamp: string; children: Re
   );
 }
 
-export function AccountDetailsModal({ open, onOpenChange, accountId, onDeleted }: AccountDetailsModalProps) {
+function StatBox({ label, value, isLast }: { label: string; value: string | number; isLast?: boolean }) {
+  return (
+    <div className={`px-5 py-3 ${isLast ? "" : "border-r"}`}>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="text-base font-semibold mt-0.5">{value}</p>
+    </div>
+  );
+}
+
+function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5 text-sm">
+      <Icon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+      <span className="break-all">{children}</span>
+    </div>
+  );
+}
+
+function DealCard({ deal }: { deal: DealLite }) {
+  const valueStr =
+    typeof deal.value === "number"
+      ? new Intl.NumberFormat(undefined, { style: "currency", currency: deal.currency ?? "USD" }).format(deal.value)
+      : deal.value ?? "—";
+  return (
+    <Link href="/deals">
+      <div className="p-3 rounded-lg border bg-card text-sm space-y-1.5 hover:bg-muted/50 transition-colors cursor-pointer">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium truncate">{deal.title}</span>
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(deal.stage_name ?? deal.stage) && (
+            <Badge variant="secondary" className="text-xs">
+              {deal.stage_name ?? deal.stage}
+            </Badge>
+          )}
+          <span className="text-xs text-muted-foreground">{valueStr}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ContactMiniCard({ contact, onView }: { contact: ContactLite; onView: (id: string) => void }) {
+  return (
+    <div
+      className="flex items-center justify-between gap-2 p-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer -mx-1"
+      onClick={() => onView(contact.id)}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+          {contact.name?.charAt(0).toUpperCase() ?? "?"}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{contact.name ?? "Unknown"}</p>
+          <p className="text-xs text-muted-foreground truncate">{contact.email || contact.phone || ""}</p>
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+    </div>
+  );
+}
+
+export function AccountDetailsModal({ open, onOpenChange, accountId, onEdit, onDeleted }: AccountDetailsModalProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
@@ -179,7 +256,7 @@ export function AccountDetailsModal({ open, onOpenChange, accountId, onDeleted }
       await apiRequest("DELETE", apiV1(`/crm/customers/${id}/`));
     },
     onSuccess: () => {
-      toast({ title: "Account deleted", description: "The account has been deleted successfully." });
+      toast({ title: t("account.account_deleted"), description: t("account.account_deleted_description") });
       onOpenChange(false);
       onDeleted?.();
       queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
@@ -249,167 +326,254 @@ export function AccountDetailsModal({ open, onOpenChange, accountId, onDeleted }
     onOpenChange(next);
   };
 
+  const firstAddress = account?.addresses?.[0];
+  const addressStr = firstAddress
+    ? [firstAddress.street, firstAddress.city, firstAddress.state, firstAddress.zip, firstAddress.country]
+        .filter(Boolean)
+        .join(", ")
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none"
         data-testid="dialog-account-details"
       >
-        <div className="grid grid-cols-1 md:grid-cols-[20rem_1fr] flex-1 overflow-hidden min-h-0">
-          {/* Left: Profile */}
-          <ScrollArea className="border-r bg-muted/30">
-            <div className="p-5 space-y-5">
-              {accountQuery.isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : account ? (
-                <>
-                  <div className="flex flex-col items-center text-center">
-                    <div className="h-20 w-20 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                      <Building2 className="h-10 w-10 text-primary" />
-                    </div>
-                    <h2 className="text-lg font-semibold leading-tight">{account.name}</h2>
-                    {account.type && (
-                      <Badge variant="secondary" className="mt-1 capitalize">{account.type}</Badge>
-                    )}
-                    {canDelete && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="mt-3 w-full"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                        data-testid="button-delete-account"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        Delete account
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    {account.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span>{account.phone}</span>
-                      </div>
-                    )}
-                    {account.email && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="break-all">{account.email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {account.legal_name && account.legal_name !== account.name && (
-                    <div className="space-y-1">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase">Legal name</h3>
-                      <p className="text-sm">{account.legal_name}</p>
-                    </div>
-                  )}
-
-                  {account.tax_id && (
-                    <div className="space-y-1">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase">Tax ID</h3>
-                      <p className="text-sm">{account.tax_id}</p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="py-8 text-center text-sm text-muted-foreground">No account selected</div>
-              )}
-            </div>
-          </ScrollArea>
-
-          {/* Right: Tabs */}
-          <div className="flex flex-col min-h-0">
-            <Tabs defaultValue="activity" className="flex flex-col flex-1 min-h-0">
-              <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-11 gap-0">
-                <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-muted/50">
-                  <Zap className="h-4 w-4 mr-2" />
-                  Activity
-                </TabsTrigger>
-                <TabsTrigger value="deals" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-muted/50">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Deals
-                </TabsTrigger>
-                <TabsTrigger value="contacts" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-muted/50">
-                  <Users className="h-4 w-4 mr-2" />
-                  Contacts
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="activity" className="flex-1 m-0 overflow-hidden data-[state=inactive]:hidden">
-                <ScrollArea className="h-full p-4">
-                  {timelineQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : activityItems.length === 0 ? (
-                    <EmptyState icon={Zap} title="No activity" description="Activity for this account will appear here." />
-                  ) : (
-                    <VerticalTimelineRail>
-                      {Array.from(activityByDate.entries())
-                        .sort(([a], [b]) => b.localeCompare(a))
-                        .flatMap(([, items]) =>
-                          items.map((item) => (
-                            <TimelineNode key={`${(item as TimelineItem).type}-${(item as TimelineItem).id}`} timestamp={formatTimelineDateShort((item as TimelineItem).created_at)}>
-                              <TimelineItemCard item={item as TimelineItem} onActivityClick={handleActivityClick} />
-                            </TimelineNode>
-                          ))
-                        )}
-                    </VerticalTimelineRail>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="deals" className="flex-1 m-0 overflow-hidden data-[state=inactive]:hidden">
-                <ScrollArea className="h-full p-4">
-                  {dealsQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : deals.length === 0 ? (
-                    <EmptyState icon={Briefcase} title="No deals" description="Deals for this account will appear here." />
-                  ) : (
-                    <div className="space-y-3">
-                      {deals.map((deal) => (
-                        <DealCard key={deal.id} deal={deal} />
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="contacts" className="flex-1 m-0 overflow-hidden data-[state=inactive]:hidden">
-                <ScrollArea className="h-full p-4">
-                  {contactsQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : contacts.length === 0 ? (
-                    <EmptyState icon={Users} title="Sin contactos" description="Aún no hay contactos para este account." />
-                  ) : (
-                    <div className="space-y-3">
-                      {contacts.map((contact) => (
-                        <ContactCard
-                          key={contact.id}
-                          contact={contact}
-                          onView={(id) => {
-                            onOpenChange(false);
-                            window.location.href = `/crm?tab=contacts&contactId=${encodeURIComponent(id)}`;
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+        {accountQuery.isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        </div>
+        ) : !account ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">{t("account.no_account_selected")}</p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/20 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold truncate">{account.name}</h2>
+                  {account.type && (
+                    <Badge variant="secondary" className="capitalize text-xs mt-0.5">
+                      {account.type}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {onEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit(account)}
+                    data-testid="button-edit-account"
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    {t("account.edit")}
+                  </Button>
+                )}
+                {canDelete && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-more-actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteConfirmOpen(true)}
+                        data-testid="menu-delete-account"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {t("account.delete_account")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+
+            {/* Stats ribbon */}
+            <div className="grid grid-cols-2 md:grid-cols-4 border-b bg-card shrink-0">
+              <StatBox label={t("account.contacts")} value={contacts.length} />
+              <StatBox label={t("account.deals")} value={deals.length} />
+              <StatBox label={t("account.account_since")} value={formatRelativeDate(account.created_at)} />
+              <StatBox label={t("account.type_label")} value={account.type ?? "—"} isLast />
+            </div>
+
+            {/* Two-column body */}
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_22rem] flex-1 overflow-hidden min-h-0">
+              {/* Left: Main content – Timeline */}
+              <ScrollArea className="h-full">
+                <div className="p-5 space-y-5">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-muted-foreground" />
+                        {t("account.timeline")}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {timelineQuery.isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : activityItems.length === 0 ? (
+                        <EmptyState icon={Zap} title={t("account.no_activity")} description={t("account.activity_description")} />
+                      ) : (
+                        <VerticalTimelineRail>
+                          {Array.from(activityByDate.entries())
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .flatMap(([, items]) =>
+                              items.map((item) => (
+                                <TimelineNode
+                                  key={`${(item as TimelineItem).type}-${(item as TimelineItem).id}`}
+                                  timestamp={formatTimelineDateShort((item as TimelineItem).created_at)}
+                                >
+                                  <TimelineItemCard item={item as TimelineItem} onActivityClick={handleActivityClick} />
+                                </TimelineNode>
+                              ))
+                            )}
+                        </VerticalTimelineRail>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </ScrollArea>
+
+              {/* Right: Sidebar cards */}
+              <ScrollArea className="h-full border-l bg-muted/20">
+                <div className="p-4 space-y-4">
+                  {/* Account info card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold">{t("account.account_info")}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <SidebarSection title={t("account.contact_information")}>
+                        <div className="space-y-2">
+                          {account.email ? (
+                            <InfoRow icon={Mail}>{account.email}</InfoRow>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">{t("account.no_email")}</p>
+                          )}
+                          {account.phone ? (
+                            <InfoRow icon={Phone}>{account.phone}</InfoRow>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">{t("account.no_phone")}</p>
+                          )}
+                        </div>
+                      </SidebarSection>
+
+                      <Separator />
+
+                      <SidebarSection title={t("account.address")}>
+                        {addressStr ? (
+                          <InfoRow icon={MapPin}>{addressStr}</InfoRow>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">{t("account.no_address")}</p>
+                        )}
+                      </SidebarSection>
+
+                      {(account.legal_name || account.tax_id) && (
+                        <>
+                          <Separator />
+                          <SidebarSection title={t("account.legal_details")}>
+                            <div className="space-y-2">
+                              {account.legal_name && account.legal_name !== account.name && (
+                                <InfoRow icon={FileText}>{account.legal_name}</InfoRow>
+                              )}
+                              {account.tax_id && (
+                                <div className="text-sm">
+                                  <span className="text-muted-foreground">{t("account.tax_id")}: </span>
+                                  <span>{account.tax_id}</span>
+                                </div>
+                              )}
+                            </div>
+                          </SidebarSection>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Contacts card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          {t("account.contacts")}
+                        </CardTitle>
+                        {contacts.length > 0 && (
+                          <Badge variant="secondary" className="text-xs">{contacts.length}</Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {contactsQuery.isLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : contacts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">{t("account.no_contacts")}</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {contacts.map((contact) => (
+                            <ContactMiniCard
+                              key={contact.id}
+                              contact={contact}
+                              onView={(id) => {
+                                onOpenChange(false);
+                                window.location.href = `/crm?tab=contacts&contactId=${encodeURIComponent(id)}`;
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Deals card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                          {t("account.deals")}
+                        </CardTitle>
+                        {deals.length > 0 && (
+                          <Badge variant="secondary" className="text-xs">{deals.length}</Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {dealsQuery.isLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : deals.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">{t("account.no_deals")}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {deals.map((deal) => (
+                            <DealCard key={deal.id} deal={deal} />
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </ScrollArea>
+            </div>
+          </>
+        )}
       </DialogContent>
+
       <ActivityDetailSheet
         open={activityDetailOpen}
         onOpenChange={setActivityDetailOpen}
@@ -419,19 +583,19 @@ export function AccountDetailsModal({ open, onOpenChange, accountId, onDeleted }
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent data-testid="dialog-delete-account-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete account</AlertDialogTitle>
+            <AlertDialogTitle>{t("account.delete_account_title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {account?.name}? This will remove the account and related records (contacts link, addresses). Deals linked to this account will be unlinked. This action cannot be undone.
+              {t("account.delete_account_description", { name: account?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-account">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-account">{t("account.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => accountId && deleteMutation.mutate(accountId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete-account"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? t("account.deleting") : t("account.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

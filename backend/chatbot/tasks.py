@@ -19,12 +19,17 @@ from crm.models import Contact
 
 from moio_platform.lib.openai_gpt_api import whisper_to_text, image_reader
 from central_hub.models import PlatformConfiguration
+from central_hub.integrations.models import IntegrationConfig
 from central_hub.tenant_config import (
     get_tenant_config,
     get_tenant_config_by_id,
-    get_tenant_config_by_whatsapp_ids,
+    get_tenant_config_for_integration_instance,
+    get_whatsapp_integration_by_asset_ids,
     iter_configs_with_integration_enabled,
 )
+from tenancy.context_utils import current_tenant
+from tenancy.models import Tenant
+from tenancy.tenant_support import tenant_schema_context
 from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.wa_payloads import WaPayloads
 from moio_platform.lib.tools import check_elapsed_time, has_time_passed
@@ -561,116 +566,207 @@ def session_sweeper(self):
 
 @shared_task(bind=True, task_kwargs={'queue': settings.HIGH_PRIORITY_Q}, retry_kwargs={'max_retries': 5, 'countdown': 10}, retry_backoff=True)
 def whatsapp_webhook_handler(self, body: dict):
-
     task_id = current_task.request.id
     q_name = self.request.delivery_info['routing_key']
-    start_time = timezone.now()
 
-    logger.info(f'Processing whatsapp webhook ---> {task_id} from {q_name}')
+    logger.info(f'Processing whatsapp webhook ingress ---> {task_id} from {q_name}')
 
     try:
         portal_config = PlatformConfiguration.objects.first()
-
     except PlatformConfiguration.DoesNotExist:
         raise ImproperlyConfigured("No Portal config present")
 
     print(body)
     received_webhook = WhatsappWebhook(body)
-
     webhook_type = received_webhook.get_type()
     logger.info(f'Tipo de webhook recibido: %s', webhook_type)
 
-    payload_kwargs = {
-        "wa_body": json.dumps(body),
-        "status": webhook_type,
-    }
-
-    received_whatsapp = None
-    config = None
-    config_error = None
-
-    if webhook_type == "messages":
-        try:
-            received_whatsapp = WhatsappMessage(body)
-        except Exception:
-            logger.exception("Error parsing WhatsApp webhook payload")
-            payload_kwargs["status"] = "parse_error"
-        else:
-            if received_whatsapp.timestamp:
-                payload_kwargs["timestamp"] = str(received_whatsapp.timestamp)
-
-            if received_whatsapp.is_status() and received_whatsapp.status:
-                payload_kwargs["status"] = received_whatsapp.status
-            elif received_whatsapp.msg_type:
-                payload_kwargs["status"] = received_whatsapp.msg_type
-
-            try:
-                config = get_tenant_config_by_whatsapp_ids(
-                    received_whatsapp.get_waba_id(),
-                    received_whatsapp.get_waba_phone_id(),
-                )
-                if config is None:
-                    config_error = "not_found"
-                else:
-                    payload_kwargs["tenant_id"] = config.tenant_id
-            except ValueError:
-                config_error = "multiple"
-
-    WaPayloads.objects.create(**payload_kwargs)
-
-    if webhook_type == "messages":
-
-        if received_whatsapp is None:
-            forward_url = portal_config.whatsapp_webhook_redirect
-            redirect_webhook(url=forward_url, body=body)
-            return
-
-        logger.info(f"Payload for WABA:{received_whatsapp.get_waba_id()}--{received_whatsapp.get_waba_phone_id()} msg_id:{received_whatsapp.msg_id}")
-
-        if config_error == "multiple":
-            raise ValueError("Configuration error: WABA ID present in multiple tenants")
-
-        if config is None:
-            forward_url = portal_config.whatsapp_webhook_redirect
-            redirect_webhook(url=forward_url, body=body)
-            return
-
-        if received_whatsapp.is_message():
-            phone = received_whatsapp.get_contact_number()
-            if is_blacklisted_contact(phone, config.tenant):
-                logger.info("Ignoring message from blacklisted contact %s", phone)
-                try:
-                    WhatsappBusinessClient(config).mark_as_read(received_whatsapp.msg_id)
-                except Exception:
-                    logger.exception("Failed to mark blacklisted message as read")
-                return
-
-        # TODO: match assistant with the incomming channel so we can have more than 1 channel.
-
-        if config.conversation_handler == 'chatbot':
-
-            process_message_with_chatbot(received_whatsapp=received_whatsapp,
-                                         config=config)
-
-        elif config.conversation_handler == 'assistant' and config.assistants_enabled:
-            logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Asistente"))
-            process_message_with_assistant(received_whatsapp=received_whatsapp,
-                                           config=config)
-
-        elif config.conversation_handler == 'agent':
-
-            logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Agente"))
-            process_message_with_agent(received_whatsapp=received_whatsapp, config=config)
-
-        else:
-            forward_url = portal_config.whatsapp_webhook_redirect
-            redirect_webhook(url=forward_url, body=body)
-
-    else:
+    if webhook_type != "messages":
         print(f'Received webhook type {webhook_type}')
         received_webhook.display_content()
-        forward_url = portal_config.whatsapp_webhook_redirect
-        redirect_webhook(url=forward_url, body=body)
+        redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+        return {"status": "forwarded", "reason": f"unsupported_type_{webhook_type}"}
+
+    try:
+        received_whatsapp = WhatsappMessage(body)
+    except Exception:
+        logger.exception("Error parsing WhatsApp webhook payload")
+        redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+        return {"status": "forwarded", "reason": "parse_error"}
+
+    logger.info(
+        "Resolved inbound asset candidate for WABA:%s--%s msg_id:%s",
+        received_whatsapp.get_waba_id(),
+        received_whatsapp.get_waba_phone_id(),
+        received_whatsapp.msg_id,
+    )
+
+    try:
+        owner_config = get_whatsapp_integration_by_asset_ids(
+            received_whatsapp.get_waba_id(),
+            received_whatsapp.get_waba_phone_id(),
+        )
+    except ValueError:
+        logger.exception(
+            "Ambiguous WhatsApp asset ownership for waba_id=%s phone_id=%s",
+            received_whatsapp.get_waba_id(),
+            received_whatsapp.get_waba_phone_id(),
+        )
+        redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+        return {"status": "forwarded", "reason": "owner_ambiguous"}
+
+    if owner_config is None:
+        logger.warning(
+            "No tenant owns WhatsApp asset waba_id=%s phone_id=%s; forwarding webhook",
+            received_whatsapp.get_waba_id(),
+            received_whatsapp.get_waba_phone_id(),
+        )
+        redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+        return {"status": "forwarded", "reason": "owner_not_found"}
+
+    tenant_task = process_whatsapp_webhook_for_tenant.apply_async(
+        kwargs={
+            "body": body,
+            "tenant_id": owner_config.tenant_id,
+            "instance_id": owner_config.instance_id,
+        },
+        queue=settings.HIGH_PRIORITY_Q,
+    )
+    logger.info(
+        "Transferred WhatsApp webhook to tenant task %s for tenant=%s instance=%s",
+        tenant_task.id,
+        owner_config.tenant_id,
+        owner_config.instance_id,
+    )
+    return {
+        "status": "queued",
+        "task_id": tenant_task.id,
+        "tenant_id": owner_config.tenant_id,
+        "instance_id": owner_config.instance_id,
+    }
+
+
+@shared_task(bind=True, queue=settings.HIGH_PRIORITY_Q, max_retries=5, default_retry_delay=10, autoretry_for=(Exception,), retry_backoff=True, retry_backoff_max=300)
+def process_whatsapp_webhook_for_tenant(self, body: dict, tenant_id: int, instance_id: str = "default"):
+    task_id = current_task.request.id
+    q_name = self.request.delivery_info['routing_key']
+    start_time = timezone.now()
+
+    logger.info(
+        "Processing whatsapp webhook for tenant %s instance %s ---> %s from %s",
+        tenant_id,
+        instance_id,
+        task_id,
+        q_name,
+    )
+
+    tenant = Tenant.objects.filter(pk=tenant_id).first()
+    if tenant is None:
+        logger.warning(
+            "Tenant %s no longer exists for WhatsApp webhook instance=%s; forwarding webhook",
+            tenant_id,
+            instance_id,
+        )
+        redirect_webhook(url=PlatformConfiguration.objects.first().whatsapp_webhook_redirect, body=body)
+        return {"status": "forwarded", "reason": "tenant_not_found", "tenant_id": tenant_id}
+
+    tenant_token = current_tenant.set(tenant)
+    try:
+        with tenant_schema_context(getattr(tenant, "schema_name", None)):
+            try:
+                portal_config = PlatformConfiguration.objects.first()
+            except PlatformConfiguration.DoesNotExist:
+                raise ImproperlyConfigured("No Portal config present")
+
+            print(body)
+            received_webhook = WhatsappWebhook(body)
+            webhook_type = received_webhook.get_type()
+            logger.info(f'Tipo de webhook recibido: %s', webhook_type)
+
+            payload_kwargs = {
+                "wa_body": json.dumps(body),
+                "status": webhook_type,
+                "tenant_id": tenant.pk,
+            }
+
+            received_whatsapp = None
+            if webhook_type == "messages":
+                try:
+                    received_whatsapp = WhatsappMessage(body)
+                except Exception:
+                    logger.exception("Error parsing WhatsApp webhook payload")
+                    payload_kwargs["status"] = "parse_error"
+                else:
+                    if received_whatsapp.timestamp:
+                        payload_kwargs["timestamp"] = str(received_whatsapp.timestamp)
+
+                    if received_whatsapp.is_status() and received_whatsapp.status:
+                        payload_kwargs["status"] = received_whatsapp.status
+                    elif received_whatsapp.msg_type:
+                        payload_kwargs["status"] = received_whatsapp.msg_type
+
+            WaPayloads.objects.create(**payload_kwargs)
+
+            if webhook_type != "messages":
+                print(f'Received webhook type {webhook_type}')
+                received_webhook.display_content()
+                redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+                return {"status": "forwarded", "reason": f"unsupported_type_{webhook_type}"}
+
+            if received_whatsapp is None:
+                redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+                return {"status": "forwarded", "reason": "parse_error"}
+
+            integration_config = IntegrationConfig.get_for_tenant(tenant, "whatsapp", instance_id)
+            if integration_config is None or not integration_config.enabled:
+                logger.warning(
+                    "No enabled WhatsApp config found for tenant=%s instance=%s; forwarding webhook",
+                    tenant.pk,
+                    instance_id,
+                )
+                redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+                return {
+                    "status": "forwarded",
+                    "reason": "owner_not_found",
+                    "tenant_id": tenant.pk,
+                    "instance_id": instance_id,
+                }
+
+            config = get_tenant_config_for_integration_instance(tenant, "whatsapp", instance_id)
+
+            logger.info(
+                "Payload for WABA:%s--%s msg_id:%s",
+                received_whatsapp.get_waba_id(),
+                received_whatsapp.get_waba_phone_id(),
+                received_whatsapp.msg_id,
+            )
+
+            if received_whatsapp.is_message():
+                phone = received_whatsapp.get_contact_number()
+                if is_blacklisted_contact(phone, config.tenant):
+                    logger.info("Ignoring message from blacklisted contact %s", phone)
+                    try:
+                        WhatsappBusinessClient(config).mark_as_read(received_whatsapp.msg_id)
+                    except Exception:
+                        logger.exception("Failed to mark blacklisted message as read")
+                    return {"status": "ignored", "reason": "blacklisted_contact"}
+
+            # TODO: match assistant with the incomming channel so we can have more than 1 channel.
+            if config.conversation_handler == 'chatbot':
+                process_message_with_chatbot(received_whatsapp=received_whatsapp, config=config)
+            elif config.conversation_handler == 'assistant' and config.assistants_enabled:
+                logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Asistente"))
+                process_message_with_assistant(received_whatsapp=received_whatsapp, config=config)
+            elif config.conversation_handler == 'agent':
+                logger.info(check_elapsed_time(start_time, "Inicio a Procesar con Agente"))
+                process_message_with_agent(received_whatsapp=received_whatsapp, config=config)
+            else:
+                redirect_webhook(url=portal_config.whatsapp_webhook_redirect, body=body)
+                return {"status": "forwarded", "reason": "no_handler"}
+
+            return {"status": "processed", "tenant_id": tenant.pk, "instance_id": instance_id}
+    finally:
+        current_tenant.reset(tenant_token)
 
 
 @shared_task(bind=True, task_kwargs={'queue': settings.HIGH_PRIORITY_Q}, retry_kwargs={'max_retries': 5, 'countdown': 10}, retry_backoff=True)

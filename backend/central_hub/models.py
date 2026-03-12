@@ -41,3 +41,23 @@ class PlatformConfiguration(models.Model):
         db_table = 'platform_configuration'
         verbose_name = "Platform Configuration"
         verbose_name_plural = "Platform Configurations"
+
+
+class PlatformNotificationSettings(models.Model):
+    """
+    Platform-wide notification settings (PWA, in-app, flows, agent console).
+    Shared across the whole platform; single row (singleton). Managed via Platform Admin.
+    """
+    title = models.CharField(max_length=200, default="Moio", blank=True)
+    icon_url = models.URLField(max_length=500, blank=True, default="")
+    badge_url = models.URLField(max_length=500, blank=True, default="")
+    require_interaction = models.BooleanField(default=False)
+    renotify = models.BooleanField(default=False)
+    silent = models.BooleanField(default=False)
+    test_title = models.CharField(max_length=200, default="Moio test notification", blank=True)
+    test_body = models.TextField(default="Notifications are configured for this browser.", blank=True)
+
+    class Meta:
+        db_table = "platform_notification_settings"
+        verbose_name = "Platform notification settings"
+        verbose_name_plural = "Platform notification settings"

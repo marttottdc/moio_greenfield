@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import httpProxy from "http-proxy";
 import { registerRoutes } from "./routes";
 import { log } from "./log";
 import { serveStatic } from "./static";
@@ -50,7 +51,9 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Proxy /api to Django backend (catches /api not handled by Express routes above)
+  // Proxy /api to Django backend (catches /api not handled by Express routes above).
+  // Do NOT add a local handler for POST /api/v1/integrations/shopify/webhook/ – Shopify webhooks
+  // must be proxied to Django with the raw body and all x-shopify-* headers so HMAC verification and processing run there.
   const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8093";
   app.use('/api', async (req, res) => {
     const targetPath = `/api${req.url}`;
@@ -63,9 +66,19 @@ app.use((req, res, next) => {
         'Accept': req.headers.accept || 'application/json',
         'Content-Type': req.headers['content-type'] || 'application/json',
       };
-      ['authorization', 'x-moio-client-version', 'x-moio-tenant', 'x-csrftoken'].forEach((h) => {
+      [
+        'authorization',
+        'x-moio-client-version',
+        'x-moio-tenant',
+        'x-csrftoken',
+        'x-shopify-session-token',
+      ].forEach((h) => {
         const v = req.headers[h];
         if (v && typeof v === 'string') headers[h] = v;
+      });
+      Object.entries(req.headers).forEach(([key, value]) => {
+        if (!key.startsWith('x-shopify-')) return;
+        if (typeof value === 'string') headers[key] = value;
       });
 
       const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
@@ -76,9 +89,14 @@ app.use((req, res, next) => {
         headers,
         body,
         signal: controller.signal,
+        redirect: 'manual',
       });
 
       clearTimeout(timeout);
+      const location = response.headers.get('location');
+      if (location) {
+        res.set('Location', location);
+      }
       const data = await response.text();
       const contentType = response.headers.get('content-type');
       if (contentType) res.set('Content-Type', contentType);
@@ -111,6 +129,25 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
+
+  // WebSocket proxy: /ws/* -> backend (agent-console, tickets, etc.)
+  const wsProxy = httpProxy.createProxyServer({ ws: true });
+  const backendWsTarget = (BACKEND_URL || "http://localhost:8093")
+    .replace(/^http:\/\//i, "ws://")
+    .replace(/^https:\/\//i, "wss://");
+  server.on("upgrade", (req, socket, head) => {
+    if (req.url?.startsWith("/ws")) {
+      wsProxy.ws(
+        req,
+        socket,
+        head,
+        { target: backendWsTarget, headers: { ...req.headers } },
+        (err) => {
+          if (err) log(`WebSocket proxy error [${req.url}]: ${err.message}`);
+        }
+      );
+    }
+  });
 
   // Serve on PORT (default 5177)
   // this serves both the API and the client.

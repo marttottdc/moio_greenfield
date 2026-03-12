@@ -12,6 +12,7 @@ from django.utils import timezone
 from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
 from crm.serializers import ContactSerializer
 from central_hub.tenant_config import get_tenant_config
+from tenancy.tenant_support import tenant_schema_context
 from moio_platform.lib.email import send_email
 from cacheops.signals import cache_read
 from websockets_app.services.publisher import WebSocketEventPublisher
@@ -90,7 +91,9 @@ def session_ended(sender, instance, created, **kwargs):
             </html>
             """
 
-        config = get_tenant_config(instance.tenant)
+        schema_name = getattr(instance.tenant, "schema_name", None)
+        with tenant_schema_context(schema_name):
+            config = get_tenant_config(instance.tenant)
 
         recipient_list = config.default_notification_list.split(",")
         tenant_id = config.tenant_id

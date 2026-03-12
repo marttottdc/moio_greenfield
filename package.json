@@ -1,0 +1,9 @@
+{
+  "name": "moio-shopify-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shopify app root for CLI; theme extension only. Main app is Django + React.",
+  "scripts": {
+    "shopify:deploy": "shopify app deploy"
+  }
+}

@@ -1,17 +1,14 @@
 // @ts-nocheck
 import { resolveApiBase } from "./runtimeConfig";
-
-const PUBLIC_API_BASE = resolveApiBase("/api/public", import.meta.env.VITE_PUBLIC_AUTH_BASE);
-const AUTH_API_BASE = resolveApiBase("/api/auth", import.meta.env.VITE_PLATFORM_ADMIN_AUTH_BASE);
+import { getAccessToken } from "@/lib/api";
 
 const PUBLIC_TOKEN_STORAGE_KEY = "moio_public_tokens";
-const TENANT_SESSION_TOKEN_STORAGE_KEY = "moio_tenant_session_tokens";
 const TENANT_SESSION_CONTEXT_STORAGE_KEY = "moio_tenant_session_context";
 const PUBLIC_CLIENT_KEY_STORAGE_KEY = "moio_public_client_key";
 const PUBLIC_TENANTS_STORAGE_KEY = "moio_public_tenants";
 const PUBLIC_USER_STORAGE_KEY = "moio_public_user";
-const PLATFORM_ACCESS_TOKEN_KEY = "platform_admin_access_token";
-const PLATFORM_REFRESH_TOKEN_KEY = "platform_admin_refresh_token";
+const PUBLIC_API_BASE = resolveApiBase("/api/public", import.meta.env.VITE_PUBLIC_AUTH_BASE);
+const AUTH_API_BASE = resolveApiBase("/api/auth", import.meta.env.VITE_PLATFORM_ADMIN_AUTH_BASE);
 
 export type SessionTokens = {
   access: string;
@@ -151,7 +148,7 @@ function normalizeUser(raw: unknown): PublicAuthUser | null {
 
 function hasPlatformTokens(): boolean {
   try {
-    return Boolean(String(localStorage.getItem(PLATFORM_ACCESS_TOKEN_KEY) || "").trim());
+    return Boolean((getAccessToken() ?? "").trim());
   } catch {
     return false;
   }
@@ -208,18 +205,8 @@ function normalizeActiveTenantSessionContext(raw: unknown): ActiveTenantSessionC
   };
 }
 
-function setPlatformTokens(tokens: SessionTokens | null): void {
-  try {
-    if (tokens?.access && tokens?.refresh) {
-      localStorage.setItem(PLATFORM_ACCESS_TOKEN_KEY, tokens.access);
-      localStorage.setItem(PLATFORM_REFRESH_TOKEN_KEY, tokens.refresh);
-    } else {
-      localStorage.removeItem(PLATFORM_ACCESS_TOKEN_KEY);
-      localStorage.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
-    }
-  } catch {
-    // ignore storage failures
-  }
+function setPlatformTokens(_tokens: SessionTokens | null): void {
+  // Platform admin uses main app session; no separate token storage.
 }
 
 async function request<TPayload>(
@@ -256,11 +243,11 @@ export function getStoredPublicTokens(): SessionTokens | null {
 }
 
 export function getStoredTenantSessionTokens(): SessionTokens | null {
-  return getStoredTokens(TENANT_SESSION_TOKEN_STORAGE_KEY);
+  return null;
 }
 
 export function setStoredTenantSessionTokens(tokens: SessionTokens | null): void {
-  setStoredTokens(TENANT_SESSION_TOKEN_STORAGE_KEY, tokens);
+  void tokens;
 }
 
 export function getOrCreatePublicClientKey(): string {
@@ -321,36 +308,8 @@ async function refreshPublicAccessToken(refresh: string): Promise<string | null>
   return refreshStoredAccessToken(refresh, PUBLIC_TOKEN_STORAGE_KEY);
 }
 
-async function refreshTenantAccessToken(refresh: string): Promise<string | null> {
-  return refreshStoredAccessToken(refresh, TENANT_SESSION_TOKEN_STORAGE_KEY);
-}
-
 export async function revokeActiveTenantSession(): Promise<void> {
-  const tokens = getStoredTenantSessionTokens();
-  if (!tokens?.access && !tokens?.refresh) {
-    clearTenantConsoleSession();
-    return;
-  }
-
-  try {
-    await fetch(`${AUTH_API_BASE}/logout`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: tokens?.access
-        ? {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${tokens.access}`,
-          }
-        : {
-            "Content-Type": "application/json",
-          },
-      body: JSON.stringify({
-        refresh: tokens?.refresh || "",
-      }),
-    });
-  } catch {
-    // Best effort; local session is cleared below.
-  }
+  // Tenant-scoped session tokens are deprecated; keep context only.
   clearTenantConsoleSession();
 }
 
@@ -367,7 +326,7 @@ export function getStoredPublicSessionState(): StoredPublicSessionState {
   }
 
   const hasPublicSession = Boolean(getStoredPublicTokens());
-  const hasTenantSession = Boolean(getStoredTenantSessionTokens());
+  const hasTenantSession = false;
   const platformAdmin = hasPlatformTokens();
   const tenantConsole = hasPublicSession && tenants.length > 0;
 
@@ -402,7 +361,6 @@ export function persistPublicSession(payload: PublicAuthPayload): void {
 
 export function clearTenantConsoleSession(): void {
   try {
-    localStorage.removeItem(TENANT_SESSION_TOKEN_STORAGE_KEY);
     localStorage.removeItem(TENANT_SESSION_CONTEXT_STORAGE_KEY);
   } catch {
     // ignore storage failures
@@ -412,13 +370,12 @@ export function clearTenantConsoleSession(): void {
 export function clearPublicSessions(): void {
   try {
     localStorage.removeItem(PUBLIC_TOKEN_STORAGE_KEY);
-    localStorage.removeItem(TENANT_SESSION_TOKEN_STORAGE_KEY);
     localStorage.removeItem(TENANT_SESSION_CONTEXT_STORAGE_KEY);
     localStorage.removeItem(PUBLIC_TENANTS_STORAGE_KEY);
     localStorage.removeItem(PUBLIC_USER_STORAGE_KEY);
     localStorage.removeItem(PUBLIC_CLIENT_KEY_STORAGE_KEY);
-    localStorage.removeItem(PLATFORM_ACCESS_TOKEN_KEY);
-    localStorage.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
+    localStorage.removeItem("platform_admin_access_token");
+    localStorage.removeItem("platform_admin_refresh_token");
   } catch {
     // ignore storage failures
   }
@@ -477,57 +434,29 @@ export async function mintTenantSession(input: {
   workspaceId?: string;
   workspaceSlug?: string;
 }): Promise<TenantSessionPayload> {
-  const publicTokens = getStoredPublicTokens();
-  if (!publicTokens?.access) {
-    throw new PublicAuthApiError("Authentication required.", 401, "auth_required");
-  }
+  const tenantId = String(input.tenantId || "").trim();
+  const tenantSlug = String(input.tenantSlug || "").trim().toLowerCase();
+  const tenantSchema = String(input.tenantSchema || "").trim().toLowerCase();
+  const workspaceId = String(input.workspaceId || "").trim();
+  const workspaceSlug = String(input.workspaceSlug || "").trim().toLowerCase() || "main";
 
-  const body = {
-    clientKey: getOrCreatePublicClientKey(),
-    tenantId: String(input.tenantId || "").trim() || undefined,
-    tenantSchema: String(input.tenantSchema || "").trim().toLowerCase() || undefined,
-    tenantSlug: String(input.tenantSlug || "").trim().toLowerCase() || undefined,
-  };
-
-  const execute = (access: string) =>
-    request<TenantSessionPayload>("/tenant-session", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${access}`,
-      },
-      bodyJson: body,
-    });
-
-  let payload: TenantSessionPayload;
-  try {
-    payload = await execute(publicTokens.access);
-  } catch (error) {
-    const apiError = error as PublicAuthApiError;
-    if (
-      (apiError?.status === 401 || apiError?.status === 403 || apiError?.code === "auth_required") &&
-      publicTokens.refresh
-    ) {
-      const nextAccess = await refreshPublicAccessToken(publicTokens.refresh);
-      if (!nextAccess) throw error;
-      payload = await execute(nextAccess);
-    } else {
-      throw error;
-    }
-  }
-
-  setStoredTenantSessionTokens(payload.tokens);
   setActiveTenantSessionContext({
-    tenantId: String(payload.tenant?.id || "").trim(),
-    tenantSlug: String(payload.tenant?.slug || "").trim().toLowerCase(),
-    tenantSchema: String(payload.tenant?.schemaName || "").trim().toLowerCase(),
-    workspaceId: String(input.workspaceId || "").trim(),
-    workspaceSlug: String(input.workspaceSlug || "").trim().toLowerCase(),
+    tenantId,
+    tenantSlug,
+    tenantSchema,
+    workspaceId,
+    workspaceSlug,
   });
-  return payload;
+  return {
+    tokens: { access: "", refresh: "" },
+    tenant: {
+      id: tenantId,
+      slug: tenantSlug,
+      schemaName: tenantSchema,
+    },
+  };
 }
 
 export async function refreshActiveTenantSessionAccess(): Promise<string | null> {
-  const tokens = getStoredTenantSessionTokens();
-  if (!tokens?.refresh) return null;
-  return refreshTenantAccessToken(tokens.refresh);
+  return null;
 }

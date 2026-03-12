@@ -79,3 +79,27 @@ class RequireHumanUser(BasePermission):
         if isinstance(getattr(request, "auth", None), dict):
             return False
         return True
+
+
+class RequireTenantAccess(BasePermission):
+    """
+    Require the user to have a real tenant (not None, not public schema).
+    Users with no tenant or public-only tenant have no access to tenant-scoped APIs.
+    Superusers with no tenant are platform-admin only; they must use /api/platform/*.
+    """
+
+    message = "No tenant access. Use platform admin at /platform-admin if you are a platform administrator."
+    code = "no_tenant_access"
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        tenant = getattr(user, "tenant", None)
+        if tenant is None:
+            return False
+        schema = str(getattr(tenant, "schema_name", "") or "").strip().lower()
+        from tenancy.tenant_support import public_schema_name
+        if schema == public_schema_name().lower():
+            return False
+        return True

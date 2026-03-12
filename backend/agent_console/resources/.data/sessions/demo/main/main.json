@@ -1,0 +1,228 @@
+{
+  "sessionKey": "main",
+  "title": "Assist the user with inquiries and tasks",
+  "updatedAtMs": 1773331637288,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "hol"
+        }
+      ],
+      "timestamp": 1773329233679,
+      "author": {
+        "id": 1,
+        "email": "demo@moio.ai",
+        "displayName": "demo@moio.ai"
+      },
+      "contextScope": "shared",
+      "owner": {
+        "id": 1,
+        "email": "demo@moio.ai",
+        "displayName": "demo@moio.ai"
+      },
+      "runId": "7beb0815-4696-4cc5-8fbb-ea1083bf9c20",
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello! How can I assist you today?"
+        }
+      ],
+      "timestamp": 1773329236136,
+      "contextScope": "shared",
+      "runId": "7beb0815-4696-4cc5-8fbb-ea1083bf9c20",
+      "stopReason": "stop",
+      "model": {
+        "provider": "openai",
+        "name": "gpt-4o-mini"
+      },
+      "usage": {
+        "input": 4660,
+        "output": 11,
+        "totalTokens": 4671
+      },
+      "agentRuntime": {
+        "profileKey": "",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "toolAllowlist": [
+          "api.run",
+          "code.python",
+          "files.list",
+          "files.read",
+          "files.search",
+          "files.write",
+          "memory.recent",
+          "memory.record",
+          "memory.search",
+          "resource.read",
+          "shell.run",
+          "tools.create",
+          "tools.list",
+          "vault.delete",
+          "vault.get",
+          "vault.list",
+          "vault.set",
+          "web.extract",
+          "web.fetch",
+          "web.request",
+          "web.scrape"
+        ],
+        "diagnostics": {
+          "requestedProfile": "",
+          "resolvedProfile": "default",
+          "selectionSource": "django",
+          "requestedProfileRejected": false,
+          "hasExplicitAssignments": true,
+          "initiatorIsAdmin": false,
+          "workspaceFallbackFields": [],
+          "effectiveToolAllowlist": [
+            "api.run",
+            "code.python",
+            "files.list",
+            "files.read",
+            "files.search",
+            "files.write",
+            "memory.recent",
+            "memory.record",
+            "memory.search",
+            "resource.read",
+            "shell.run",
+            "tools.create",
+            "tools.list",
+            "vault.delete",
+            "vault.get",
+            "vault.list",
+            "vault.set",
+            "web.extract",
+            "web.fetch",
+            "web.request",
+            "web.scrape"
+          ]
+        }
+      },
+      "generatedFiles": []
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "hola"
+        }
+      ],
+      "timestamp": 1773331630334,
+      "author": {
+        "id": 1,
+        "email": "demo@moio.ai",
+        "displayName": "demo@moio.ai"
+      },
+      "contextScope": "shared",
+      "owner": {
+        "id": 1,
+        "email": "demo@moio.ai",
+        "displayName": "demo@moio.ai"
+      },
+      "runId": "16451ba2-9463-424c-9a3b-84547b6a61a0",
+      "attachments": []
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "\u00a1Hola! \u00bfC\u00f3mo puedo ayudarte hoy?"
+        }
+      ],
+      "timestamp": 1773331634279,
+      "contextScope": "shared",
+      "runId": "16451ba2-9463-424c-9a3b-84547b6a61a0",
+      "stopReason": "stop",
+      "model": {
+        "provider": "openai",
+        "name": "gpt-4o-mini"
+      },
+      "usage": {
+        "input": 4853,
+        "output": 11,
+        "totalTokens": 4864
+      },
+      "agentRuntime": {
+        "profileKey": "",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "toolAllowlist": [
+          "api.run",
+          "code.python",
+          "files.list",
+          "files.read",
+          "files.search",
+          "files.write",
+          "memory.recent",
+          "memory.record",
+          "memory.search",
+          "resource.read",
+          "shell.run",
+          "tools.create",
+          "tools.list",
+          "vault.delete",
+          "vault.get",
+          "vault.list",
+          "vault.set",
+          "web.extract",
+          "web.fetch",
+          "web.request",
+          "web.scrape"
+        ],
+        "diagnostics": {
+          "requestedProfile": "",
+          "resolvedProfile": "default",
+          "selectionSource": "django",
+          "requestedProfileRejected": false,
+          "hasExplicitAssignments": true,
+          "initiatorIsAdmin": false,
+          "workspaceFallbackFields": [],
+          "effectiveToolAllowlist": [
+            "api.run",
+            "code.python",
+            "files.list",
+            "files.read",
+            "files.search",
+            "files.write",
+            "memory.recent",
+            "memory.record",
+            "memory.search",
+            "resource.read",
+            "shell.run",
+            "tools.create",
+            "tools.list",
+            "vault.delete",
+            "vault.get",
+            "vault.list",
+            "vault.set",
+            "web.extract",
+            "web.fetch",
+            "web.request",
+            "web.scrape"
+          ]
+        }
+      },
+      "generatedFiles": []
+    }
+  ],
+  "summary": "# Goals\n- Assist the user with inquiries and tasks.\n\n# Truth Ledger\n- [active] User email is demo@moio.ai.\n\n# Decisions\n- No decisions made yet.\n\n# Constraints\n- None identified.\n\n# Open Items\n- Awaiting user inquiries or tasks.\n\n# Key Artifacts\n- None.\n\n# Superseded / Invalidated\n- None.\n\n# Do Not Forget\n- User email is demo@moio.ai.\n\n## Goals\n- (none)\n\n## Truth Ledger\n- (none)\n\n## Decisions\n- (none)\n\n## Constraints\n- (none)\n\n## Open Items\n- (none)\n\n## Key Artifacts\n- (none)\n\n## Superseded / Invalidated\n- (none)\n\n## Do Not Forget\n- (none)",
+  "summaryUpTo": 4,
+  "usage": {
+    "input": 9513,
+    "output": 22,
+    "total": 9535
+  },
+  "scope": "shared",
+  "queuedTurns": []
+}

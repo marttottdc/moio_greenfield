@@ -9,6 +9,8 @@
  *   - Parser:   use parseAgentResponse() to safely decode backend responses
  */
 
+import { PLATFORM_ADMIN_NAMESPACE } from "@/constants/routes";
+
 // ---------------------------------------------------------------------------
 // Route constants
 // ---------------------------------------------------------------------------
@@ -24,7 +26,7 @@ export const AppRoute = {
   Workflows:        "/workflows",
   Tickets:          "/tickets",
   Settings:         "/settings",
-  Admin:            "/platform-admin",
+  Admin:            PLATFORM_ADMIN_NAMESPACE,
   DataLab:          "/datalab",
   FlowNew:          "/flows/new",
   ScriptNew:        "/scripts/new",

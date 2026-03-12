@@ -529,6 +529,20 @@ class TicketAPIMixin:
     DEFAULT_PAGE_SIZE = 25
     MAX_PAGE_SIZE = 100
 
+    def _ensure_tenant_schema(self, request):
+        """Ensure DB connection points to tenant schema for ticket queries."""
+        tenant = getattr(request.user, "tenant", None)
+        if not tenant or not getattr(tenant, "schema_name", None):
+            return
+        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            return
+        try:
+            from django.db import connection
+
+            connection.set_tenant(tenant)
+        except Exception:
+            pass
+
     def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
@@ -580,6 +594,7 @@ class TicketAPIMixin:
         )
 
     def _base_queryset(self, request):
+        self._ensure_tenant_schema(request)
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             return Ticket.objects.none()
@@ -685,6 +700,7 @@ class TicketAPIMixin:
         return page_obj, pagination
 
     def _get_user_contact(self, request) -> Optional[Contact]:
+        self._ensure_tenant_schema(request)
         tenant = getattr(request.user, "tenant", None)
         email = getattr(request.user, "email", None)
         if not tenant or not email:

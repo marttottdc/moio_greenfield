@@ -75,18 +75,26 @@ class ShopifySyncLogAdmin(admin.ModelAdmin):
     actions = ['retry_failed_syncs']
 
     def retry_failed_syncs(self, request, queryset):
-        """Retry failed sync operations."""
+        """Retry failed sync operations (uses instance_id from shop domain when present)."""
         from central_hub.integrations.shopify.tasks import sync_shopify_products, sync_shopify_customers, sync_shopify_orders
+
+        def _instance_id_from_log(sync_log):
+            domain = (getattr(sync_log, "shopify_shop_domain", None) or "").strip()
+            if domain and ".myshopify.com" in domain:
+                return domain.replace(".myshopify.com", "").strip()
+            return "default"
 
         retry_count = 0
         for sync_log in queryset.filter(status='failed'):
             try:
+                instance_id = _instance_id_from_log(sync_log)
+                tid = sync_log.tenant.id
                 if sync_log.sync_type == 'products':
-                    sync_shopify_products.delay(sync_log.tenant.id)
+                    sync_shopify_products.delay(tenant_id=tid, instance_id=instance_id)
                 elif sync_log.sync_type == 'customers':
-                    sync_shopify_customers.delay(sync_log.tenant.id)
+                    sync_shopify_customers.delay(tenant_id=tid, instance_id=instance_id)
                 elif sync_log.sync_type == 'orders':
-                    sync_shopify_orders.delay(sync_log.tenant.id)
+                    sync_shopify_orders.delay(tenant_id=tid, instance_id=instance_id)
                 retry_count += 1
             except Exception as e:
                 self.message_user(request, f"Failed to retry {sync_log}: {e}", level='error')

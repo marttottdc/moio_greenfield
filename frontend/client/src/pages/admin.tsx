@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { PLATFORM_ADMIN_NAMESPACE } from "@/constants/routes";
 import { canAccessPlatformAdmin, isPlatformAdminRole, normalizeAppRole } from "@/lib/rbac";
 
 /** User row in admin: Moio GET /api/v1/users/ shape */
@@ -419,14 +420,14 @@ export default function AdminConsole() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => window.location.assign("/platform-admin/legacy")}
+            onClick={() => window.location.assign(PLATFORM_ADMIN_NAMESPACE)}
           >
-            Legacy Platform UI
+            Platform Admin
           </Button>
           <Button
             type="button"
             variant="outline"
-            onClick={() => window.location.assign("/tenant-admin/legacy")}
+            onClick={() => window.location.assign("/tenant-admin")}
           >
             Legacy Tenant UI
           </Button>

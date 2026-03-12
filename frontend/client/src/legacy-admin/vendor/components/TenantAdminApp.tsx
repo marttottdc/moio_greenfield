@@ -17,7 +17,13 @@ import {
   tenantPlugins as listTenantPlugins,
   TenantAdminApiError,
 } from "../lib/tenantAdminApi";
-import { getActiveTenantSessionContext, setActiveTenantSessionContext } from "../lib/publicAuthApi";
+import {
+  getActiveTenantSessionContext,
+  getStoredPublicSessionState,
+  setActiveTenantSessionContext,
+} from "../lib/publicAuthApi";
+import { ManageIntegrationsContent } from "@/pages/settings";
+import { PLATFORM_ADMIN_NAMESPACE } from "@/constants/routes";
 import type {
   AutomationInstance,
   AutomationRunLog,
@@ -42,7 +48,8 @@ type NavSection =
   | "skills"
   | "automations"
   | "plugins"
-  | "integrations";
+  | "integrations"
+  | "settings";
 
 type UserFormState = {
   id: number | null;
@@ -68,6 +75,7 @@ type WorkspaceFormState = {
   name: string;
   displayName: string;
   specialtyPrompt: string;
+  toolAllowlistText: string;
   defaultVendor: string;
   defaultModel: string;
   defaultThinking: string;
@@ -154,14 +162,80 @@ type AutomationInstanceFormState = {
   isActive: boolean;
 };
 
-const NAV_ITEMS: Array<{ key: NavSection; label: string }> = [
-  { key: "overview", label: "Overview" },
-  { key: "workspaces", label: "Workspaces" },
-  { key: "users", label: "Users" },
-  { key: "skills", label: "Skills" },
-  { key: "automations", label: "Automations" },
-  { key: "plugins", label: "Plugins" },
-  { key: "integrations", label: "Integrations" },
+const NAV_ITEMS: Array<{ key: NavSection; label: string; icon: React.ReactNode }> = [
+  {
+    key: "overview",
+    label: "Overview",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 12h8V3H3v9Zm10 9h8v-6h-8v6Zm0-8h8V3h-8v10Zm-10 8h8v-6H3v6Z" />
+      </svg>
+    ),
+  },
+  {
+    key: "workspaces",
+    label: "Workspaces",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 20h16M7 20V8l5-4 5 4v12M10 12h4M10 16h4" />
+      </svg>
+    ),
+  },
+  {
+    key: "users",
+    label: "Users",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    key: "skills",
+    label: "Skills",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M7 5h10M7 9h10M7 13h7M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      </svg>
+    ),
+  },
+  {
+    key: "automations",
+    label: "Automations",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M8 12h8M8 8h8M8 16h5M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+      </svg>
+    ),
+  },
+  {
+    key: "plugins",
+    label: "Plugins",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M8 7h8M8 12h8M8 17h5M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z" />
+      </svg>
+    ),
+  },
+  {
+    key: "integrations",
+    label: "Integrations",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M15 7h4a2 2 0 1 1 0 4h-4m-6 2H5a2 2 0 1 0 0 4h4m-3-6h12m-12 2h12" />
+      </svg>
+    ),
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+      </svg>
+    ),
+  },
 ];
 
 const DEFAULT_USER_FORM: UserFormState = {
@@ -188,6 +262,7 @@ const DEFAULT_WORKSPACE_FORM: WorkspaceFormState = {
   name: "",
   displayName: "",
   specialtyPrompt: "",
+  toolAllowlistText: "",
   defaultVendor: "",
   defaultModel: "",
   defaultThinking: "default",
@@ -312,6 +387,17 @@ function normalizePluginRole(value: string): PluginAssignmentDraft["role"] {
   return "member";
 }
 
+function parseToolAllowlistText(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of String(raw || "").split(/[\n,]/g).map((item) => item.trim()).filter(Boolean)) {
+    if (seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+  }
+  return out;
+}
+
 function pluginAssignmentDraftFromRow(row: TenantPluginAssignment): PluginAssignmentDraft {
   return {
     assignmentType: row.assignmentType === "user" ? "user" : "role",
@@ -356,44 +442,20 @@ function pluginConfigSchemaFields(plugin: PluginRegistryEntry | null): PluginCon
     .filter((row) => Boolean(String(row.key || "").trim()));
 }
 
-function hasAccessChoicesFromStorage(): boolean {
-  let tenantAccess = "";
-  let platformAccess = "";
-  let tenants: unknown[] = [];
-  try {
-    const tokenRaw = localStorage.getItem("moio_public_tokens");
-    const tokenObj = tokenRaw ? JSON.parse(tokenRaw) : null;
-    tenantAccess = String(tokenObj?.access || "").trim();
-  } catch {
-    tenantAccess = "";
-  }
-  try {
-    platformAccess = String(localStorage.getItem("platform_admin_access_token") || "").trim();
-  } catch {
-    platformAccess = "";
-  }
-  try {
-    const tenantsRaw = localStorage.getItem("moio_public_tenants");
-    const parsed = tenantsRaw ? JSON.parse(tenantsRaw) : [];
-    tenants = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    tenants = [];
-  }
-  const canTenant = Boolean(tenantAccess && tenants.length > 0);
-  const tenantChoices =
-    canTenant &&
-    (tenants.length > 1 ||
-      tenants.some((row) => {
-        const workspaces = Array.isArray((row as Record<string, unknown>)?.workspaces)
-          ? ((row as Record<string, unknown>).workspaces as unknown[])
-          : [];
-        return workspaces.length > 1;
-      }));
-  const destinationChoices = Boolean(canTenant && platformAccess);
-  return Boolean(tenantChoices || destinationChoices);
-}
-
 export default function TenantAdminApp() {
+  const initialWorkspaceFromContext = (() => {
+    const active = getActiveTenantSessionContext();
+    if (typeof window === "undefined") {
+      return String(active?.workspaceSlug || "main").trim().toLowerCase() || "main";
+    }
+    const query = new URLSearchParams(window.location.search);
+    return (
+      String(query.get("workspace") || active?.workspaceSlug || "main")
+        .trim()
+        .toLowerCase() || "main"
+    );
+  })();
+  const canReturnToPlatform = getStoredPublicSessionState().capabilities.platformAdmin;
   const [activeSection, setActiveSection] = useState<NavSection>("overview");
   const [loading, setLoading] = useState(true);
   const [flashText, setFlashText] = useState("");
@@ -402,7 +464,7 @@ export default function TenantAdminApp() {
   const [tenantSlug, setTenantSlug] = useState("");
   const [tenantUuid, setTenantUuid] = useState("");
   const [role, setRole] = useState<"admin" | "member" | "viewer">("member");
-  const [workspaceSlug, setWorkspaceSlug] = useState("main");
+  const [workspaceSlug, setWorkspaceSlug] = useState(initialWorkspaceFromContext);
   const [workspaceUuid, setWorkspaceUuid] = useState("");
   const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string } | null>(null);
 
@@ -431,9 +493,13 @@ export default function TenantAdminApp() {
   const [automationInstanceForm, setAutomationInstanceForm] = useState<AutomationInstanceFormState>(
     DEFAULT_AUTOMATION_INSTANCE_FORM
   );
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [automationTemplateModalOpen, setAutomationTemplateModalOpen] = useState(false);
+  const [automationInstanceModalOpen, setAutomationInstanceModalOpen] = useState(false);
   const [pluginForm, setPluginForm] = useState<PluginFormState>(DEFAULT_PLUGIN_FORM);
   const [integrationDrafts, setIntegrationDrafts] = useState<Record<string, IntegrationDraft>>({});
-  const [hasAccessChoices, setHasAccessChoices] = useState(false);
   const [skillQuery, setSkillQuery] = useState("");
   const [automationQuery, setAutomationQuery] = useState("");
 
@@ -590,6 +656,10 @@ export default function TenantAdminApp() {
     }));
   }
 
+  function onReturnToPlatform() {
+    window.location.assign(PLATFORM_ADMIN_NAMESPACE);
+  }
+
   async function loadBootstrap(nextWorkspace?: string) {
     setLoading(true);
     try {
@@ -611,12 +681,8 @@ export default function TenantAdminApp() {
   }
 
   useEffect(() => {
-    void loadBootstrap("main");
+    void loadBootstrap(initialWorkspaceFromContext || "main");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setHasAccessChoices(hasAccessChoicesFromStorage());
   }, []);
 
   useEffect(() => {
@@ -637,6 +703,11 @@ export default function TenantAdminApp() {
     setUserForm(DEFAULT_USER_FORM);
   }
 
+  function newUserForm() {
+    resetUserForm();
+    setUserModalOpen(true);
+  }
+
   function editUserForm(row: TenantUserRow) {
     setUserForm({
       id: row.id,
@@ -647,6 +718,7 @@ export default function TenantAdminApp() {
       isActive: row.isActive,
       membershipActive: row.membershipActive,
     });
+    setUserModalOpen(true);
   }
 
   async function onSaveUser(event: FormEvent) {
@@ -662,6 +734,7 @@ export default function TenantAdminApp() {
       });
       await loadBootstrap(workspaceSlug);
       setUserForm((prev) => ({ ...prev, password: "" }));
+      setUserModalOpen(false);
       setFlash("Tenant user saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -678,6 +751,7 @@ export default function TenantAdminApp() {
       await deleteTenantUser({ id: userForm.id || undefined, email: userForm.email || undefined });
       await loadBootstrap(workspaceSlug);
       resetUserForm();
+      setUserModalOpen(false);
       setFlash("Tenant user removed.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -688,8 +762,18 @@ export default function TenantAdminApp() {
     setSkillForm(DEFAULT_SKILL_FORM);
   }
 
+  function newSkillForm() {
+    resetSkillForm();
+    setSkillModalOpen(true);
+  }
+
   function resetWorkspaceForm() {
     setWorkspaceForm(DEFAULT_WORKSPACE_FORM);
+  }
+
+  function newWorkspaceForm() {
+    resetWorkspaceForm();
+    setWorkspaceModalOpen(true);
   }
 
   function editWorkspaceForm(row: TenantWorkspace) {
@@ -699,12 +783,14 @@ export default function TenantAdminApp() {
       name: row.name,
       displayName: row.displayName,
       specialtyPrompt: row.specialtyPrompt || "",
+      toolAllowlistText: Array.isArray(row.toolAllowlist) ? row.toolAllowlist.join("\n") : "",
       defaultVendor: row.defaultVendor || "",
       defaultModel: row.defaultModel || "",
       defaultThinking: row.defaultThinking || "default",
       defaultVerbosity: row.defaultVerbosity || "minimal",
       isActive: row.isActive,
     });
+    setWorkspaceModalOpen(true);
   }
 
   function editSkillForm(row: SkillDefinition) {
@@ -715,10 +801,16 @@ export default function TenantAdminApp() {
       bodyMarkdown: row.bodyMarkdown || "",
       isActive: row.isActive,
     });
+    setSkillModalOpen(true);
   }
 
   function resetAutomationTemplateForm() {
     setAutomationTemplateForm(DEFAULT_AUTOMATION_TEMPLATE_FORM);
+  }
+
+  function newAutomationTemplateForm() {
+    resetAutomationTemplateForm();
+    setAutomationTemplateModalOpen(true);
   }
 
   function editAutomationTemplateForm(row: AutomationTemplate) {
@@ -735,6 +827,7 @@ export default function TenantAdminApp() {
       isActive: row.isActive,
       isRecommended: row.isRecommended,
     });
+    setAutomationTemplateModalOpen(true);
   }
 
   function resetAutomationInstanceForm() {
@@ -742,6 +835,11 @@ export default function TenantAdminApp() {
       ...DEFAULT_AUTOMATION_INSTANCE_FORM,
       workspace: workspaceSlug || "main",
     });
+  }
+
+  function newAutomationInstanceForm() {
+    resetAutomationInstanceForm();
+    setAutomationInstanceModalOpen(true);
   }
 
   function editAutomationInstanceForm(row: AutomationInstance) {
@@ -758,6 +856,7 @@ export default function TenantAdminApp() {
       weekdays: Array.isArray(row.weekdays) ? row.weekdays : [],
       isActive: row.isActive,
     });
+    setAutomationInstanceModalOpen(true);
   }
 
   function draftAutomationInstanceFromTemplate(row: AutomationTemplate) {
@@ -768,6 +867,7 @@ export default function TenantAdminApp() {
       name: row.name,
       message: row.defaultMessage || row.examplePrompt || "",
     });
+    setAutomationInstanceModalOpen(true);
   }
 
   async function onSaveSkill(event: FormEvent) {
@@ -782,6 +882,7 @@ export default function TenantAdminApp() {
         isActive: skillForm.isActive,
       });
       await loadBootstrap(workspaceSlug);
+      setSkillModalOpen(false);
       setFlash("Tenant skill saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -798,6 +899,7 @@ export default function TenantAdminApp() {
       await deleteTenantSkill({ workspace: workspaceSlug, key: skillForm.key });
       await loadBootstrap(workspaceSlug);
       resetSkillForm();
+      setSkillModalOpen(false);
       setFlash("Tenant skill deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -823,6 +925,7 @@ export default function TenantAdminApp() {
         isRecommended: automationTemplateForm.isRecommended,
       });
       await loadBootstrap(workspaceSlug);
+      setAutomationTemplateModalOpen(false);
       setFlash("Automation template saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -846,6 +949,7 @@ export default function TenantAdminApp() {
       });
       await loadBootstrap(workspaceSlug);
       resetAutomationTemplateForm();
+      setAutomationTemplateModalOpen(false);
       setFlash("Automation template deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -870,6 +974,7 @@ export default function TenantAdminApp() {
         isActive: automationInstanceForm.isActive,
       });
       await loadBootstrap(automationInstanceForm.workspace || workspaceSlug);
+      setAutomationInstanceModalOpen(false);
       setFlash("Automation installed for this workspace.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -890,6 +995,7 @@ export default function TenantAdminApp() {
       });
       await loadBootstrap(workspaceSlug);
       resetAutomationInstanceForm();
+      setAutomationInstanceModalOpen(false);
       setFlash("Automation removed from workspace.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -914,6 +1020,7 @@ export default function TenantAdminApp() {
         name: workspace?.name || workspaceSlug.toUpperCase(),
         displayName: workspace?.displayName || workspace?.name || workspaceSlug.toUpperCase(),
         specialtyPrompt: workspace?.specialtyPrompt || "",
+        toolAllowlist: Array.isArray(workspace?.toolAllowlist) ? workspace.toolAllowlist : [],
         enabledSkillKeys,
         isActive: workspace?.isActive ?? true,
       });
@@ -944,11 +1051,13 @@ export default function TenantAdminApp() {
         defaultModel: workspaceForm.defaultModel.trim(),
         defaultThinking: workspaceForm.defaultThinking.trim().toLowerCase(),
         defaultVerbosity: workspaceForm.defaultVerbosity.trim().toLowerCase(),
+        toolAllowlist: parseToolAllowlistText(workspaceForm.toolAllowlistText),
         enabledSkillKeys: existingWorkspace?.enabledSkillKeys || [],
         isActive: workspaceForm.isActive,
       });
       await loadBootstrap(workspaceForm.slug.trim());
       setWorkspaceSlug(workspaceForm.slug.trim());
+      setWorkspaceModalOpen(false);
       setFlash("Workspace saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -970,6 +1079,7 @@ export default function TenantAdminApp() {
       await loadBootstrap(fallback);
       setWorkspaceSlug(fallback);
       resetWorkspaceForm();
+      setWorkspaceModalOpen(false);
       setFlash("Workspace deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -1190,26 +1300,6 @@ export default function TenantAdminApp() {
       ? "border-rose-300 bg-rose-50 text-rose-700"
       : "border-slate-300 bg-white text-slate-700";
 
-  const agentUrl = useMemo(() => {
-    const url = new URL(window.location.origin + "/desktop-agent-console/console/");
-    if (workspaceUuid) {
-      url.searchParams.set("workspaceId", workspaceUuid);
-    } else {
-      url.searchParams.set("workspace", workspaceSlug || "main");
-    }
-    return url.toString();
-  }, [tenantSlug, tenantUuid, workspaceSlug, workspaceUuid]);
-
-  const accessHubUrl = useMemo(() => {
-    const url = new URL(window.location.origin + "/");
-    if (workspaceUuid) {
-      url.searchParams.set("nextWorkspaceId", workspaceUuid);
-    } else if (workspaceSlug) {
-      url.searchParams.set("nextWorkspace", workspaceSlug);
-    }
-    return url.toString();
-  }, [tenantSlug, tenantUuid, workspaceSlug, workspaceUuid]);
-
   const normalizedSkillQuery = skillQuery.trim().toLowerCase();
   const installedSkills = useMemo(
     () =>
@@ -1253,21 +1343,21 @@ export default function TenantAdminApp() {
   );
 
   return (
-    <main className="h-screen bg-[#f3f6fb] text-slate-900 antialiased">
-      <div className="grid h-full grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-r border-slate-700/70 bg-[#384151] text-slate-100">
-          <div className="border-b border-slate-600/70 px-5 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-xl font-bold text-white shadow-lg">
+    <main className="h-screen bg-slate-100 text-slate-900 antialiased">
+      <div className="grid h-full grid-cols-[212px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-slate-900 text-slate-100 shadow-sm">
+          <div className="shrink-0 border-b border-slate-700/80 px-2 py-2">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-sm font-bold text-white">
                 M
               </div>
-              <div>
-                <p className="text-2xl font-semibold leading-none">moio</p>
-                <p className="mt-1 text-xs uppercase tracking-widest text-slate-300">Tenant Admin</p>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold leading-tight text-white">moio</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Tenant Admin</p>
               </div>
             </div>
           </div>
-          <nav className="space-y-1 px-2 py-3">
+          <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
             {NAV_ITEMS.map((item) => {
               const active = activeSection === item.key;
               return (
@@ -1275,77 +1365,78 @@ export default function TenantAdminApp() {
                   key={item.key}
                   type="button"
                   onClick={() => setActiveSection(item.key)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] font-medium transition ${
-                    active ? "bg-slate-100/10 text-white" : "text-slate-200/90 hover:bg-slate-100/10 hover:text-white"
+                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-slate-700/90 text-white"
+                      : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                   }`}
                 >
-                  {item.label}
+                  <span className={`shrink-0 ${active ? "text-sky-400" : "text-slate-400"}`}>{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
                 </button>
               );
             })}
           </nav>
-          <div className="mt-auto space-y-2 border-t border-slate-600/70 p-4">
-            {hasAccessChoices ? (
-              <a
-                href={accessHubUrl}
-                className="block rounded-lg border border-slate-400/50 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-sky-300 hover:text-sky-200"
-              >
-                Access Hub
-              </a>
-            ) : null}
-            <a
-              href={agentUrl}
-              className="block rounded-lg border border-slate-400/50 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-sky-300 hover:text-sky-200"
-            >
-              Open Agent Console
-            </a>
+          <div className="shrink-0 border-t border-slate-700/80 p-2.5">
+            <div className="rounded border border-slate-700/80 bg-slate-800/50 px-2.5 py-1.5 text-[11px] text-slate-400">
+              <div>Tenant: <span className="font-mono text-slate-200">{tenantSlug || "—"}</span></div>
+            </div>
             <button
               type="button"
               onClick={onLogout}
-              className="w-full rounded-lg border border-slate-400/50 px-3 py-2 text-left text-sm font-semibold text-slate-100 transition hover:border-rose-300 hover:text-rose-200"
+              className="mt-2 w-full rounded border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700"
             >
               Logout
             </button>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col">
-          <header className="border-b border-slate-200 bg-white px-8 py-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-5xl font-medium tracking-tight text-slate-900">Tenant Admin</h1>
-                <p className="mt-2 text-lg text-slate-500">
+        <section className="flex min-h-0 flex-col bg-slate-50">
+          <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-baseline gap-3">
+                <h1 className="text-xl font-semibold tracking-tight text-slate-900">Tenant Admin</h1>
+                <span className="text-sm text-slate-500">
                   Manage users, skills, and integrations for tenant{" "}
-                  <span className="font-mono text-slate-700">{tenantSlug || "..."}</span>.
-                </p>
+                  <span className="font-mono text-slate-700">{tenantSlug || "..."}</span>
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 {currentUser ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                    <span className="font-mono">{currentUser.email}</span>
-                  </div>
+                  <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-600">
+                    {currentUser.email}
+                  </span>
+                ) : null}
+                {canReturnToPlatform ? (
+                  <button
+                    type="button"
+                    onClick={onReturnToPlatform}
+                    className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  >
+                    Back to Platform
+                  </button>
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => void loadBootstrap(workspaceSlug)}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  onClick={() => window.location.reload()}
+                  className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                 >
                   Refresh
                 </button>
               </div>
             </div>
-            <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${flashClass}`}>{flashText || "Ready."}</div>
+            <div className={`mt-2 rounded border px-2.5 py-1.5 text-xs ${flashClass}`}>{flashText || "Ready."}</div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-7">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
             {!isTenantAdmin ? (
-              <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <section className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
                 Tenant admin permission is required.
               </section>
             ) : (
               <div className="space-y-3">
                 {activeSection === "overview" ? (
-                  <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                  <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
                     <MetricCard label="Users" value={users.length} />
                     <MetricCard label="Workspaces" value={workspaces.length} />
                     <MetricCard label="Skills" value={skillsMerged.length} />
@@ -1356,332 +1447,125 @@ export default function TenantAdminApp() {
                 ) : null}
 
                 {activeSection === "users" ? (
-                  <Panel title="Tenant Users" subtitle="Create or update users and their tenant role.">
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_520px]">
-                      <TableWrap>
-                        <table className="min-w-full text-left text-sm">
-                          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <Panel
+                    title="Tenant Users"
+                    subtitle="Create or update users and their tenant role."
+                    actionLabel="New User"
+                    onAction={newUserForm}
+                  >
+                    <TableWrap>
+                      <table className="min-w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-2 py-1.5">Email</th>
+                            <th className="px-2 py-1.5">Role</th>
+                            <th className="px-2 py-1.5">Active</th>
+                            <th className="w-14 px-2 py-1.5" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {users.length === 0 ? (
                             <tr>
-                              <th className="px-3 py-2">Email</th>
-                              <th className="px-3 py-2">Role</th>
-                              <th className="px-3 py-2">Active</th>
-                              <th className="px-3 py-2" />
+                              <td className="px-2 py-2 text-slate-500" colSpan={4}>
+                                No users in this tenant.
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {users.length === 0 ? (
-                              <tr>
-                                <td className="px-3 py-3 text-sm text-slate-500" colSpan={4}>
-                                  No users in this tenant.
+                          ) : (
+                            users.map((row) => (
+                              <tr key={row.id} className="hover:bg-slate-50/80">
+                                <td className="px-2 py-1.5 font-mono text-slate-700">{row.email}</td>
+                                <td className="px-2 py-1.5 text-slate-700">{row.role}</td>
+                                <td className="px-2 py-1.5 text-slate-700">
+                                  {row.isActive && row.membershipActive ? "yes" : "no"}
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => editUserForm(row)}
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                                  >
+                                    Edit
+                                  </button>
                                 </td>
                               </tr>
-                            ) : (
-                              users.map((row) => (
-                                <tr key={row.id}>
-                                  <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.email}</td>
-                                  <td className="px-3 py-2 text-xs text-slate-700">{row.role}</td>
-                                  <td className="px-3 py-2 text-xs text-slate-700">
-                                    {row.isActive && row.membershipActive ? "yes" : "no"}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => editUserForm(row)}
-                                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                    >
-                                      Edit
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </TableWrap>
-
-                      <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSaveUser}>
-                        <Field label="Email">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                            value={userForm.email}
-                            onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
-                            placeholder="user@company.com"
-                          />
-                        </Field>
-                        <Field label="Display Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={userForm.displayName}
-                            onChange={(event) =>
-                              setUserForm((prev) => ({ ...prev, displayName: event.target.value }))
-                            }
-                            placeholder="User name"
-                          />
-                        </Field>
-                        <Field label="Password (new users)">
-                          <input
-                            type="password"
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={userForm.password}
-                            onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
-                            placeholder="********"
-                          />
-                        </Field>
-                        <Field label="Role">
-                          <select
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={userForm.role}
-                            onChange={(event) =>
-                              setUserForm((prev) => ({
-                                ...prev,
-                                role: event.target.value as UserFormState["role"],
-                              }))
-                            }
-                          >
-                            <option value="admin">admin</option>
-                            <option value="member">member</option>
-                            <option value="viewer">viewer</option>
-                          </select>
-                        </Field>
-                        <div className="mb-2 flex gap-4 text-xs text-slate-700">
-                          <label className="inline-flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={userForm.isActive}
-                              onChange={(event) =>
-                                setUserForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                              }
-                            />
-                            Account active
-                          </label>
-                          <label className="inline-flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={userForm.membershipActive}
-                              onChange={(event) =>
-                                setUserForm((prev) => ({ ...prev, membershipActive: event.target.checked }))
-                              }
-                            />
-                            Membership active
-                          </label>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                            type="submit"
-                          >
-                            Save User
-                          </button>
-                          <button
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                            type="button"
-                            onClick={resetUserForm}
-                          >
-                            New
-                          </button>
-                          <button
-                            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                            type="button"
-                            onClick={() => void onDeleteUser()}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </TableWrap>
                   </Panel>
                 ) : null}
 
                 {activeSection === "workspaces" ? (
-                  <Panel title="Workspaces" subtitle="Create and manage tenant workspaces.">
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-                      <TableWrap>
-                        <table className="min-w-full text-left text-sm">
-                          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <Panel
+                    title="Workspaces"
+                    subtitle="Create and manage tenant workspaces."
+                    actionLabel="New Workspace"
+                    onAction={newWorkspaceForm}
+                  >
+                    <TableWrap>
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2">Workspace</th>
+                            <th className="px-3 py-2">Slug</th>
+                            <th className="px-3 py-2">Active</th>
+                            <th className="px-3 py-2" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {workspaces.length === 0 ? (
                             <tr>
-                              <th className="px-3 py-2">Workspace</th>
-                              <th className="px-3 py-2">Slug</th>
-                              <th className="px-3 py-2">Active</th>
-                              <th className="px-3 py-2" />
+                              <td className="px-3 py-3 text-sm text-slate-500" colSpan={4}>
+                                No workspaces available.
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {workspaces.length === 0 ? (
-                              <tr>
-                                <td className="px-3 py-3 text-sm text-slate-500" colSpan={4}>
-                                  No workspaces available.
+                          ) : (
+                            workspaces.map((row) => (
+                              <tr key={row.id}>
+                                <td className="px-3 py-2 font-medium text-slate-900">
+                                  <div>{row.displayName || row.name || row.slug}</div>
+                                  <div className="mt-0.5 text-[11px] font-normal text-slate-500">
+                                    {row.defaultVendor || "openai"} · {row.defaultModel || "gpt-4.1-mini"} ·{" "}
+                                    {row.defaultThinking || "default"} · {row.defaultVerbosity || "minimal"}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.slug}</td>
+                                <td className="px-3 py-2 text-xs text-slate-700">{row.isActive ? "yes" : "no"}</td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => editWorkspaceForm(row)}
+                                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openAgentForWorkspace(row.slug, row.uuid)}
+                                      className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                                    >
+                                      Open Agent
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
-                            ) : (
-                              workspaces.map((row) => (
-                                <tr key={row.id}>
-                                  <td className="px-3 py-2 font-medium text-slate-900">
-                                    <div>{row.displayName || row.name || row.slug}</div>
-                                    <div className="mt-0.5 text-[11px] font-normal text-slate-500">
-                                      {row.defaultVendor || "openai"} · {row.defaultModel || "gpt-4.1-mini"} ·{" "}
-                                      {row.defaultThinking || "default"} · {row.defaultVerbosity || "minimal"}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.slug}</td>
-                                  <td className="px-3 py-2 text-xs text-slate-700">{row.isActive ? "yes" : "no"}</td>
-                                  <td className="px-3 py-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => editWorkspaceForm(row)}
-                                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => openAgentForWorkspace(row.slug, row.uuid)}
-                                        className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-                                      >
-                                        Open Agent
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </TableWrap>
-
-                      <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSaveWorkspace}>
-                        <Field label="Slug">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                            value={workspaceForm.slug}
-                            onChange={(event) =>
-                              setWorkspaceForm((prev) => ({ ...prev, slug: event.target.value }))
-                            }
-                            placeholder="main"
-                          />
-                        </Field>
-                        <Field label="Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={workspaceForm.name}
-                            onChange={(event) =>
-                              setWorkspaceForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            placeholder="Main Workspace"
-                          />
-                        </Field>
-                        <Field label="Display Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={workspaceForm.displayName}
-                            onChange={(event) =>
-                              setWorkspaceForm((prev) => ({ ...prev, displayName: event.target.value }))
-                            }
-                            placeholder="Main"
-                          />
-                        </Field>
-                        <Field label="Specialty Prompt">
-                          <textarea
-                            className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
-                            value={workspaceForm.specialtyPrompt}
-                            onChange={(event) =>
-                              setWorkspaceForm((prev) => ({ ...prev, specialtyPrompt: event.target.value }))
-                            }
-                            placeholder="Optional workspace specialty prompt"
-                          />
-                        </Field>
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                          <Field label="Default Vendor">
-                            <select
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={workspaceForm.defaultVendor}
-                              onChange={(event) =>
-                                setWorkspaceForm((prev) => ({ ...prev, defaultVendor: event.target.value }))
-                              }
-                            >
-                              <option value="">System default</option>
-                              <option value="openai">OpenAI</option>
-                              <option value="xai">xAI</option>
-                              <option value="anthropic">Anthropic</option>
-                            </select>
-                          </Field>
-                          <Field label="Default Model">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={workspaceForm.defaultModel}
-                              onChange={(event) =>
-                                setWorkspaceForm((prev) => ({ ...prev, defaultModel: event.target.value }))
-                              }
-                              placeholder="gpt-4.1-mini"
-                            />
-                          </Field>
-                          <Field label="Thinking">
-                            <select
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={workspaceForm.defaultThinking}
-                              onChange={(event) =>
-                                setWorkspaceForm((prev) => ({ ...prev, defaultThinking: event.target.value }))
-                              }
-                            >
-                              <option value="default">Default</option>
-                              <option value="low">Low</option>
-                              <option value="medium">Medium</option>
-                              <option value="high">High</option>
-                            </select>
-                          </Field>
-                          <Field label="Verbosity">
-                            <select
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={workspaceForm.defaultVerbosity}
-                              onChange={(event) =>
-                                setWorkspaceForm((prev) => ({ ...prev, defaultVerbosity: event.target.value }))
-                              }
-                            >
-                              <option value="minimal">Minimal</option>
-                              <option value="normal">Normal</option>
-                              <option value="detailed">Detailed</option>
-                            </select>
-                          </Field>
-                        </div>
-                        <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={workspaceForm.isActive}
-                            onChange={(event) =>
-                              setWorkspaceForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                            }
-                          />
-                          Active
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                            type="submit"
-                          >
-                            Save Workspace
-                          </button>
-                          <button
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                            type="button"
-                            onClick={resetWorkspaceForm}
-                          >
-                            New
-                          </button>
-                          <button
-                            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                            type="button"
-                            onClick={() => void onDeleteWorkspace()}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </TableWrap>
                   </Panel>
                 ) : null}
 
                 {activeSection === "skills" ? (
-                  <Panel title="Skills" subtitle="Browse the catalog, enable skills per workspace, and author tenant-owned skills.">
+                  <Panel
+                    title="Skills"
+                    subtitle="Browse the catalog, enable skills per workspace, and author tenant-owned skills."
+                    actionLabel="New Skill"
+                    onAction={newSkillForm}
+                  >
                     <div className="mb-4 flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-slate-700">Workspace</span>
                       <select
@@ -1714,133 +1598,59 @@ export default function TenantAdminApp() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-                      <div className="space-y-4">
-                        <section>
-                          <div className="mb-2 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Installed</h3>
-                            <span className="text-xs text-slate-500">{installedSkills.length} enabled in {workspaceSlug}</span>
-                          </div>
-                          <div className="grid gap-2 md:grid-cols-2">
-                            {installedSkills.length === 0 ? (
-                              <EmptyStateCard text="No skills enabled for this workspace." />
-                            ) : (
-                              installedSkills.map((skill) => (
-                                <CatalogCard
-                                  key={`${skill.scope}:${skill.key}:installed`}
-                                  title={skill.name || skill.key}
-                                  subtitle={skill.description || "No description provided."}
-                                  meta={`${skill.scope} · ${skill.key}`}
-                                  active
-                                  actionLabel="Disable"
-                                  onAction={() => toggleEnabledSkillKey(skill.key)}
-                                  onSelect={() => {
-                                    if (skill.scope === "tenant") editSkillForm(skill);
-                                  }}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </section>
-
-                        <section>
-                          <div className="mb-2 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Catalog</h3>
-                            <span className="text-xs text-slate-500">Global and tenant skills available to install.</span>
-                          </div>
-                          <div className="grid gap-2 md:grid-cols-2">
-                            {availableSkills.length === 0 ? (
-                              <EmptyStateCard text="Everything matching the current search is already installed." />
-                            ) : (
-                              availableSkills.map((skill) => (
-                                <CatalogCard
-                                  key={`${skill.scope}:${skill.key}:catalog`}
-                                  title={skill.name || skill.key}
-                                  subtitle={skill.description || "No description provided."}
-                                  meta={`${skill.scope} · ${skill.key}`}
-                                  actionLabel="Install"
-                                  onAction={() => toggleEnabledSkillKey(skill.key)}
-                                  onSelect={() => {
-                                    if (skill.scope === "tenant") editSkillForm(skill);
-                                  }}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </section>
-                      </div>
-
-                      <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSaveSkill}>
+                    <div className="space-y-4">
+                      <section>
                         <div className="mb-2 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-slate-900">Tenant Skill Editor</h3>
-                          <button
-                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                            type="button"
-                            onClick={resetSkillForm}
-                          >
-                            New Skill
-                          </button>
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Installed</h3>
+                          <span className="text-xs text-slate-500">{installedSkills.length} enabled in {workspaceSlug}</span>
                         </div>
-                        <Field label="Skill Key">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                            value={skillForm.key}
-                            onChange={(event) => setSkillForm((prev) => ({ ...prev, key: event.target.value }))}
-                            placeholder="tenant_followup"
-                          />
-                        </Field>
-                        <Field label="Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={skillForm.name}
-                            onChange={(event) => setSkillForm((prev) => ({ ...prev, name: event.target.value }))}
-                            placeholder="Tenant follow-up"
-                          />
-                        </Field>
-                        <Field label="Description">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={skillForm.description}
-                            onChange={(event) =>
-                              setSkillForm((prev) => ({ ...prev, description: event.target.value }))
-                            }
-                            placeholder="What this skill does"
-                          />
-                        </Field>
-                        <Field label="Skill Markdown">
-                          <textarea
-                            className="h-48 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                            value={skillForm.bodyMarkdown}
-                            onChange={(event) =>
-                              setSkillForm((prev) => ({ ...prev, bodyMarkdown: event.target.value }))
-                            }
-                            placeholder="# Objective&#10;...&#10;&#10;# Constraints&#10;..."
-                          />
-                        </Field>
-                        <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={skillForm.isActive}
-                            onChange={(event) => setSkillForm((prev) => ({ ...prev, isActive: event.target.checked }))}
-                          />
-                          Active
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                            type="submit"
-                          >
-                            Save Skill
-                          </button>
-                          <button
-                            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                            type="button"
-                            onClick={() => void onDeleteSkill()}
-                          >
-                            Delete
-                          </button>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {installedSkills.length === 0 ? (
+                            <EmptyStateCard text="No skills enabled for this workspace." />
+                          ) : (
+                            installedSkills.map((skill) => (
+                              <CatalogCard
+                                key={`${skill.scope}:${skill.key}:installed`}
+                                title={skill.name || skill.key}
+                                subtitle={skill.description || "No description provided."}
+                                meta={`${skill.scope} · ${skill.key}`}
+                                active
+                                actionLabel="Disable"
+                                onAction={() => toggleEnabledSkillKey(skill.key)}
+                                onSelect={() => {
+                                  if (skill.scope === "tenant") editSkillForm(skill);
+                                }}
+                              />
+                            ))
+                          )}
                         </div>
-                      </form>
+                      </section>
+
+                      <section>
+                        <div className="mb-2 flex items-center justify-between">
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Catalog</h3>
+                          <span className="text-xs text-slate-500">Global and tenant skills available to install.</span>
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {availableSkills.length === 0 ? (
+                            <EmptyStateCard text="Everything matching the current search is already installed." />
+                          ) : (
+                            availableSkills.map((skill) => (
+                              <CatalogCard
+                                key={`${skill.scope}:${skill.key}:catalog`}
+                                title={skill.name || skill.key}
+                                subtitle={skill.description || "No description provided."}
+                                meta={`${skill.scope} · ${skill.key}`}
+                                actionLabel="Install"
+                                onAction={() => toggleEnabledSkillKey(skill.key)}
+                                onSelect={() => {
+                                  if (skill.scope === "tenant") editSkillForm(skill);
+                                }}
+                              />
+                            ))
+                          )}
+                        </div>
+                      </section>
                     </div>
                   </Panel>
                 ) : null}
@@ -1883,7 +1693,7 @@ export default function TenantAdminApp() {
                           <button
                             className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             type="button"
-                            onClick={resetAutomationInstanceForm}
+                            onClick={newAutomationInstanceForm}
                           >
                             New Instance
                           </button>
@@ -1917,7 +1727,7 @@ export default function TenantAdminApp() {
                           <button
                             className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             type="button"
-                            onClick={resetAutomationTemplateForm}
+                            onClick={newAutomationTemplateForm}
                           >
                             New Template
                           </button>
@@ -1972,300 +1782,6 @@ export default function TenantAdminApp() {
                       </div>
                     </section>
 
-                    <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-                      <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSaveAutomationTemplate}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-slate-900">Template Editor</h3>
-                          <span className="text-xs text-slate-500">Tenant-level reusable recipe</span>
-                        </div>
-                        <Field label="Key">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                            value={automationTemplateForm.key}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({ ...prev, key: event.target.value }))
-                            }
-                            placeholder="daily_pipeline_review"
-                          />
-                        </Field>
-                        <Field label="Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={automationTemplateForm.name}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            placeholder="Daily Pipeline Review"
-                          />
-                        </Field>
-                        <Field label="Description">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={automationTemplateForm.description}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({ ...prev, description: event.target.value }))
-                            }
-                            placeholder="What this automation does"
-                          />
-                        </Field>
-                        <Field label="Default Message">
-                          <textarea
-                            className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
-                            value={automationTemplateForm.defaultMessage}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({ ...prev, defaultMessage: event.target.value }))
-                            }
-                            placeholder="Analyze the pipeline state and summarize blockers."
-                          />
-                        </Field>
-                        <Field label="Example Prompt">
-                          <textarea
-                            className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
-                            value={automationTemplateForm.examplePrompt}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({ ...prev, examplePrompt: event.target.value }))
-                            }
-                            placeholder="Check the deployment backlog and produce today's ops digest."
-                          />
-                        </Field>
-                        <Field label="Instructions Markdown">
-                          <textarea
-                            className="h-32 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                            value={automationTemplateForm.instructionsMarkdown}
-                            onChange={(event) =>
-                              setAutomationTemplateForm((prev) => ({
-                                ...prev,
-                                instructionsMarkdown: event.target.value,
-                              }))
-                            }
-                            placeholder="# Goal&#10;...&#10;&#10;# Output&#10;..."
-                          />
-                        </Field>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Field label="Category">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={automationTemplateForm.category}
-                              onChange={(event) =>
-                                setAutomationTemplateForm((prev) => ({ ...prev, category: event.target.value }))
-                              }
-                              placeholder="ops"
-                            />
-                          </Field>
-                          <Field label="Icon">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={automationTemplateForm.icon}
-                              onChange={(event) =>
-                                setAutomationTemplateForm((prev) => ({ ...prev, icon: event.target.value }))
-                              }
-                              placeholder="bolt"
-                            />
-                          </Field>
-                        </div>
-                        <div className="mb-2 flex gap-4 text-xs text-slate-700">
-                          <label className="inline-flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={automationTemplateForm.isActive}
-                              onChange={(event) =>
-                                setAutomationTemplateForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                              }
-                            />
-                            Active
-                          </label>
-                          <label className="inline-flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={automationTemplateForm.isRecommended}
-                              onChange={(event) =>
-                                setAutomationTemplateForm((prev) => ({
-                                  ...prev,
-                                  isRecommended: event.target.checked,
-                                }))
-                              }
-                            />
-                            Recommended
-                          </label>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                            type="submit"
-                          >
-                            Save Template
-                          </button>
-                          <button
-                            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                            type="button"
-                            onClick={() => void onDeleteAutomationTemplate()}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </form>
-
-                      <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSaveAutomationInstance}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-slate-900">Workspace Installation</h3>
-                          <span className="text-xs text-slate-500">Binds one automation to {workspaceSlug}</span>
-                        </div>
-                        <Field label="Workspace">
-                          <select
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={automationInstanceForm.workspace}
-                            onChange={(event) =>
-                              setAutomationInstanceForm((prev) => ({ ...prev, workspace: event.target.value || "main" }))
-                            }
-                          >
-                            {workspaces.map((workspace) => (
-                              <option key={workspace.slug} value={workspace.slug}>
-                                {workspace.displayName || workspace.name || workspace.slug}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Template Key (optional)">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                            value={automationInstanceForm.templateKey}
-                            onChange={(event) =>
-                              setAutomationInstanceForm((prev) => ({ ...prev, templateKey: event.target.value }))
-                            }
-                            placeholder="daily_pipeline_review"
-                          />
-                        </Field>
-                        <Field label="Name">
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                            value={automationInstanceForm.name}
-                            onChange={(event) =>
-                              setAutomationInstanceForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            placeholder="Daily Pipeline Review"
-                          />
-                        </Field>
-                        <Field label="Message">
-                          <textarea
-                            className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
-                            value={automationInstanceForm.message}
-                            onChange={(event) =>
-                              setAutomationInstanceForm((prev) => ({ ...prev, message: event.target.value }))
-                            }
-                            placeholder="Describe the work to run on schedule."
-                          />
-                        </Field>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Field label="Execution Mode">
-                            <select
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={automationInstanceForm.executionMode}
-                              onChange={(event) =>
-                                setAutomationInstanceForm((prev) => ({
-                                  ...prev,
-                                  executionMode: event.target.value as AutomationInstanceFormState["executionMode"],
-                                }))
-                              }
-                            >
-                              <option value="worktree">worktree</option>
-                              <option value="local">local</option>
-                            </select>
-                          </Field>
-                          <Field label="Schedule">
-                            <select
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={automationInstanceForm.scheduleType}
-                              onChange={(event) =>
-                                setAutomationInstanceForm((prev) => ({
-                                  ...prev,
-                                  scheduleType: event.target.value as AutomationInstanceFormState["scheduleType"],
-                                }))
-                              }
-                            >
-                              <option value="manual">manual</option>
-                              <option value="daily">daily</option>
-                              <option value="interval">interval</option>
-                            </select>
-                          </Field>
-                        </div>
-                        {automationInstanceForm.scheduleType === "daily" ? (
-                          <>
-                            <Field label="Time">
-                              <input
-                                type="time"
-                                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                                value={automationInstanceForm.scheduleTime}
-                                onChange={(event) =>
-                                  setAutomationInstanceForm((prev) => ({ ...prev, scheduleTime: event.target.value }))
-                                }
-                              />
-                            </Field>
-                            <Field label="Days">
-                              <WeekdayToggleGroup
-                                value={automationInstanceForm.weekdays}
-                                onToggle={(day) =>
-                                  setAutomationInstanceForm((prev) => ({
-                                    ...prev,
-                                    weekdays: prev.weekdays.includes(day)
-                                      ? prev.weekdays.filter((item) => item !== day)
-                                      : [...prev.weekdays, day],
-                                  }))
-                                }
-                              />
-                            </Field>
-                          </>
-                        ) : null}
-                        {automationInstanceForm.scheduleType === "interval" ? (
-                          <Field label="Interval Minutes">
-                            <input
-                              type="number"
-                              min={5}
-                              step={5}
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={automationInstanceForm.intervalMinutes}
-                              onChange={(event) =>
-                                setAutomationInstanceForm((prev) => ({
-                                  ...prev,
-                                  intervalMinutes: Number(event.target.value || 60),
-                                }))
-                              }
-                            />
-                          </Field>
-                        ) : null}
-                        <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={automationInstanceForm.isActive}
-                            onChange={(event) =>
-                              setAutomationInstanceForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                            }
-                          />
-                          Active
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                            type="submit"
-                          >
-                            Save Instance
-                          </button>
-                          <button
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                            type="button"
-                            onClick={resetAutomationInstanceForm}
-                          >
-                            New
-                          </button>
-                          <button
-                            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                            type="button"
-                            onClick={() => void onDeleteAutomationInstance()}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </form>
-                    </div>
                   </Panel>
                 ) : null}
 
@@ -2861,11 +2377,602 @@ export default function TenantAdminApp() {
                     </div>
                   </Panel>
                 ) : null}
+
+                {activeSection === "settings" ? (
+                  <div className="space-y-3">
+                    <ManageIntegrationsContent />
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
         </section>
       </div>
+
+      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title={userForm.id ? "Edit user" : "New user"}>
+        <form onSubmit={onSaveUser}>
+          <Field label="Email">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
+              value={userForm.email}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+              placeholder="user@company.com"
+            />
+          </Field>
+          <Field label="Display Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={userForm.displayName}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, displayName: event.target.value }))}
+              placeholder="User name"
+            />
+          </Field>
+          <Field label={userForm.id ? "Password (leave empty to keep current)" : "Password"}>
+            <input
+              type="password"
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={userForm.password}
+              onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
+              placeholder="********"
+            />
+          </Field>
+          <Field label="Role">
+            <select
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={userForm.role}
+              onChange={(event) =>
+                setUserForm((prev) => ({
+                  ...prev,
+                  role: event.target.value as UserFormState["role"],
+                }))
+              }
+            >
+              <option value="admin">admin</option>
+              <option value="member">member</option>
+              <option value="viewer">viewer</option>
+            </select>
+          </Field>
+          <div className="mb-2 flex gap-4 text-xs text-slate-700">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={userForm.isActive}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+              />
+              Account active
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={userForm.membershipActive}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, membershipActive: event.target.checked }))}
+              />
+              Membership active
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              type="submit"
+            >
+              Save User
+            </button>
+            {userForm.id ? (
+              <button
+                className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                type="button"
+                onClick={() => void onDeleteUser()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={() => setUserModalOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={workspaceModalOpen}
+        onClose={() => setWorkspaceModalOpen(false)}
+        title={workspaceForm.id ? "Edit workspace" : "New workspace"}
+        size="lg"
+      >
+        <form onSubmit={onSaveWorkspace}>
+          <Field label="Slug">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
+              value={workspaceForm.slug}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, slug: event.target.value }))}
+              placeholder="main"
+            />
+          </Field>
+          <Field label="Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={workspaceForm.name}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Main Workspace"
+            />
+          </Field>
+          <Field label="Display Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={workspaceForm.displayName}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, displayName: event.target.value }))}
+              placeholder="Main"
+            />
+          </Field>
+          <Field label="Specialty Prompt">
+            <textarea
+              className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
+              value={workspaceForm.specialtyPrompt}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, specialtyPrompt: event.target.value }))}
+              placeholder="Optional workspace specialty prompt"
+            />
+          </Field>
+          <Field label="Tool Allowlist (one per line or comma-separated)">
+            <textarea
+              className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 font-mono text-xs"
+              value={workspaceForm.toolAllowlistText}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, toolAllowlistText: event.target.value }))}
+              placeholder={"api.run\nmoio_api.run\nfiles.read"}
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <Field label="Default Vendor">
+              <select
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={workspaceForm.defaultVendor}
+                onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, defaultVendor: event.target.value }))}
+              >
+                <option value="">System default</option>
+                <option value="openai">OpenAI</option>
+                <option value="xai">xAI</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+            </Field>
+            <Field label="Default Model">
+              <input
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={workspaceForm.defaultModel}
+                onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, defaultModel: event.target.value }))}
+                placeholder="gpt-4.1-mini"
+              />
+            </Field>
+            <Field label="Thinking">
+              <select
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={workspaceForm.defaultThinking}
+                onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, defaultThinking: event.target.value }))}
+              >
+                <option value="default">Default</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </Field>
+            <Field label="Verbosity">
+              <select
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={workspaceForm.defaultVerbosity}
+                onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, defaultVerbosity: event.target.value }))}
+              >
+                <option value="minimal">Minimal</option>
+                <option value="normal">Normal</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </Field>
+          </div>
+          <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={workspaceForm.isActive}
+              onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+            />
+            Active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              type="submit"
+            >
+              Save Workspace
+            </button>
+            {workspaceForm.id ? (
+              <button
+                className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                type="button"
+                onClick={() => void onDeleteWorkspace()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={() => setWorkspaceModalOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={skillModalOpen} onClose={() => setSkillModalOpen(false)} title={skillForm.key ? "Edit skill" : "New skill"} size="lg">
+        <form onSubmit={onSaveSkill}>
+          <Field label="Skill Key">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
+              value={skillForm.key}
+              onChange={(event) => setSkillForm((prev) => ({ ...prev, key: event.target.value }))}
+              placeholder="tenant_followup"
+            />
+          </Field>
+          <Field label="Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={skillForm.name}
+              onChange={(event) => setSkillForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Tenant follow-up"
+            />
+          </Field>
+          <Field label="Description">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={skillForm.description}
+              onChange={(event) => setSkillForm((prev) => ({ ...prev, description: event.target.value }))}
+              placeholder="What this skill does"
+            />
+          </Field>
+          <Field label="Skill Markdown">
+            <textarea
+              className="h-48 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
+              value={skillForm.bodyMarkdown}
+              onChange={(event) => setSkillForm((prev) => ({ ...prev, bodyMarkdown: event.target.value }))}
+              placeholder="# Objective&#10;...&#10;&#10;# Constraints&#10;..."
+            />
+          </Field>
+          <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={skillForm.isActive}
+              onChange={(event) => setSkillForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+            />
+            Active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              type="submit"
+            >
+              Save Skill
+            </button>
+            {skillForm.key ? (
+              <button
+                className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                type="button"
+                onClick={() => void onDeleteSkill()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={() => setSkillModalOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={automationTemplateModalOpen}
+        onClose={() => setAutomationTemplateModalOpen(false)}
+        title={automationTemplateForm.id ? "Edit template" : "New template"}
+        size="lg"
+      >
+        <form onSubmit={onSaveAutomationTemplate}>
+          <Field label="Key">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
+              value={automationTemplateForm.key}
+              onChange={(event) => setAutomationTemplateForm((prev) => ({ ...prev, key: event.target.value }))}
+              placeholder="daily_pipeline_review"
+            />
+          </Field>
+          <Field label="Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={automationTemplateForm.name}
+              onChange={(event) => setAutomationTemplateForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Daily Pipeline Review"
+            />
+          </Field>
+          <Field label="Description">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={automationTemplateForm.description}
+              onChange={(event) =>
+                setAutomationTemplateForm((prev) => ({ ...prev, description: event.target.value }))
+              }
+              placeholder="What this automation does"
+            />
+          </Field>
+          <Field label="Default Message">
+            <textarea
+              className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
+              value={automationTemplateForm.defaultMessage}
+              onChange={(event) =>
+                setAutomationTemplateForm((prev) => ({ ...prev, defaultMessage: event.target.value }))
+              }
+              placeholder="Analyze the pipeline state and summarize blockers."
+            />
+          </Field>
+          <Field label="Example Prompt">
+            <textarea
+              className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
+              value={automationTemplateForm.examplePrompt}
+              onChange={(event) =>
+                setAutomationTemplateForm((prev) => ({ ...prev, examplePrompt: event.target.value }))
+              }
+              placeholder="Check the deployment backlog and produce today's ops digest."
+            />
+          </Field>
+          <Field label="Instructions Markdown">
+            <textarea
+              className="h-32 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
+              value={automationTemplateForm.instructionsMarkdown}
+              onChange={(event) =>
+                setAutomationTemplateForm((prev) => ({
+                  ...prev,
+                  instructionsMarkdown: event.target.value,
+                }))
+              }
+              placeholder="# Goal&#10;...&#10;&#10;# Output&#10;..."
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Category">
+              <input
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={automationTemplateForm.category}
+                onChange={(event) =>
+                  setAutomationTemplateForm((prev) => ({ ...prev, category: event.target.value }))
+                }
+                placeholder="ops"
+              />
+            </Field>
+            <Field label="Icon">
+              <input
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={automationTemplateForm.icon}
+                onChange={(event) =>
+                  setAutomationTemplateForm((prev) => ({ ...prev, icon: event.target.value }))
+                }
+                placeholder="bolt"
+              />
+            </Field>
+          </div>
+          <div className="mb-2 flex gap-4 text-xs text-slate-700">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={automationTemplateForm.isActive}
+                onChange={(event) =>
+                  setAutomationTemplateForm((prev) => ({ ...prev, isActive: event.target.checked }))
+                }
+              />
+              Active
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={automationTemplateForm.isRecommended}
+                onChange={(event) =>
+                  setAutomationTemplateForm((prev) => ({ ...prev, isRecommended: event.target.checked }))
+                }
+              />
+              Recommended
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              type="submit"
+            >
+              Save Template
+            </button>
+            {automationTemplateForm.id || automationTemplateForm.key ? (
+              <button
+                className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                type="button"
+                onClick={() => void onDeleteAutomationTemplate()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={() => setAutomationTemplateModalOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={automationInstanceModalOpen}
+        onClose={() => setAutomationInstanceModalOpen(false)}
+        title={automationInstanceForm.id ? "Edit instance" : "New instance"}
+        size="lg"
+      >
+        <form onSubmit={onSaveAutomationInstance}>
+          <Field label="Workspace">
+            <select
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={automationInstanceForm.workspace}
+              onChange={(event) =>
+                setAutomationInstanceForm((prev) => ({ ...prev, workspace: event.target.value || "main" }))
+              }
+            >
+              {workspaces.map((workspace) => (
+                <option key={workspace.slug} value={workspace.slug}>
+                  {workspace.displayName || workspace.name || workspace.slug}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Template Key (optional)">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
+              value={automationInstanceForm.templateKey}
+              onChange={(event) =>
+                setAutomationInstanceForm((prev) => ({ ...prev, templateKey: event.target.value }))
+              }
+              placeholder="daily_pipeline_review"
+            />
+          </Field>
+          <Field label="Name">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+              value={automationInstanceForm.name}
+              onChange={(event) => setAutomationInstanceForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Daily Pipeline Review"
+            />
+          </Field>
+          <Field label="Message">
+            <textarea
+              className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"
+              value={automationInstanceForm.message}
+              onChange={(event) =>
+                setAutomationInstanceForm((prev) => ({ ...prev, message: event.target.value }))
+              }
+              placeholder="Describe the work to run on schedule."
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Execution Mode">
+              <select
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={automationInstanceForm.executionMode}
+                onChange={(event) =>
+                  setAutomationInstanceForm((prev) => ({
+                    ...prev,
+                    executionMode: event.target.value as AutomationInstanceFormState["executionMode"],
+                  }))
+                }
+              >
+                <option value="worktree">worktree</option>
+                <option value="local">local</option>
+              </select>
+            </Field>
+            <Field label="Schedule">
+              <select
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={automationInstanceForm.scheduleType}
+                onChange={(event) =>
+                  setAutomationInstanceForm((prev) => ({
+                    ...prev,
+                    scheduleType: event.target.value as AutomationInstanceFormState["scheduleType"],
+                  }))
+                }
+              >
+                <option value="manual">manual</option>
+                <option value="daily">daily</option>
+                <option value="interval">interval</option>
+              </select>
+            </Field>
+          </div>
+          {automationInstanceForm.scheduleType === "daily" ? (
+            <>
+              <Field label="Time">
+                <input
+                  type="time"
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                  value={automationInstanceForm.scheduleTime}
+                  onChange={(event) =>
+                    setAutomationInstanceForm((prev) => ({ ...prev, scheduleTime: event.target.value }))
+                  }
+                />
+              </Field>
+              <Field label="Days">
+                <WeekdayToggleGroup
+                  value={automationInstanceForm.weekdays}
+                  onToggle={(day) =>
+                    setAutomationInstanceForm((prev) => ({
+                      ...prev,
+                      weekdays: prev.weekdays.includes(day)
+                        ? prev.weekdays.filter((item) => item !== day)
+                        : [...prev.weekdays, day],
+                    }))
+                  }
+                />
+              </Field>
+            </>
+          ) : null}
+          {automationInstanceForm.scheduleType === "interval" ? (
+            <Field label="Interval Minutes">
+              <input
+                type="number"
+                min={5}
+                step={5}
+                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                value={automationInstanceForm.intervalMinutes}
+                onChange={(event) =>
+                  setAutomationInstanceForm((prev) => ({
+                    ...prev,
+                    intervalMinutes: Number(event.target.value || 60),
+                  }))
+                }
+              />
+            </Field>
+          ) : null}
+          <label className="mb-2 flex items-center gap-1.5 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={automationInstanceForm.isActive}
+              onChange={(event) =>
+                setAutomationInstanceForm((prev) => ({ ...prev, isActive: event.target.checked }))
+              }
+            />
+            Active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              type="submit"
+            >
+              Save Instance
+            </button>
+            {automationInstanceForm.id ? (
+              <button
+                className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                type="button"
+                onClick={() => void onDeleteAutomationInstance()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              type="button"
+              onClick={() => setAutomationInstanceModalOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {loading ? (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-slate-900/20 backdrop-blur-[1px]">
@@ -2878,30 +2985,102 @@ export default function TenantAdminApp() {
   );
 }
 
-function Panel(props: { title: string; subtitle: string; children: React.ReactNode }) {
+function Panel(props: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3">
-        <h2 className="text-xl font-semibold text-slate-900">{props.title}</h2>
-        <p className="mt-1 text-sm text-slate-600">{props.subtitle}</p>
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">{props.title}</h2>
+          <p className="text-xs text-slate-500">{props.subtitle}</p>
+        </div>
+        {props.actionLabel && props.onAction ? (
+          <button
+            type="button"
+            onClick={props.onAction}
+            className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            {props.actionLabel}
+          </button>
+        ) : null}
       </div>
       {props.children}
     </section>
   );
 }
 
+function Modal(props: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
+}) {
+  const sizeClass =
+    props.size === "xl"
+      ? "max-w-2xl"
+      : props.size === "lg"
+        ? "max-w-xl"
+        : props.size === "sm"
+          ? "max-w-sm"
+          : "max-w-md";
+  if (!props.open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={props.onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={`relative flex max-h-[90vh] w-full ${sizeClass} flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 id="modal-title" className="text-base font-semibold text-slate-900">
+            {props.title}
+          </h2>
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{props.children}</div>
+      </div>
+    </div>
+  );
+}
+
 function TableWrap(props: { children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="max-h-[360px] overflow-auto">{props.children}</div>
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="max-h-[320px] overflow-auto">{props.children}</div>
     </div>
   );
 }
 
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-2">
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{props.label}</label>
+    <div className="mb-1.5">
+      <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {props.label}
+      </label>
       {props.children}
     </div>
   );
@@ -2909,9 +3088,9 @@ function Field(props: { label: string; children: React.ReactNode }) {
 
 function MetricCard(props: { label: string; value: number }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-sm text-slate-500">{props.label}</p>
-      <p className="mt-1 text-4xl font-semibold tracking-tight text-slate-900">
+    <article className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{props.label}</p>
+      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">
         {new Intl.NumberFormat().format(props.value)}
       </p>
     </article>

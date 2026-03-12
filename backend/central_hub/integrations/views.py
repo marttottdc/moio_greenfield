@@ -40,6 +40,38 @@ import requests
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
+
+
+def _enrich_shopify_config_from_link(tenant, cfg: dict, instance_id: str) -> None:
+    """In-place: set store_url and access_token from ShopifyShopLink when missing (managed by OAuth/embed)."""
+    if not isinstance(cfg, dict):
+        return
+    need_url = not (cfg.get("store_url") or "").strip()
+    need_token = not (cfg.get("access_token") or "").strip() or cfg.get("access_token") == "****"
+    if not need_url and not need_token:
+        return
+    from central_hub.integrations.models import ShopifyShopLink, ShopifyShopLinkStatus
+    links = list(
+        ShopifyShopLink.objects.filter(
+            tenant=tenant,
+            status=ShopifyShopLinkStatus.LINKED,
+        ).values_list("shop_domain", flat=True)
+    )
+    link_domain = None
+    for shop_domain in links:
+        _id = (shop_domain or "").replace(".myshopify.com", "").replace(".", "-")
+        if _id == instance_id:
+            link_domain = shop_domain
+            break
+    if not link_domain and links:
+        link_domain = links[0]
+    if link_domain:
+        if need_url:
+            cfg["store_url"] = link_domain
+        if need_token:
+            cfg["access_token"] = "••••••••"
+
+
 from central_hub.integrations.serializers import (
     IntegrationConfigSerializer,
     IntegrationConfigCreateSerializer,
@@ -149,6 +181,8 @@ class IntegrationListView(IntegrationAPIView):
                 else:
                     connection_status = "configured"
             
+            # Hub contract: expose definition transport and binding status
+            binding_statuses = [getattr(c, "status", None) for c in configs if hasattr(c, "status")]
             result.append({
                 "slug": definition.slug,
                 "name": definition.name,
@@ -160,6 +194,10 @@ class IntegrationListView(IntegrationAPIView):
                 "enabled": enabled_count > 0,
                 "instance_count": len(configs),
                 "connection_status": connection_status,
+                "auth_scope": getattr(definition, "auth_scope", "tenant"),
+                "supports_webhook": getattr(definition, "supports_webhook", False),
+                "supports_oauth": getattr(definition, "supports_oauth", False),
+                "binding_statuses": [s for s in binding_statuses if s],
             })
         
         return Response(result)
@@ -374,11 +412,12 @@ class WhatsappEmbeddedSignupCompleteView(IntegrationAPIView):
                 logger.exception("Post-setup failed (webhook/phone registration)")
                 # Continue but surface partial failure
 
-        # Persist IntegrationConfig (multi-instance)
-        from central_hub.integrations.models import IntegrationConfig
+        # Persist IntegrationConfig (multi-instance, Hub contract status)
+        from central_hub.integrations.models import IntegrationConfig, IntegrationBindingStatus
 
         config_defaults = {
             "enabled": True,
+            "status": IntegrationBindingStatus.CONNECTED,
             "name": instance_name or phone_number_id,
             "config": {
                 "token": access_token,
@@ -399,6 +438,7 @@ class WhatsappEmbeddedSignupCompleteView(IntegrationAPIView):
         )
         # Update existing config if already present
         integration_cfg.enabled = True
+        integration_cfg.status = IntegrationBindingStatus.CONNECTED
         integration_cfg.name = config_defaults["name"]
         integration_cfg.config.update(config_defaults["config"])
         integration_cfg.save()
@@ -496,7 +536,17 @@ class IntegrationConfigListView(IntegrationAPIView):
         
         configs = IntegrationConfig.objects.filter(tenant=tenant, slug=slug)
         serializer = IntegrationConfigSerializer(configs, many=True)
-        return Response(serializer.data)
+        data = serializer.data
+        # Shopify: enrich each config from ShopifyShopLink when store_url/access_token missing
+        if slug == "shopify" and isinstance(data, list):
+            for item in data:
+                if isinstance(item.get("config"), dict):
+                    _enrich_shopify_config_from_link(
+                        tenant,
+                        item["config"],
+                        item.get("instance_id") or "default",
+                    )
+        return Response(data)
     
     @extend_schema(
         summary="Create integration config",
@@ -609,9 +659,23 @@ class IntegrationConfigDetailView(IntegrationAPIView):
                 {"error": "Integration config not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        
+        # Shopify: if stored config is missing store_url/access_token but we have a LINKED link, persist full config
+        if slug == "shopify":
+            tenant = self.get_tenant()
+            if tenant and isinstance(config.config, dict):
+                need_write = not (config.config.get("store_url") or "").strip() or not (config.config.get("access_token") or "").strip()
+                if need_write:
+                    from central_hub.integrations.shopify.views import ensure_shopify_config_persisted_from_link
+                    updated = ensure_shopify_config_persisted_from_link(tenant, instance_id)
+                    if updated:
+                        config = updated
         serializer = IntegrationConfigSerializer(config)
-        return Response(serializer.data)
+        data = serializer.data
+        # Shopify: enrich config from ShopifyShopLink when store_url/access_token missing (e.g. managed by embed/OAuth)
+        if slug == "shopify":
+            tenant = self.get_tenant()
+            _enrich_shopify_config_from_link(tenant, data.get("config"), instance_id)
+        return Response(data)
     
     @extend_schema(
         summary="Update integration config",
@@ -639,10 +703,17 @@ class IntegrationConfigDetailView(IntegrationAPIView):
                 {"error": "Integration config not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if slug == "shopify":
+            shopify_config = dict(data.get("config") or {})
+            for key in ("access_token", "webhook_secret", "store_url"):
+                shopify_config.pop(key, None)
+            data["config"] = shopify_config
+
         serializer = IntegrationConfigUpdateSerializer(
             config,
-            data=request.data,
+            data=data,
             partial=True,
             context={"request": request},
         )

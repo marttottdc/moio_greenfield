@@ -1,0 +1,38 @@
+# Shopify App config – used by Shopify CLI to deploy the theme app extension (chat widget).
+# The rest of the app (Django + React) is deployed separately; this file only affects
+# `shopify app deploy` and `shopify app config link`.
+#
+# Setup: fill client_id and application_url from platform config, then deploy:
+#   cd backend && python manage.py shopify_write_app_toml
+#   cd .. && shopify app deploy
+#
+# When to run deploy: every time you change the chat widget (extensions/chat-widget/).
+
+name = "Moio"
+client_id = "345dd548aded2019d01cb68d1bf0cbd4"
+application_url = "https://moio.ngrok.dev/apps/shopify/app"
+embedded = true
+
+[build]
+# No app build here; we only deploy extensions. Main app is Django + React.
+automatically_update_urls_on_dev = false
+
+[auth]
+redirect_urls = [
+  "https://moio.ngrok.dev/api/v1/integrations/shopify/oauth/callback/"
+]
+
+[access_scopes]
+scopes = "write_app_proxy"
+
+# App proxy: storefront calls /apps/moio-chat/... are forwarded here (no API base URL in theme)
+[app_proxy]
+url = "https://moio.ngrok.dev/api/v1/integrations/shopify/app-proxy"
+prefix = "apps"
+subpath = "moio-chat"
+
+[webhooks]
+api_version = "2024-01"
+
+[pos]
+embedded = false

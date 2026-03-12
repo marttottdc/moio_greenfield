@@ -9,6 +9,9 @@ Features:
 - JSON config storage: No migrations needed for new integration fields
 - Schema validation: Per-integration validation via registry
 - Write-through sync: Changes to TenantConfiguration auto-sync here
+
+Integrations Hub Contract: IntegrationConfig is the storage/compatibility layer
+for IntegrationBinding; the canonical status is stored in the `status` field.
 """
 
 from __future__ import annotations
@@ -20,6 +23,19 @@ from django.db import models
 from django.utils import timezone
 
 from tenancy.models import Tenant, TenantScopedModel
+
+
+class IntegrationBindingStatus(models.TextChoices):
+    """
+    Normalized binding status (Hub contract).
+    Shared by tenant hub, platform admin, and workers.
+    """
+    CONNECTED = "connected", "Connected"
+    INVALID_CREDENTIALS = "invalid_credentials", "Invalid credentials"
+    UNINSTALLED = "uninstalled", "Uninstalled"
+    PENDING_LINK = "pending_link", "Pending link"
+    DISABLED = "disabled", "Disabled"
+    SYNCING = "syncing", "Syncing"
 
 
 class IntegrationConfig(TenantScopedModel):
@@ -57,6 +73,13 @@ class IntegrationConfig(TenantScopedModel):
     enabled = models.BooleanField(
         default=False,
         help_text="Whether this integration is active"
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=IntegrationBindingStatus.choices,
+        default=IntegrationBindingStatus.CONNECTED,
+        db_index=True,
+        help_text="Canonical binding status (Hub contract)"
     )
     config = models.JSONField(
         default=dict,
@@ -177,6 +200,9 @@ class ShopifyShopInstallation(models.Model):
 
     # NOTE: Must be encrypted at rest in production. Stored as opaque string for now.
     offline_access_token = models.TextField(blank=True, default="")
+    # Expiring tokens (Shopify Dec 2025+): refresh_token and expiry for token rotation
+    refresh_token = models.TextField(blank=True, default="")
+    offline_access_token_expires_at = models.DateTimeField(null=True, blank=True)
 
     scopes = models.TextField(blank=True, default="")
     api_version = models.CharField(max_length=20, blank=True, default="2025-10")
@@ -274,3 +300,20 @@ class ShopifyWebhookSubscription(models.Model):
     def __str__(self) -> str:
         return f"{self.shop_domain} {self.topic}"
 
+
+class ShopifyOAuthState(models.Model):
+    """
+    Temporary OAuth state for CSRF protection during Shopify install.
+    Created at install start, validated and deleted at callback.
+    """
+
+    state = models.CharField(max_length=64, unique=True, db_index=True)
+    shop_domain = models.CharField(max_length=255, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "shopify_oauth_state"
+        indexes = [models.Index(fields=["state"]), models.Index(fields=["created_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.state} ({self.shop_domain})"

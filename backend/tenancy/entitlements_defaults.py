@@ -13,7 +13,7 @@ BUSINESS = "business"
 
 
 def get_default_features_for_plan(plan: str) -> Dict[str, bool]:
-    """Feature flags by plan. More plans can enable more features."""
+    """Feature flags by plan. Free tier: CRM only, 5 users, no flows, no chatbot."""
     base = {
         "crm": True,
         "crm_contacts_read": True,
@@ -25,6 +25,8 @@ def get_default_features_for_plan(plan: str) -> Dict[str, bool]:
         "flows_read": False,
         "flows_run": False,
         "flows_edit": False,
+        "chatbot": False,
+        "datalab": False,
         "settings_integrations_manage": False,
         "users_manage": False,
     }
@@ -36,6 +38,8 @@ def get_default_features_for_plan(plan: str) -> Dict[str, bool]:
         out["flows_read"] = True
         out["flows_run"] = True
         out["flows_edit"] = True
+        out["chatbot"] = True
+        out["datalab"] = True
         out["users_manage"] = True
         return out
     if plan == BUSINESS:
@@ -47,6 +51,8 @@ def get_default_features_for_plan(plan: str) -> Dict[str, bool]:
         out["flows_read"] = True
         out["flows_run"] = True
         out["flows_edit"] = True
+        out["chatbot"] = True
+        out["datalab"] = True
         out["settings_integrations_manage"] = True
         out["users_manage"] = True
         return out
@@ -54,12 +60,12 @@ def get_default_features_for_plan(plan: str) -> Dict[str, bool]:
 
 
 def get_default_limits_for_plan(plan: str) -> Dict[str, Any]:
-    """Numeric/limit defaults by plan."""
+    """Numeric/limit defaults by plan. Free: 5 users, no flows, no agents."""
     if plan == BUSINESS:
         return {"seats": 50, "agents": 10, "flows": 100}
     if plan == PRO:
         return {"seats": 10, "agents": 3, "flows": 20}
-    return {"seats": 3, "agents": 1, "flows": 5}
+    return {"seats": 5, "agents": 0, "flows": 0}
 
 
 def get_default_entitlements_for_plan(plan: str) -> Dict[str, Any]:

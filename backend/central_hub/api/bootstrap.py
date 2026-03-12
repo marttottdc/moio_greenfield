@@ -16,9 +16,15 @@ from crm.api.settings.preferences import build_user_preferences
 from moio_platform.authentication import BearerTokenAuthentication
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
 from central_hub.capabilities import get_effective_capabilities
+from central_hub.api.platform_bootstrap import (
+    _notification_settings_payload,
+    get_platform_notification_settings,
+)
 from central_hub.models import UserProfile
 from central_hub.rbac import RequireHumanUser
 from central_hub.tenant_config import get_tenant_config
+from tenancy.rbac import RequireTenantAccess
+from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
 
 UserModel = get_user_model()
 
@@ -79,7 +85,7 @@ class BootstrapView(APIView):
         BearerTokenAuthentication,
         JWTAuthentication,
     ]
-    permission_classes = [IsAuthenticated, RequireHumanUser]
+    permission_classes = [IsAuthenticated, RequireHumanUser, RequireTenantAccess]
 
     def get(self, request):
         user = request.user
@@ -104,6 +110,13 @@ class BootstrapView(APIView):
         }
         navigation_data = _filter_navigation(user)
 
+        if tenants_enabled():
+            with tenant_schema_context(public_schema_name()):
+                notif = get_platform_notification_settings()
+        else:
+            notif = get_platform_notification_settings()
+        notification_settings = _notification_settings_payload(notif)
+
         return Response({
             "user": user_data,
             "profile": profile_data,
@@ -111,4 +124,5 @@ class BootstrapView(APIView):
             "entitlements": entitlements_data,
             "capabilities": capabilities_data,
             "navigation": navigation_data,
+            "notification_settings": notification_settings,
         })

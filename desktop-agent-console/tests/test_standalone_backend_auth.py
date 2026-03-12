@@ -19,8 +19,8 @@ if "openai" not in sys.modules:
     sys.modules["openai"] = openai_stub
 
 
-from moio_runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
-from moio_runtime.standalone_backend import StandaloneAgentBackend
+from agent_console.runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
+from agent_console.runtime.backend import AgentConsoleBackend
 
 
 def _tool_ids(catalog: dict[str, object]) -> set[str]:
@@ -49,7 +49,7 @@ class StandaloneBackendAuthTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
 
-    def _make_backend(self) -> StandaloneAgentBackend:
+    def _make_backend(self) -> AgentConsoleBackend:
         cfg = ReplicaConfig(
             model=ModelConfig(api_key="test-key"),
             skills=SkillsConfig(),
@@ -69,7 +69,7 @@ class StandaloneBackendAuthTests(unittest.IsolatedAsyncioTestCase):
             app=AppConfig(),
             sessions_dir=self.root / "sessions",
         )
-        return StandaloneAgentBackend(cfg, tenant_schema="tenant_a", workspace_slug="shared")
+        return AgentConsoleBackend(cfg, tenant_schema="tenant_a", workspace_slug="shared")
 
     async def test_resources_filters_admin_only_tools_for_members(self) -> None:
         backend = self._make_backend()

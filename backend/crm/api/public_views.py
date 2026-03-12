@@ -97,6 +97,56 @@ class CommunicationsAPIMixin:
     DEFAULT_PAGE_SIZE = 25
     MAX_PAGE_SIZE = 100
 
+    def _resolve_tenant_for_request(self, request):
+        """Resolve tenant from user, context, or JWT when auth/middleware ordering differs."""
+        tenant = getattr(request.user, "tenant", None)
+        if tenant and getattr(tenant, "schema_name", None):
+            return tenant
+        try:
+            from tenancy.context_utils import current_tenant
+
+            tenant = current_tenant.get()
+        except Exception:
+            tenant = None
+        if tenant and getattr(tenant, "schema_name", None):
+            return tenant
+        try:
+            from tenancy.host_rewrite import _get_tenant_schema_from_jwt
+            from tenancy.models import Tenant
+            from tenancy.tenant_support import public_schema_name
+
+            schema_name = _get_tenant_schema_from_jwt(request)
+            if not schema_name:
+                return None
+            try:
+                from django_tenants.utils import schema_context
+
+                with schema_context(public_schema_name()):
+                    return Tenant.objects.filter(schema_name=schema_name).first()
+            except Exception:
+                return Tenant.objects.filter(schema_name=schema_name).first()
+        except Exception:
+            return None
+
+    def _get_tenant_or_none(self, request):
+        return self._resolve_tenant_for_request(request)
+
+    def _ensure_tenant_schema(self, request):
+        """Ensure tenant DB schema is active before tenant-scoped communication queries."""
+        from django.conf import settings
+
+        tenant = self._resolve_tenant_for_request(request)
+        if not tenant or not getattr(tenant, "schema_name", None):
+            return
+        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            return
+        try:
+            connection.set_tenant(tenant)
+            if getattr(request.user, "tenant", None) is None:
+                setattr(request.user, "tenant", tenant)
+        except Exception:
+            pass
+
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:
             return None
@@ -122,7 +172,8 @@ class CommunicationsAPIMixin:
         return parsed
 
     def _tenant_sessions_queryset(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        self._ensure_tenant_schema(request)
+        tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return ChatbotSession.objects.none()
         base_qs = ChatbotSession.objects.filter(tenant=tenant).select_related("contact", "contact__ctype")
@@ -741,6 +792,8 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         contact_type, error = self._resolve_contact_type(tenant, payload.get("type"))
         if error:
             return _error("invalid_contact_type", error, status.HTTP_400_BAD_REQUEST)
+        if contact_type is None:
+            contact_type = ContactType.objects.filter(tenant=tenant, is_default=True).first()
 
         try:
             tags = self._normalize_tags(payload.get("tags")) if "tags" in payload else []
@@ -987,7 +1040,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
         return Response({"conversations": conversations, "pagination": pagination})
 
     def post(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return _error("tenant_not_configured", "User is not associated with a tenant")
 
@@ -1039,7 +1092,6 @@ class CommunicationsConversationDetailView(ProtectedAPIView, CommunicationsAPIMi
         messages_qs = session.memory_thread.order_by("-created")
         if before_dt:
             messages_qs = messages_qs.filter(created__lt=before_dt)
-
         messages = list(messages_qs[:limit])
         messages.reverse()
 
@@ -1169,7 +1221,6 @@ class CommunicationsConversationMarkReadView(ProtectedAPIView, CommunicationsAPI
         session = self._get_session_for_request(request, session_id)
         if session is None:
             return _error("not_found", "Conversation not found", status.HTTP_404_NOT_FOUND)
-
         latest_user_message = (
             session.memory_thread.filter(role__iexact="USER").order_by("-created").first()
         )
@@ -1378,7 +1429,7 @@ class CommunicationsWhatsappLogsView(ProtectedAPIView, CommunicationsAPIMixin):
     """
 
     def get(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return _error("tenant_not_configured", "User is not associated with a tenant")
 
@@ -1448,7 +1499,7 @@ class CommunicationsWhatsappLogsView(ProtectedAPIView, CommunicationsAPIMixin):
 @extend_schema(tags=["communications"])
 class CommunicationsSummaryView(ProtectedAPIView, CommunicationsAPIMixin):
     def get(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return Response({
                 "total": 0,
@@ -1558,6 +1609,20 @@ class TicketAPIMixin:
     DEFAULT_PAGE_SIZE = 25
     MAX_PAGE_SIZE = 100
 
+    def _ensure_tenant_schema(self, request):
+        """Ensure DB connection points to tenant schema for ticket queries."""
+        from django.conf import settings
+
+        tenant = getattr(request.user, "tenant", None)
+        if not tenant or not getattr(tenant, "schema_name", None):
+            return
+        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+            return
+        try:
+            connection.set_tenant(tenant)
+        except Exception:
+            pass
+
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:
             return None
@@ -1601,6 +1666,7 @@ class TicketAPIMixin:
         )
 
     def _base_queryset(self, request):
+        self._ensure_tenant_schema(request)
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             return Ticket.objects.none()
@@ -1706,6 +1772,7 @@ class TicketAPIMixin:
         return page_obj, pagination
 
     def _get_user_contact(self, request) -> Optional[Contact]:
+        self._ensure_tenant_schema(request)
         tenant = getattr(request.user, "tenant", None)
         email = getattr(request.user, "email", None)
         if not tenant or not email:

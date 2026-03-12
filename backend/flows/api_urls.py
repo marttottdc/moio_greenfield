@@ -74,6 +74,7 @@ task_execution_stats = TaskExecutionViewSet.as_view({
 
 urlpatterns = [
     path("", views.api_flow_list, name="api_flow_list"),
+    path("<uuid:flow_id>/webhooks/", views.flow_available_webhooks, name="api_flow_available_webhooks"),
     path("definitions/", views.api_flow_node_definitions, name="api_flow_node_definitions"),
     path("executions/", views.api_all_executions, name="api_all_executions"),
     path("executions/running/", views.api_running_executions, name="api_running_executions"),

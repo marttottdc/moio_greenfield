@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Loader2, Pencil, CalendarDays, CheckSquare, Briefcase, Send, Building2, User } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -302,6 +303,7 @@ export function ReportActivityModal(props: {
   /** Ubicación del usuario proporcionada por la app (p.ej. perfil, preferencias). Evita usar geolocalización del navegador para no conflictuar con extensiones como location-spoofing. */
   userGeoAddress?: string | null;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [anchorType, setAnchorType] = useState<AnchorType>("contact");
   const [anchorId, setAnchorId] = useState<string>("");
@@ -320,6 +322,8 @@ export function ReportActivityModal(props: {
 
   const [rawText, setRawText] = useState("");
   const [phase, setPhase] = useState<"input" | "link" | "classified">("input");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [keyboardInsetBottom, setKeyboardInsetBottom] = useState(0);
   const [visibility, setVisibility] = useState<CaptureVisibility>("internal");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [classifyResult, setClassifyResult] = useState<ClassifySyncResponse | null>(null);
@@ -490,6 +494,32 @@ export function ReportActivityModal(props: {
     }
   };
 
+  // On mobile: focus input when modal opens in input phase
+  useEffect(() => {
+    if (!props.open || phase !== "input") return;
+    const input = inputRef.current;
+    if (!input) return;
+    const focusTimer = window.setTimeout(() => input.focus(), 100);
+    return () => window.clearTimeout(focusTimer);
+  }, [props.open, phase]);
+
+  // Stick input bar to top of keyboard on mobile using Visual Viewport API
+  useEffect(() => {
+    if (!props.open || phase !== "input" || typeof window === "undefined" || !window.visualViewport) return;
+    const updateInset = () => {
+      const vv = window.visualViewport;
+      const bottom = window.innerHeight - (vv.offsetTop + vv.height);
+      setKeyboardInsetBottom(Math.max(0, bottom));
+    };
+    updateInset();
+    window.visualViewport.addEventListener("resize", updateInset);
+    window.visualViewport.addEventListener("scroll", updateInset);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateInset);
+      window.visualViewport?.removeEventListener("scroll", updateInset);
+    };
+  }, [props.open, phase]);
+
   const anchorModelFor = (type: AnchorType): "crm.contact" | "crm.customer" => {
     if (type === "account") return "crm.customer";
     return "crm.contact";
@@ -628,7 +658,7 @@ export function ReportActivityModal(props: {
       }
       setAnchorSearch("");
       setAnchorPopoverOpen(false);
-      toast({ title: "Created", description: `${anchorType === "account" ? "Account" : "Contact"} created.` });
+      toast({ title: anchorType === "account" ? t("crm.account_created") : t("crm.contact_created"), description: anchorType === "account" ? t("crm.account_created_description") : t("crm.contact_created_description") });
     } catch (err: any) {
       const isApiError = err?.name === "ApiError";
       const status = err?.status;
@@ -662,7 +692,7 @@ export function ReportActivityModal(props: {
       setDealSearch("");
       setDealPopoverOpen(false);
       queryClient.invalidateQueries({ queryKey: [apiV1("/crm/deals/")] });
-      toast({ title: "Created", description: "Deal created." });
+      toast({ title: t("crm.deal_created"), description: t("crm.deal_created_toast") });
     } catch (err: any) {
       const isApiError = err?.name === "ApiError";
       const status = err?.status;
@@ -691,12 +721,13 @@ export function ReportActivityModal(props: {
         resetIfClosed(open);
       }}
     >
-      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh] md:max-h-[90vh] p-0 gap-0 max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none">
-        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-          <DialogTitle>Log or plan an activity</DialogTitle>
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh] md:max-h-[90vh] p-0 gap-0 max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none max-md:overflow-auto">
+        {phase !== "input" ? (
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 max-md:px-4 max-md:pt-4 max-md:pb-2">
+          <DialogTitle className="max-md:text-lg">{t("crm.log_activity_title")}</DialogTitle>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <DialogDescription className="m-0 flex-1 min-w-0">
-              What did you do or what's next? One line is enough. We'll link it to a contact or account and add it to your timeline.
+            <DialogDescription className="m-0 flex-1 min-w-0 max-md:text-sm">
+              {t("crm.log_activity_description")}
             </DialogDescription>
             {classifyResult && (
             <div className="flex gap-2 shrink-0">
@@ -708,7 +739,7 @@ export function ReportActivityModal(props: {
                 disabled={isApplying}
                 data-testid="button-capture-back"
               >
-                Editar informe
+                {t("crm.edit_report")}
               </Button>
               <Button
                 variant="default"
@@ -717,18 +748,19 @@ export function ReportActivityModal(props: {
                 disabled={isApplying}
                 data-testid="button-capture-new"
               >
-                Ingresar nuevo informe
+                {t("crm.new_report")}
               </Button>
             </div>
             )}
           </div>
         </DialogHeader>
+        ) : null}
 
         {classifyResult ? (
           <ScrollArea className="flex-1 min-h-0 px-6">
           <div className="space-y-4 py-4 pb-6">
             <p className="text-sm font-medium text-muted-foreground">
-              Suggested activities (click to edit, then create or reject)
+              {t("crm.suggested_activities_help")}
             </p>
             <div className="grid gap-3">
               {displayItems.map((item, idx) => {
@@ -862,10 +894,10 @@ export function ReportActivityModal(props: {
                   {rawText}
                 </div>
               </div>
-              <p className="text-sm font-medium">Link this to a contact, account, or deal?</p>
+              <p className="text-sm font-medium">{t("crm.link_to_contact_or_account")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Link to</Label>
+                  <Label>{t("crm.link_to_label")}</Label>
                   <Select
                     value={anchorType}
                     onValueChange={(v) => {
@@ -908,7 +940,7 @@ export function ReportActivityModal(props: {
                     <span className="truncate">{selectedAnchorLabel}</span>
                   ) : (
                     <span className="text-muted-foreground">
-                      {anchorType === "account" ? "Select account..." : "Select contact..."}
+                      {anchorType === "account" ? t("crm.select_account") : t("crm.select_contact")}
                     </span>
                   )}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -941,7 +973,7 @@ export function ReportActivityModal(props: {
                           className="font-medium"
                         >
                           {anchorType === "account" ? <Building2 className="mr-2 h-4 w-4" /> : <User className="mr-2 h-4 w-4" />}
-                          {isCreatingAnchor ? "Creating..." : `Create ${anchorType === "account" ? "account" : "contact"} "${anchorSearch.trim()}"`}
+                          {isCreatingAnchor ? t("crm.creating") : t("crm.create_contact_account", { type: anchorType === "account" ? t("crm.account_singular") : t("crm.contact_singular"), name: anchorSearch.trim() })}
                         </CommandItem>
                       )}
                       {anchorItems.map((item: any) => {
@@ -1015,8 +1047,8 @@ export function ReportActivityModal(props: {
                     ) : (
                       <span className="text-muted-foreground">
                         {anchorType === "account"
-                          ? "Select contact (optional)..."
-                          : "Select account (optional)..."}
+                          ? t("crm.select_contact_optional")
+                          : t("crm.select_account_optional")}
                       </span>
                     )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1078,7 +1110,7 @@ export function ReportActivityModal(props: {
                                   setSecondaryAnchorPopoverOpen(false);
                                   setSecondaryAnchorSearch("");
                                   queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
-                                  toast({ title: "Created", description: "Account created and linked." });
+                                  toast({ title: t("crm.account_created"), description: t("crm.account_created_linked") });
                                 } catch (err: any) {
                                   toast({
                                     title: "Could not create",
@@ -1093,7 +1125,7 @@ export function ReportActivityModal(props: {
                               className="font-medium"
                             >
                               <Building2 className="mr-2 h-4 w-4" />
-                              {isCreatingAnchor ? "Creating..." : `Create account "${secondaryAnchorSearch.trim()}"`}
+                              {isCreatingAnchor ? t("crm.creating") : t("crm.create_account_name", { name: secondaryAnchorSearch.trim() })}
                             </CommandItem>
                           )}
                         {anchorType === "account" &&
@@ -1180,7 +1212,7 @@ export function ReportActivityModal(props: {
                       className="flex-1 justify-between font-normal"
                       data-testid="button-deal-combobox"
                     >
-                      {dealId ? (deals.find((d) => d.id === dealId)?.title ?? dealId) : "Select deal (optional)..."}
+                      {dealId ? (deals.find((d) => d.id === dealId)?.title ?? dealId) : t("crm.select_deal_optional")}
                       <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -1222,7 +1254,7 @@ export function ReportActivityModal(props: {
                               className="font-medium"
                             >
                               <Briefcase className="mr-2 h-4 w-4" />
-                              {isCreatingAnchor ? "Creating..." : `Create deal "${dealSearch.trim()}"`}
+                              {isCreatingAnchor ? t("crm.creating") : t("crm.create_deal_name", { name: dealSearch.trim() })}
                             </CommandItem>
                           )}
                           {deals.map((d) => (
@@ -1276,37 +1308,53 @@ export function ReportActivityModal(props: {
           </ScrollArea>
           <div className="px-6 py-4 border-t shrink-0 flex gap-2">
             <Button variant="outline" onClick={() => setPhase("input")} data-testid="button-capture-back">
-              Back
+              {t("crm.back")}
             </Button>
             <Button onClick={submitClassify} disabled={isSubmitting || !anchorId} data-testid="button-save-capture">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Process
+              {t("crm.process")}
             </Button>
           </div>
         </div>
         ) : (
-        <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex-1 min-h-[120px]" />
-          <div className="border-t p-4 shrink-0">
+        <div className="flex flex-col flex-1 min-h-0 max-md:flex-none max-md:min-h-0">
+          <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6 pt-4 md:pt-6 pb-2">
+            <Textarea
+              ref={inputRef}
+              placeholder={t("crm.log_activity_description")}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+              className="min-h-[120px] resize-y"
+              rows={4}
+              data-testid="textarea-capture-raw"
+              autoFocus
+            />
+          </div>
+          {/* Bar in flow on desktop; on mobile fixed to top of keyboard via Visual Viewport */}
+          <div
+            className="border-t p-4 shrink-0 max-md:pt-3 max-md:fixed max-md:left-0 max-md:right-0 max-md:z-50 max-md:bg-background"
+            style={{ bottom: keyboardInsetBottom }}
+          >
             <div className="flex gap-2">
-              <Input
-                placeholder="e.g. Call John tomorrow re: quote, Schedule demo Tuesday 3pm"
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                className="flex-1"
-                data-testid="textarea-capture-raw"
-                autoFocus
-              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => props.onOpenChange(false)}
+                data-testid="button-close-capture"
+                className="shrink-0"
+              >
+                {t("common.close")}
+              </Button>
               <Button
                 onClick={handleSendMessage}
                 disabled={!rawText.trim()}
-                size="icon"
-                className="shrink-0"
+                className="flex-1 min-w-0 sm:flex-initial"
                 data-testid="button-send-capture"
                 aria-label="Send"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t("crm.submit")}</span>
               </Button>
             </div>
           </div>

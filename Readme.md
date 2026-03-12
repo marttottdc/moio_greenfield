@@ -31,6 +31,7 @@ Moio.ai is a comprehensive Customer Relationship Management (CRM) platform desig
 
 ### 📦 **E-commerce Integration**
 - **WooCommerce Sync**: Seamless integration with WordPress/WooCommerce stores
+- **Shopify Embedded App**: OAuth install, session-token auth, webhooks (GDPR/uninstall), and sync (see [docs/shopify_setup.md](docs/shopify_setup.md))
 - **Order Management**: Track orders, shipments, and delivery status
 - **Product Catalog**: Comprehensive product database with search capabilities
 - **Inventory Management**: Stock tracking and product variant support
@@ -104,6 +105,16 @@ Para tests (API y frontend), usa el tenant de prueba. Ver [backend/docs/TEST_TEN
 
 **Credenciales:** `test@moio.ai` / `test123`  
 **Crear tenant:** `./backend/scripts/create_test_tenant.sh` (con backend en http://127.0.0.1:8093)
+
+### **Agent Console (AI Chat)**
+The Agent Console (`/agent-console`) provides interactive AI sessions with workspace and model selection. To run it locally:
+
+1. **Backend** (ASGI + WebSockets): `hypercorn -c file:hypercorn_dev.py moio_platform.asgi:application` (port 8093)
+2. **Frontend**: `cd frontend && npm run dev` (port 5177; proxies `/api` and `/ws` to backend)
+3. **Redis**: Required for Channels; use `REDIS_URL=redis://localhost:6379/0` (or InMemoryChannelLayer if Redis unavailable)
+4. **Agent config**: OpenAI API key comes only from **tenant IntegrationConfig** (Settings → Integrations → OpenAI). No env fallback.
+
+Log in via the platform, then open `/agent-console` to chat with the AI agent.
 
 ## 📱 **Supported Platforms**
 

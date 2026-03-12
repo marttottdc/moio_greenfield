@@ -609,8 +609,8 @@ function normalizeUrl(input: RequestInfo | URL): URL {
 function seedLegacySessionStorage() {
   if (seeded) return;
   try {
-    localStorage.setItem("platform_admin_access_token", PLATFORM_ACCESS);
-    localStorage.setItem("platform_admin_refresh_token", PLATFORM_REFRESH);
+    localStorage.setItem("moio:access_token", PLATFORM_ACCESS);
+    localStorage.setItem("moio:refresh_token", PLATFORM_REFRESH);
     localStorage.setItem("moio_public_tokens", JSON.stringify({ access: TENANT_ACCESS, refresh: TENANT_REFRESH }));
     localStorage.setItem("moio_tenant_session_tokens", JSON.stringify({ access: TENANT_ACCESS, refresh: TENANT_REFRESH }));
     localStorage.setItem(

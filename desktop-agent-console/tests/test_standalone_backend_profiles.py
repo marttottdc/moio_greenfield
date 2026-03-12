@@ -19,8 +19,8 @@ if "openai" not in sys.modules:
     sys.modules["openai"] = openai_stub
 
 
-from moio_runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
-from moio_runtime.standalone_backend import StandaloneAgentBackend
+from agent_console.runtime.config import AgentConfig, AppConfig, ModelConfig, PluginsConfig, ReplicaConfig, SkillsConfig, ToolsConfig
+from agent_console.runtime.backend import AgentConsoleBackend
 
 
 class StandaloneBackendProfilesTests(unittest.IsolatedAsyncioTestCase):
@@ -31,7 +31,7 @@ class StandaloneBackendProfilesTests(unittest.IsolatedAsyncioTestCase):
         self.seen_profile_requests: list[dict[str, object]] = []
         self.saved_profiles: list[dict[str, object]] = []
 
-    def _make_backend(self) -> StandaloneAgentBackend:
+    def _make_backend(self) -> AgentConsoleBackend:
         def profile_state_resolver(initiator=None, selected_profile=None):
             self.seen_profile_requests.append(
                 {
@@ -127,7 +127,7 @@ class StandaloneBackendProfilesTests(unittest.IsolatedAsyncioTestCase):
             app=AppConfig(),
             sessions_dir=self.root / "sessions",
         )
-        return StandaloneAgentBackend(
+        return AgentConsoleBackend(
             cfg,
             tenant_schema="tenant_a",
             workspace_slug="shared",
@@ -266,9 +266,9 @@ class StandaloneBackendProfilesTests(unittest.IsolatedAsyncioTestCase):
             app=AppConfig(),
             sessions_dir=self.root / "sessions-exclude",
         )
-        backend = StandaloneAgentBackend(cfg, tenant_schema="tenant_a", workspace_slug="shared")
+        backend = AgentConsoleBackend(cfg, tenant_schema="tenant_a", workspace_slug="shared")
 
-        effective = backend.effective_tool_allowlist(
+        effective = await backend.effective_tool_allowlist(
             initiator={"id": 5, "tenantRole": "member"},
             profile_allowlist=["-moio_api.run"],
         )

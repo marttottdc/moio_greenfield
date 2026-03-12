@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,11 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
 
-const ACCOUNT_TYPE_OPTIONS = [
-  { value: "Person", label: "Person" },
-  { value: "Business", label: "Business" },
-  { value: "Household", label: "Household" },
-];
+const ACCOUNT_TYPE_VALUES = ["Person", "Business", "Household"] as const;
 
 const accountEditorSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -35,10 +32,25 @@ export interface AccountEditorModalProps {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  account?: {
+    id: string;
+    name: string;
+    legal_name?: string | null;
+    type?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
-export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModalProps) {
+export function AccountEditorModal({ open, onClose, onSaved, account }: AccountEditorModalProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
+  const isEdit = Boolean(account?.id);
+  const accountTypeOptions = [
+    { value: "Person", label: t("crm.person") },
+    { value: "Business", label: t("crm.business") },
+    { value: "Household", label: t("crm.household") },
+  ];
 
   const form = useForm<AccountEditorValues>({
     resolver: zodResolver(accountEditorSchema),
@@ -53,15 +65,25 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
 
   useEffect(() => {
     if (open) {
-      form.reset({
-        name: "",
-        legal_name: "",
-        type: "Business",
-        email: "",
-        phone: "",
-      });
+      if (account?.id) {
+        form.reset({
+          name: account.name ?? "",
+          legal_name: account.legal_name ?? account.name ?? "",
+          type: (account.type as "Person" | "Business" | "Household") ?? "Business",
+          email: account.email ?? "",
+          phone: account.phone ?? "",
+        });
+      } else {
+        form.reset({
+          name: "",
+          legal_name: "",
+          type: "Business",
+          email: "",
+          phone: "",
+        });
+      }
     }
-  }, [open, form]);
+  }, [open, account, form]);
 
   const handleSubmit = async (values: AccountEditorValues) => {
     try {
@@ -75,17 +97,25 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
       if (email) payload.email = email;
       if (phone) payload.phone = phone;
 
-      await apiRequest("POST", apiV1("/crm/customers/"), { data: payload });
-      toast({
-        title: "Account created",
-        description: "The account has been created successfully.",
-      });
+      if (isEdit && account?.id) {
+        await apiRequest("PATCH", apiV1(`/crm/customers/${account.id}/`), { data: payload });
+        toast({
+          title: t("crm.account_updated"),
+          description: t("crm.account_updated_description"),
+        });
+      } else {
+        await apiRequest("POST", apiV1("/crm/customers/"), { data: payload });
+        toast({
+          title: t("crm.account_created"),
+          description: t("crm.account_created_description"),
+        });
+      }
       onSaved();
       onClose();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create account";
+      const message = error instanceof Error ? error.message : t("crm.account_create_failed");
       toast({
-        title: "Save failed",
+        title: t("crm.save_failed"),
         description: message,
         variant: "destructive",
       });
@@ -96,8 +126,10 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-md" data-testid="dialog-account-editor">
         <DialogHeader>
-          <DialogTitle>Add Account</DialogTitle>
-          <DialogDescription>Create a new account (customer) to track organizations in your CRM.</DialogDescription>
+          <DialogTitle>{isEdit ? t("crm.edit_account") : t("crm.add_account")}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? t("crm.account_form_description_edit") : t("crm.account_form_description_create")}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -107,9 +139,9 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name *</FormLabel>
+                  <FormLabel>{t("crm.name_required")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Account name" {...field} data-testid="input-account-name" />
+                    <Input placeholder={t("crm.account_name_placeholder")} {...field} data-testid="input-account-name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,9 +153,9 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
               name="legal_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Legal name</FormLabel>
+                  <FormLabel>{t("crm.legal_name_label")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Legal entity name" {...field} data-testid="input-account-legal-name" />
+                    <Input placeholder={t("crm.legal_name_placeholder")} {...field} data-testid="input-account-legal-name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -135,7 +167,7 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
+                  <FormLabel>{t("crm.type_label")}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger data-testid="select-account-type">
@@ -143,7 +175,7 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+                      {accountTypeOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
@@ -160,9 +192,9 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t("crm.email_label")}</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="contact@company.com" {...field} data-testid="input-account-email" />
+                    <Input type="email" placeholder={t("crm.contact_email_placeholder")} {...field} data-testid="input-account-email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -174,9 +206,9 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
+                  <FormLabel>{t("crm.phone_label")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="+598..." {...field} data-testid="input-account-phone" />
+                    <Input placeholder={t("crm.phone_placeholder")} {...field} data-testid="input-account-phone" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -185,10 +217,10 @@ export function AccountEditorModal({ open, onClose, onSaved }: AccountEditorModa
 
             <DialogFooter className="gap-2 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
+                {t("crm.cancel")}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting} data-testid="button-save-account">
-                {form.formState.isSubmitting ? "Saving..." : "Create Account"}
+                {form.formState.isSubmitting ? t("crm.saving") : isEdit ? t("crm.save") : t("crm.create_account_button")}
               </Button>
             </DialogFooter>
           </form>

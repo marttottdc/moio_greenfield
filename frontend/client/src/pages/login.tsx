@@ -1,17 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
-import {
-  Bot,
-  LayoutDashboard,
-  Loader2,
-  LogOut,
-  Settings,
-  Shield,
-} from "lucide-react";
+import { Bot, LayoutDashboard, Loader2, Settings, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/lib/queryClient";
 import {
@@ -21,7 +14,6 @@ import {
   logLoginSubmitError,
   persistLastAuthError,
 } from "@/lib/loginMonitor";
-import { isPlatformAdminRole, isTenantAdminRole } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,74 +36,13 @@ const loginSchema = z.object({
 });
 type LoginFormData = z.infer<typeof loginSchema>;
 
-// ─── Destinations ─────────────────────────────────────────────────────────────
-
-type DestCard = {
-  key: string;
-  labelKey: string;
-  descriptionKey: string;
-  icon: React.ElementType;
-  path: string;
-  iconBg: string;
-};
-
-function buildDestinations(role: string | null | undefined): DestCard[] {
-  const cards: DestCard[] = [
-    {
-      key: "crm",
-      labelKey: "login.crm_platform",
-      descriptionKey: "login.crm_description",
-      icon: LayoutDashboard,
-      path: "/dashboard",
-      iconBg: "bg-gradient-to-br from-sky-500 to-blue-600",
-    },
-    {
-      key: "console",
-      labelKey: "login.agent_console",
-      descriptionKey: "login.console_description",
-      icon: Bot,
-      path: "/agent-console",
-      iconBg: "bg-gradient-to-br from-violet-500 to-purple-600",
-    },
-  ];
-
-  if (isTenantAdminRole(role)) {
-    cards.push({
-      key: "tenant-admin",
-      labelKey: "login.tenant_admin",
-      descriptionKey: "login.tenant_admin_description",
-      icon: Settings,
-      path: "/tenant-admin/legacy",
-      iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
-    });
-  }
-
-  if (isPlatformAdminRole(role)) {
-    cards.push({
-      key: "platform-admin",
-      labelKey: "login.platform_admin",
-      descriptionKey: "login.platform_admin_description",
-      icon: Shield,
-      path: "/platform-admin",
-      iconBg: "bg-gradient-to-br from-rose-500 to-red-600",
-    });
-  }
-
-  return cards;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
-
-// Step 1 = credentials, Step 2 = destination selector (skipped if only one)
-type LoginStep = "credentials" | "destinations";
 
 export default function Login() {
   const { t } = useTranslation();
-  const { login, logout, user, isAuthenticated } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const [step, setStep] = useState<LoginStep>("credentials");
 
-  // Login form
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
@@ -130,37 +61,19 @@ export default function Login() {
       ].filter(Boolean).join(" · ");
       setErrorMessage(text);
     }
-  }, []);
+  }, [t]);
+
+  // If already authenticated, go to platform router (single entry point after login).
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/platform-router");
+    }
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
-
-  const destinations = useMemo(() => buildDestinations(user?.role), [user?.role]);
-
-  // After auth: skip selector if only one destination, else advance to step 2
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    const dests = buildDestinations(user.role);
-    if (dests.length === 1) {
-      navigate(dests[0].path);
-    } else {
-      setStep("destinations");
-    }
-  }, [isAuthenticated, user]);
-
-  // If already authenticated when the page loads (e.g. refresh), handle the same way
-  useEffect(() => {
-    if (isAuthenticated && user && step === "credentials") {
-      const dests = buildDestinations(user.role);
-      if (dests.length === 1) {
-        navigate(dests[0].path);
-      } else {
-        setStep("destinations");
-      }
-    }
-  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -169,7 +82,7 @@ export default function Login() {
     logLoginSubmitStart();
     try {
       await login(data.email, data.password);
-      // navigation handled by the useEffect above
+      navigate("/platform-router");
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
       const message = error instanceof Error ? error.message : String(error);
@@ -208,74 +121,12 @@ export default function Login() {
                   Moio
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  {step === "destinations" ? t("login.destinations_title") : t("login.access_hub")}
+                  {t("login.access_hub")}
                 </h1>
               </div>
             </div>
 
-            {step === "destinations" && user ? (
-              /* ── Step 2: Destination selector ── */
-              <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
-                {/* User info */}
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-                      {t("login.signed_in")}
-                    </div>
-                    <div className="text-base font-semibold text-slate-900 truncate">
-                      {user.full_name || user.username}
-                    </div>
-                    {user.email && (
-                      <div className="text-xs text-slate-500 truncate mt-0.5">{user.email}</div>
-                    )}
-                    {user.role && (
-                      <div className="mt-2 inline-block rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600 capitalize">
-                        {user.role.replace(/_/g, " ")}
-                      </div>
-                    )}
-                    {user.organization?.name && (
-                      <div className="text-xs text-slate-400 mt-1 truncate">
-                        {user.organization.name}
-                      </div>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-4 w-full gap-2 text-slate-600 hover:text-slate-900"
-                      onClick={() => { logout(); setStep("credentials"); }}
-                      data-testid="button-logout"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      {t("login.sign_out")}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Destination cards */}
-                <div>
-                  <p className="text-slate-600 mb-4 text-sm">{t("login.select_destination")}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {destinations.map((dest) => (
-                      <button
-                        key={dest.key}
-                        type="button"
-                        onClick={() => navigate(dest.path)}
-                        className="group text-left rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer"
-                        data-testid={`button-dest-${dest.key}`}
-                      >
-                        <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${dest.iconBg} mb-3`}>
-                          <dest.icon className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="font-semibold text-slate-900 text-sm mb-1">{t(dest.labelKey)}</div>
-                        <div className="text-xs text-slate-500 leading-relaxed">{t(dest.descriptionKey)}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* ── Step 1: Credentials form ── */
-              <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
                 <div>
                   <p className="text-slate-600 mb-6 text-sm leading-relaxed">
                     {t("login.sign_in_prompt")}
@@ -351,7 +202,6 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Right panel */}
                 <aside className="rounded-2xl border border-slate-800 bg-slate-950 px-6 py-7 text-slate-100 shadow-lg hidden lg:block">
                   <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300 mb-5">
                     {t("login.whats_inside")}
@@ -388,7 +238,6 @@ export default function Login() {
                   </div>
                 </aside>
               </div>
-            )}
           </section>
         </div>
       </div>

@@ -12,9 +12,10 @@ from rest_framework.response import Response
 
 from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
 from chatbot.models.agent_configuration import AgentConfiguration, CHANNEL_DESKTOP
-from chatbot.services.moio_runtime_service import (
+from agent_console.services.runtime_service import (
     get_runtime_backend_for_user,
     runtime_initiator_from_user,
+    TenantRequiredError,
 )
 from central_hub.models import MoioUser
 
@@ -279,6 +280,15 @@ def get_runtime_resources(request: Request) -> Response:
             initiator=runtime_initiator_from_user(request.user),
         )
         return Response(payload)
+    except TenantRequiredError as exc:
+        return Response(
+            {
+                "ok": False,
+                "error": "tenant_required",
+                "message": str(exc),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as exc:
         logger.error("Failed to load moio runtime resources: %s", exc)
         return Response(

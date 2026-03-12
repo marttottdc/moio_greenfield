@@ -61,6 +61,11 @@ interface IntegrationCard {
   instance_count: number;
   connection_status?: "connected" | "configured" | "not_configured";
   config?: Record<string, unknown>;
+  /** Integrations Hub contract */
+  auth_scope?: "global" | "tenant" | "user";
+  supports_webhook?: boolean;
+  supports_oauth?: boolean;
+  binding_statuses?: string[];
 }
 
 interface Integration {
@@ -69,6 +74,7 @@ interface Integration {
   instance_id: string;
   name: string;
   enabled: boolean;
+  status?: string;
   config: Record<string, unknown>;
   metadata: Record<string, unknown>;
   integration_name: string;
@@ -819,7 +825,8 @@ function IntegrationConfigModal({
   );
 }
 
-export default function Settings() {
+/** Shared content for CRM integrations management. Used by /settings and Tenant Admin "Settings" section. */
+export function ManageIntegrationsContent() {
   const { t } = useTranslation();
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationCard | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -976,11 +983,7 @@ export default function Settings() {
   };
 
   return (
-    <PageLayout
-      title={t("settings.title")}
-      description={t("settings.description")}
-      showSidebarTrigger={false}
-    >
+    <>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading
@@ -1390,6 +1393,19 @@ export default function Settings() {
         open={configDialogOpen}
         onOpenChange={setConfigDialogOpen}
       />
+    </>
+  );
+}
+
+export default function Settings() {
+  const { t } = useTranslation();
+  return (
+    <PageLayout
+      title={t("settings.title")}
+      description={t("settings.description")}
+      showSidebarTrigger={false}
+    >
+      <ManageIntegrationsContent />
     </PageLayout>
   );
 }

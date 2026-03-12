@@ -16,6 +16,7 @@ import {
   saveGlobalSkill,
   saveIntegration,
   saveNotificationSettings,
+  savePlatformConfiguration,
   saveTenant,
   saveTenantIntegration,
   saveUser,
@@ -27,6 +28,7 @@ import type {
   FlashTone,
   IntegrationDefinition,
   NotificationSettings,
+  PlatformConfiguration,
   PlatformUser,
   PluginAdminState,
   PluginRegistryEntry,
@@ -83,6 +85,8 @@ type SkillFormState = {
 
 type NotificationFormState = NotificationSettings;
 
+type PlatformConfigFormState = PlatformConfiguration;
+
 type NavSection =
   | "overview"
   | "tenants"
@@ -91,6 +95,7 @@ type NavSection =
   | "plugins"
   | "skills"
   | "enablement"
+  | "configuration"
   | "security";
 
 type SectionProps = {
@@ -98,6 +103,7 @@ type SectionProps = {
   subtitle: string;
   actionLabel?: string;
   onAction?: () => void;
+  fillHeight?: boolean;
   children: React.ReactNode;
 };
 
@@ -166,6 +172,16 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; icon: React.ReactNode }
     ),
   },
   {
+    key: "configuration",
+    label: "Configuration",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+      </svg>
+    ),
+  },
+  {
     key: "security",
     label: "Security",
     icon: (
@@ -229,47 +245,31 @@ const DEFAULT_NOTIFICATION_FORM: NotificationFormState = {
   testBody: "Notifications are configured for this browser.",
 };
 
+const DEFAULT_PLATFORM_CONFIG_FORM: PlatformConfigFormState = {
+  siteName: "",
+  company: "",
+  myUrl: "",
+  logoUrl: "",
+  faviconUrl: "",
+  whatsappWebhookToken: "",
+  whatsappWebhookRedirect: "",
+  fbSystemToken: "",
+  fbMoioBotAppId: "",
+  fbMoioBusinessManagerId: "",
+  fbMoioBotAppSecret: "",
+  fbMoioBotConfigurationId: "",
+  googleOauthClientId: "",
+  googleOauthClientSecret: "",
+  microsoftOauthClientId: "",
+  microsoftOauthClientSecret: "",
+  shopifyClientId: "",
+  shopifyClientSecret: "",
+};
+
 const DEFAULT_PLUGIN_SYNC: PluginSyncState = {
   syncedCount: 0,
   invalid: [],
 };
-
-function hasAccessChoicesFromStorage(): boolean {
-  let tenantAccess = "";
-  let platformAccess = "";
-  let tenants: unknown[] = [];
-  try {
-    const tokenRaw = localStorage.getItem("moio_public_tokens");
-    const tokenObj = tokenRaw ? JSON.parse(tokenRaw) : null;
-    tenantAccess = String(tokenObj?.access || "").trim();
-  } catch {
-    tenantAccess = "";
-  }
-  try {
-    platformAccess = String(localStorage.getItem("platform_admin_access_token") || "").trim();
-  } catch {
-    platformAccess = "";
-  }
-  try {
-    const tenantsRaw = localStorage.getItem("moio_public_tenants");
-    const parsed = tenantsRaw ? JSON.parse(tenantsRaw) : [];
-    tenants = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    tenants = [];
-  }
-  const canTenant = Boolean(tenantAccess && tenants.length > 0);
-  const tenantChoices =
-    canTenant &&
-    (tenants.length > 1 ||
-      tenants.some((row) => {
-        const workspaces = Array.isArray((row as Record<string, unknown>)?.workspaces)
-          ? ((row as Record<string, unknown>).workspaces as unknown[])
-          : [];
-        return workspaces.length > 1;
-      }));
-  const destinationChoices = Boolean(canTenant && platformAccess);
-  return Boolean(tenantChoices || destinationChoices);
-}
 
 export default function PlatformAdminApp() {
   const [activeSection, setActiveSection] = useState<NavSection>("overview");
@@ -296,11 +296,17 @@ export default function PlatformAdminApp() {
   const [integrationForm, setIntegrationForm] = useState<IntegrationFormState>(DEFAULT_INTEGRATION_FORM);
   const [skillForm, setSkillForm] = useState<SkillFormState>(DEFAULT_SKILL_FORM);
   const [notificationForm, setNotificationForm] = useState<NotificationFormState>(DEFAULT_NOTIFICATION_FORM);
+  const [configForm, setConfigForm] = useState<PlatformConfigFormState>(DEFAULT_PLATFORM_CONFIG_FORM);
+
+  const [tenantModalOpen, setTenantModalOpen] = useState(false);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [integrationModalOpen, setIntegrationModalOpen] = useState(false);
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [userFilterTenantSlug, setUserFilterTenantSlug] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [flashText, setFlashText] = useState("");
   const [flashTone, setFlashTone] = useState<FlashTone>("info");
-  const [hasAccessChoices, setHasAccessChoices] = useState(false);
 
   const enabledBindingCount = useMemo(
     () => tenantIntegrations.filter((row) => row.isEnabled).length,
@@ -317,10 +323,6 @@ export default function PlatformAdminApp() {
 
   useEffect(() => {
     void reloadAll(false);
-  }, []);
-
-  useEffect(() => {
-    setHasAccessChoices(hasAccessChoicesFromStorage());
   }, []);
 
   useEffect(() => {
@@ -368,6 +370,7 @@ export default function PlatformAdminApp() {
     setTenantPluginAssignments(
       Array.isArray(payload.tenantPluginAssignments) ? payload.tenantPluginAssignments : []
     );
+    setConfigForm(payload.platformConfiguration ?? DEFAULT_PLATFORM_CONFIG_FORM);
     setNotificationForm(payload.notificationSettings ?? DEFAULT_NOTIFICATION_FORM);
   }
 
@@ -380,13 +383,47 @@ export default function PlatformAdminApp() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const apiErr = error as PlatformAdminApiError;
-      if (apiErr?.status === 401 || apiErr?.status === 403 || apiErr?.code === "auth_required") {
+      if (apiErr?.status === 401 || apiErr?.code === "auth_required") {
         clearPlatformAuthSession();
         setCurrentUser(null);
-        setFlash("Session expired or unauthorized. Sign in again as platform admin.", "error");
+        setFlash("Session expired. Sign in again at the Access Hub.", "error");
+      } else if (apiErr?.status === 403) {
+        setCurrentUser(null);
+        setFlash("You don’t have access to Platform Admin. Use the Access Hub to switch destination.", "error");
       } else {
         setFlash(message, "error");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSaveConfiguration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      const payload = await savePlatformConfiguration({
+        siteName: configForm.siteName,
+        company: configForm.company,
+        myUrl: configForm.myUrl,
+        whatsappWebhookToken: configForm.whatsappWebhookToken,
+        whatsappWebhookRedirect: configForm.whatsappWebhookRedirect,
+        fbSystemToken: configForm.fbSystemToken,
+        fbMoioBotAppId: configForm.fbMoioBotAppId,
+        fbMoioBusinessManagerId: configForm.fbMoioBusinessManagerId,
+        fbMoioBotAppSecret: configForm.fbMoioBotAppSecret,
+        fbMoioBotConfigurationId: configForm.fbMoioBotConfigurationId,
+        googleOauthClientId: configForm.googleOauthClientId,
+        googleOauthClientSecret: configForm.googleOauthClientSecret,
+        microsoftOauthClientId: configForm.microsoftOauthClientId,
+        microsoftOauthClientSecret: configForm.microsoftOauthClientSecret,
+        shopifyClientId: configForm.shopifyClientId,
+        shopifyClientSecret: configForm.shopifyClientSecret,
+      });
+      applyPayload(payload);
+      setFlash("Platform configuration saved.", "ok");
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : String(error), "error");
     } finally {
       setLoading(false);
     }
@@ -458,7 +495,7 @@ export default function PlatformAdminApp() {
 
   function newTenantForm() {
     setTenantForm(DEFAULT_TENANT_FORM);
-    setFlash("Ready to create a new tenant.");
+    setTenantModalOpen(true);
   }
 
   function editTenantForm(row: Tenant) {
@@ -471,12 +508,12 @@ export default function PlatformAdminApp() {
       isActive: row.isActive,
     });
     setSelectedTenantSlug(row.slug);
-    setFlash(`Loaded tenant ${row.slug}.`);
+    setTenantModalOpen(true);
   }
 
   function newUserForm() {
     setUserForm(DEFAULT_USER_FORM);
-    setFlash("Ready to create a platform user.");
+    setUserModalOpen(true);
   }
 
   function editUserForm(row: PlatformUser) {
@@ -489,12 +526,12 @@ export default function PlatformAdminApp() {
       isActive: row.isActive,
       tenantMemberships: row.tenantMemberships,
     });
-    setFlash(`Loaded user ${row.email}.`);
+    setUserModalOpen(true);
   }
 
   function newIntegrationForm() {
     setIntegrationForm(DEFAULT_INTEGRATION_FORM);
-    setFlash("Ready to create a new integration.");
+    setIntegrationModalOpen(true);
   }
 
   function editIntegrationForm(row: IntegrationDefinition) {
@@ -512,12 +549,12 @@ export default function PlatformAdminApp() {
       defaultHeadersText: JSON.stringify(row.defaultHeaders || {}, null, 2),
       isActive: row.isActive,
     });
-    setFlash(`Loaded integration ${row.key}.`);
+    setIntegrationModalOpen(true);
   }
 
   function newSkillForm() {
     setSkillForm(DEFAULT_SKILL_FORM);
-    setFlash("Ready to create a new global skill.");
+    setSkillModalOpen(true);
   }
 
   function editSkillForm(row: SkillDefinition) {
@@ -528,8 +565,13 @@ export default function PlatformAdminApp() {
       bodyMarkdown: row.bodyMarkdown || "",
       isActive: row.isActive,
     });
-    setFlash(`Loaded global skill ${row.key}.`);
+    setSkillModalOpen(true);
   }
+
+  const usersFilteredByTenant =
+    userFilterTenantSlug === ""
+      ? users
+      : users.filter((u) => u.tenantMemberships.some((m) => m.tenantSlug === userFilterTenantSlug));
 
   function getTenantIntegration(tenantSlug: string, integrationKey: string) {
     return (
@@ -579,6 +621,7 @@ export default function PlatformAdminApp() {
         isActive: tenantForm.isActive,
       });
       applyPayload(payload);
+      setTenantModalOpen(false);
       setFlash("Tenant saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -595,6 +638,7 @@ export default function PlatformAdminApp() {
       const payload = await deleteTenant({ id: tenantForm.id });
       applyPayload(payload);
       setTenantForm(DEFAULT_TENANT_FORM);
+      setTenantModalOpen(false);
       setFlash("Tenant deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -615,6 +659,7 @@ export default function PlatformAdminApp() {
       });
       applyPayload(payload);
       setUserForm((prev) => ({ ...prev, password: "" }));
+      setUserModalOpen(false);
       setFlash("User saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -631,6 +676,7 @@ export default function PlatformAdminApp() {
       const payload = await deleteUser({ id: userForm.id });
       applyPayload(payload);
       setUserForm(DEFAULT_USER_FORM);
+      setUserModalOpen(false);
       setFlash("User deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -689,6 +735,7 @@ export default function PlatformAdminApp() {
         isActive: integrationForm.isActive,
       });
       applyPayload(payload);
+      setIntegrationModalOpen(false);
       setFlash("Integration saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -705,6 +752,7 @@ export default function PlatformAdminApp() {
       const payload = await deleteIntegration({ key: integrationForm.key });
       applyPayload(payload);
       setIntegrationForm(DEFAULT_INTEGRATION_FORM);
+      setIntegrationModalOpen(false);
       setFlash("Integration deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -730,6 +778,7 @@ export default function PlatformAdminApp() {
         isActive: skillForm.isActive,
       });
       applyPayload(payload);
+      setSkillModalOpen(false);
       setFlash("Global skill saved.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -746,6 +795,7 @@ export default function PlatformAdminApp() {
       const payload = await deleteGlobalSkill({ key: skillForm.key });
       applyPayload(payload);
       setSkillForm(DEFAULT_SKILL_FORM);
+      setSkillModalOpen(false);
       setFlash("Global skill deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
@@ -810,77 +860,51 @@ export default function PlatformAdminApp() {
       ? "border-rose-300 bg-rose-50 text-rose-700"
       : "border-slate-300 bg-white text-slate-700";
 
-  const sectionVisible = (key: NavSection) => activeSection === "overview" || activeSection === key;
-  const accessHubUrl = useMemo(() => {
-    const url = new URL(window.location.origin + "/desktop-agent-console/");
-    if (selectedTenantSlug) {
-      const row = tenants.find((item) => item.slug === selectedTenantSlug);
-      if (row?.uuid) {
-        url.searchParams.set("nextTenantId", row.uuid);
-      } else if (row?.slug) {
-        url.searchParams.set("nextTenant", row.slug);
-      }
-    }
-    return url.toString();
-  }, [selectedTenantSlug, tenants]);
+  const sectionVisible = (key: NavSection) => activeSection === key;
 
   if (!currentUser) {
-    return (
-      <main className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20 p-6 text-slate-900 antialiased">
-        <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur-md">
-          <div className="mb-6 flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-xl font-bold text-white shadow-lg">
-                M
-              </div>
-              <div>
-                <h1 className="text-4xl font-medium tracking-tight text-slate-900">Platform Admin</h1>
-                <p className="mt-1 text-sm text-slate-500">Single sign-on is handled from the public login.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`mb-5 rounded-xl border px-3 py-2 text-sm ${flashClass}`}>
-            {flashText || (loading ? "Checking existing session..." : "Redirecting to login...")}
-          </div>
-
-          <div className="mt-4 flex gap-2">
-            <a
-              href="/"
-              className="rounded-lg border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Go to Login
-            </a>
-            <button
-              type="button"
-              onClick={() => void reloadAll(true)}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-            >
-              {loading ? "Checking..." : "Retry"}
-            </button>
+    if (!loading && typeof window !== "undefined") {
+      window.location.replace("/platform-router");
+    }
+  return (
+    <main className="flex h-screen items-center justify-center bg-slate-100 p-4 text-slate-900 antialiased">
+      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm text-center">
+        <div className="mb-3 flex justify-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-lg font-bold text-white">
+            M
           </div>
         </div>
-      </main>
-    );
+        <h1 className="text-lg font-semibold text-slate-900">Platform Admin</h1>
+        {loading ? (
+          <p className="mt-1.5 text-sm text-slate-600">Loading…</p>
+        ) : (
+          <>
+            <p className="mt-1.5 text-sm text-slate-600">Redirecting…</p>
+            <p className="mt-2 text-xs text-slate-500">Sign in or choose another destination.</p>
+          </>
+        )}
+      </div>
+    </main>
+  );
   }
 
   return (
-    <main className="h-screen bg-[#f3f6fb] text-slate-900 antialiased">
-      <div className="grid h-full grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-r border-slate-700/70 bg-[#384151] text-slate-100">
-          <div className="border-b border-slate-600/70 px-5 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-xl font-bold text-white shadow-lg">
+    <main className="h-screen bg-slate-100 text-slate-900 antialiased">
+      <div className="grid h-full grid-cols-[212px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-slate-900 text-slate-100 shadow-sm">
+          <div className="shrink-0 border-b border-slate-700/80 px-2 py-2">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500 text-sm font-bold text-white">
                 M
               </div>
-              <div>
-                <p className="text-2xl font-semibold leading-none">moio</p>
-                <p className="mt-1 text-xs uppercase tracking-widest text-slate-300">Platform Admin</p>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold leading-tight text-white">moio</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Platform Admin</p>
               </div>
             </div>
           </div>
 
-          <nav className="space-y-1 px-2 py-3">
+          <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
             {NAV_ITEMS.map((item) => {
               const active = activeSection === item.key;
               return (
@@ -888,60 +912,44 @@ export default function PlatformAdminApp() {
                   key={item.key}
                   type="button"
                   onClick={() => setActiveSection(item.key)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] font-medium transition ${
+                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors ${
                     active
-                      ? "bg-slate-100/10 text-white"
-                      : "text-slate-200/90 hover:bg-slate-100/10 hover:text-white"
+                      ? "bg-slate-700/90 text-white"
+                      : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                   }`}
                 >
-                  <span className={active ? "text-sky-300" : "text-slate-300"}>{item.icon}</span>
-                  {item.label}
+                  <span className={`shrink-0 ${active ? "text-sky-400" : "text-slate-400"}`}>{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          <div className="mt-auto space-y-2 border-t border-slate-600/70 p-4">
-            {hasAccessChoices ? (
-              <a
-                href={accessHubUrl}
-                className="block rounded-lg border border-slate-400/50 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-sky-300 hover:text-sky-200"
-              >
-                Access Hub
-              </a>
-            ) : null}
-            <a
-              href="/"
-              className="block rounded-lg border border-slate-400/50 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-sky-300 hover:text-sky-200"
-            >
-              Open Agent Console
-            </a>
-            <div className="rounded-lg border border-slate-600/80 bg-slate-900/20 px-3 py-2 text-xs text-slate-300">
-              <div>Schema: <span className="font-mono text-slate-100">{publicSchema}</span></div>
-              <div>Tenants mode: <span className="font-mono text-slate-100">{tenantsEnabled ? "enabled" : "off"}</span></div>
+          <div className="shrink-0 border-t border-slate-700/80 p-2.5">
+            <div className="rounded border border-slate-700/80 bg-slate-800/50 px-2.5 py-1.5 text-[11px] text-slate-400">
+              <div>Schema: <span className="font-mono text-slate-200">{publicSchema}</span></div>
+              <div>Tenants: <span className="font-mono text-slate-200">{tenantsEnabled ? "on" : "off"}</span></div>
             </div>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col">
-          <header className="border-b border-slate-200 bg-white px-8 py-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-5xl font-medium tracking-tight text-slate-900">Platform Admin</h1>
-                <p className="mt-2 text-lg text-slate-500">
-                  Superuser console for public-tenant administration.
-                </p>
+        <section className="flex min-h-0 flex-col bg-slate-50">
+          <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-baseline gap-3">
+                <h1 className="text-xl font-semibold tracking-tight text-slate-900">Platform Admin</h1>
+                <span className="text-sm text-slate-500">Superuser console</span>
               </div>
               <div className="flex items-center gap-2">
                 {currentUser ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                    <span className="font-mono">{currentUser.email}</span>
-                  </div>
+                  <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-600">
+                    {currentUser.email}
+                  </span>
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => void reloadAll(true)}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                  onClick={() => window.location.reload()}
+                  className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                 >
                   Refresh
                 </button>
@@ -949,534 +957,190 @@ export default function PlatformAdminApp() {
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="rounded-xl border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-700"
                   >
                     Logout
                   </button>
                 ) : null}
               </div>
             </div>
-            <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${flashClass}`}>{flashText || "Ready."}</div>
+            <div className={`mt-2 rounded border px-2.5 py-1.5 text-xs ${flashClass}`}>{flashText || "Ready."}</div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-7">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
             {(
               <>
-                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                  <MetricCard label="Tenants" value={tenants.length} />
-                  <MetricCard label="Users" value={users.length} />
-                  <MetricCard label="Integrations" value={integrations.length} />
-                  <MetricCard label="Plugins" value={plugins.length} />
-                  <MetricCard label="Global Skills" value={globalSkills.length} />
-                  <MetricCard label="Enabled Bindings" value={enabledBindingCount + enabledPluginBindingCount} />
-                </section>
+                {activeSection === "overview" ? (
+                  <section className="space-y-4">
+                    <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                      <MetricCard label="Tenants" value={tenants.length} />
+                      <MetricCard label="Users" value={users.length} />
+                      <MetricCard label="Integrations" value={integrations.length} />
+                      <MetricCard label="Plugins" value={plugins.length} />
+                      <MetricCard label="Global Skills" value={globalSkills.length} />
+                      <MetricCard label="Enabled Bindings" value={enabledBindingCount + enabledPluginBindingCount} />
+                    </section>
+                    <p className="text-xs text-slate-500">KPIs and uptime reports will be added here.</p>
+                  </section>
+                ) : null}
 
-                <div className="mt-3 space-y-3">
+                {activeSection !== "overview" ? (
+                <div
+                  className={
+                    activeSection === "tenants" || activeSection === "users"
+                      ? "flex min-h-0 flex-1 flex-col gap-3"
+                      : "space-y-3"
+                  }
+                >
                   {sectionVisible("tenants") ? (
-                    <SectionCard title="Tenants" subtitle="Create isolated tenant environments and bind primary domains." actionLabel="New Tenant" onAction={newTenantForm}>
-                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
-                        <TableWrap>
-                          <table className="min-w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <SectionCard fillHeight title="Tenants" subtitle="Create isolated tenant environments and bind primary domains." actionLabel="New Tenant" onAction={newTenantForm}>
+                      <TableWrap fillHeight>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Slug</th>
+                              <th className="px-2 py-1.5">Schema</th>
+                              <th className="px-2 py-1.5">Domain</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {tenants.length === 0 ? (
                               <tr>
-                                <th className="px-3 py-2">Name</th>
-                                <th className="px-3 py-2">Slug</th>
-                                <th className="px-3 py-2">Schema</th>
-                                <th className="px-3 py-2">Domain</th>
-                                <th className="px-3 py-2" />
+                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                  No tenants yet.
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {tenants.length === 0 ? (
-                                <tr>
-                                  <td className="px-3 py-3 text-sm text-slate-500" colSpan={5}>
-                                    No tenants yet.
+                            ) : (
+                              tenants.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-medium text-slate-900">{row.name || row.slug}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.slug}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.schemaName}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.primaryDomain || "-"}</td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editTenantForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
                                   </td>
                                 </tr>
-                              ) : (
-                                tenants.map((row) => (
-                                  <tr key={row.id}>
-                                    <td className="px-3 py-2 font-medium text-slate-900">{row.name || row.slug}</td>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.slug}</td>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.schemaName}</td>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.primaryDomain || "-"}</td>
-                                    <td className="px-3 py-2">
-                                      <button
-                                        onClick={() => editTenantForm(row)}
-                                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        type="button"
-                                      >
-                                        Edit
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </TableWrap>
-
-                        <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSubmitTenant}>
-                          <Field label="Tenant Name">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={tenantForm.name}
-                              onChange={(event) =>
-                                setTenantForm((prev) => ({ ...prev, name: event.target.value }))
-                              }
-                              placeholder="Acme Corp"
-                            />
-                          </Field>
-                          <Field label="Tenant Slug">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={tenantForm.slug}
-                              onChange={(event) =>
-                                setTenantForm((prev) => ({ ...prev, slug: event.target.value }))
-                              }
-                              placeholder="acme"
-                            />
-                          </Field>
-                          <Field label="Schema Name">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={tenantForm.schemaName}
-                              onChange={(event) =>
-                                setTenantForm((prev) => ({ ...prev, schemaName: event.target.value }))
-                              }
-                              placeholder="acme"
-                            />
-                          </Field>
-                          <Field label="Primary Domain">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={tenantForm.primaryDomain}
-                              onChange={(event) =>
-                                setTenantForm((prev) => ({ ...prev, primaryDomain: event.target.value }))
-                              }
-                              placeholder="acme.localhost"
-                            />
-                          </Field>
-                          <label className="mb-2 flex items-center gap-2 text-xs text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={tenantForm.isActive}
-                              onChange={(event) =>
-                                setTenantForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                              }
-                            />
-                            Tenant active
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            <button className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800" type="submit">
-                              Save Tenant
-                            </button>
-                            <button
-                              className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                              type="button"
-                              onClick={() => void onDeleteTenant()}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </form>
-                      </div>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </TableWrap>
                     </SectionCard>
                   ) : null}
 
                   {sectionVisible("users") ? (
-                    <SectionCard title="Platform Users" subtitle="Manage platform admins and tenant memberships." actionLabel="New User" onAction={newUserForm}>
-                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-                        <TableWrap>
-                          <table className="min-w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <SectionCard fillHeight title="Platform Users" subtitle="Manage platform admins and tenant memberships." actionLabel="New User" onAction={newUserForm}>
+                      <div className="flex min-h-0 flex-1 flex-col">
+                        <div className="shrink-0 mb-2 flex flex-wrap items-center gap-2">
+                          <label className="text-xs font-medium text-slate-600">Filter by tenant:</label>
+                          <select
+                            className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+                            value={userFilterTenantSlug}
+                            onChange={(e) => setUserFilterTenantSlug(e.target.value)}
+                          >
+                            <option value="">All tenants</option>
+                            {tenants.map((t) => (
+                              <option key={t.id} value={t.slug}>
+                                {t.name || t.slug}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <TableWrap fillHeight>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Email</th>
+                              <th className="px-2 py-1.5">Display</th>
+                              <th className="px-2 py-1.5">Admin</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {usersFilteredByTenant.length === 0 ? (
                               <tr>
-                                <th className="px-3 py-2">Email</th>
-                                <th className="px-3 py-2">Display</th>
-                                <th className="px-3 py-2">Admin</th>
-                                <th className="px-3 py-2" />
+                                <td className="px-2 py-2 text-slate-500" colSpan={4}>
+                                  {userFilterTenantSlug ? "No users in this tenant." : "No users yet."}
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {users.length === 0 ? (
-                                <tr>
-                                  <td className="px-3 py-3 text-sm text-slate-500" colSpan={4}>
-                                    No users yet.
+                            ) : (
+                              usersFilteredByTenant.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.email}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.displayName || "-"}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.isPlatformAdmin ? "yes" : "no"}</td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editUserForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
                                   </td>
                                 </tr>
-                              ) : (
-                                users.map((row) => (
-                                  <tr key={row.id}>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.email}</td>
-                                    <td className="px-3 py-2 text-xs text-slate-700">{row.displayName || "-"}</td>
-                                    <td className="px-3 py-2 text-xs text-slate-700">
-                                      {row.isPlatformAdmin ? "yes" : "no"}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <button
-                                        onClick={() => editUserForm(row)}
-                                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        type="button"
-                                      >
-                                        Edit
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                         </TableWrap>
-
-                        <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSubmitUser}>
-                          <Field label="Email">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={userForm.email}
-                              onChange={(event) =>
-                                setUserForm((prev) => ({ ...prev, email: event.target.value }))
-                              }
-                              placeholder="user@company.com"
-                            />
-                          </Field>
-                          <Field label="Display Name">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={userForm.displayName}
-                              onChange={(event) =>
-                                setUserForm((prev) => ({ ...prev, displayName: event.target.value }))
-                              }
-                              placeholder="User Name"
-                            />
-                          </Field>
-                          <Field label="Password (leave empty to keep current)">
-                            <input
-                              type="password"
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={userForm.password}
-                              onChange={(event) =>
-                                setUserForm((prev) => ({ ...prev, password: event.target.value }))
-                              }
-                              placeholder="********"
-                            />
-                          </Field>
-                          <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-slate-700">
-                            <label className="inline-flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={userForm.isPlatformAdmin}
-                                onChange={(event) =>
-                                  setUserForm((prev) => ({ ...prev, isPlatformAdmin: event.target.checked }))
-                                }
-                              />
-                              Platform admin
-                            </label>
-                            <label className="inline-flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={userForm.isActive}
-                                onChange={(event) =>
-                                  setUserForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                                }
-                              />
-                              Active
-                            </label>
-                          </div>
-
-                          <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Tenant Memberships
-                            </div>
-                            <div className="space-y-1.5">
-                              {tenants.map((tenant) => {
-                                const membership =
-                                  userForm.tenantMemberships.find((row) => row.tenantSlug === tenant.slug) ||
-                                  null;
-                                const active = Boolean(membership);
-                                return (
-                                  <div key={tenant.slug} className="rounded-md border border-slate-200 bg-white p-2">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <label className="inline-flex items-center gap-2 text-xs text-slate-700">
-                                        <input
-                                          type="checkbox"
-                                          checked={active}
-                                          onChange={(event) => {
-                                            if (!event.target.checked) {
-                                              removeUserMembership(tenant.slug);
-                                              return;
-                                            }
-                                            upsertUserMembership(tenant.slug, {
-                                              tenantSlug: tenant.slug,
-                                              role: "member",
-                                              isActive: true,
-                                            });
-                                          }}
-                                        />
-                                        {tenant.name || tenant.slug}
-                                      </label>
-                                      {active ? (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <select
-                                            className="rounded border border-slate-300 px-1.5 py-1"
-                                            value={membership?.role || "member"}
-                                            onChange={(event) =>
-                                              upsertUserMembership(tenant.slug, {
-                                                role: event.target.value as TenantMembership["role"],
-                                              })
-                                            }
-                                          >
-                                            <option value="admin">admin</option>
-                                            <option value="member">member</option>
-                                            <option value="viewer">viewer</option>
-                                          </select>
-                                          <label className="inline-flex items-center gap-1 text-slate-700">
-                                            <input
-                                              type="checkbox"
-                                              checked={membership?.isActive ?? true}
-                                              onChange={(event) =>
-                                                upsertUserMembership(tenant.slug, {
-                                                  isActive: event.target.checked,
-                                                })
-                                              }
-                                            />
-                                            active
-                                          </label>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <button className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800" type="submit">
-                              Save User
-                            </button>
-                            <button
-                              className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                              type="button"
-                              onClick={() => void onDeleteUser()}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </form>
                       </div>
                     </SectionCard>
                   ) : null}
 
                   {sectionVisible("integrations") ? (
                     <SectionCard title="Integration Catalog" subtitle="Define API adapters and assistant-facing documentation." actionLabel="New Integration" onAction={newIntegrationForm}>
-                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
-                        <TableWrap>
-                          <table className="min-w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <TableWrap>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Key</th>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Category</th>
+                              <th className="px-2 py-1.5">Auth</th>
+                              <th className="px-2 py-1.5">Scope</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {integrations.length === 0 ? (
                               <tr>
-                                <th className="px-3 py-2">Key</th>
-                                <th className="px-3 py-2">Name</th>
-                                <th className="px-3 py-2">Category</th>
-                                <th className="px-3 py-2">Auth</th>
-                                <th className="px-3 py-2">Scope</th>
-                                <th className="px-3 py-2" />
+                                <td className="px-2 py-2 text-slate-500" colSpan={6}>
+                                  No integrations yet.
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {integrations.length === 0 ? (
-                                <tr>
-                                  <td className="px-3 py-3 text-sm text-slate-500" colSpan={6}>
-                                    No integrations yet.
+                            ) : (
+                              integrations.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.key}</td>
+                                  <td className="px-2 py-1.5 font-medium text-slate-900">{row.name}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.category || "-"}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.defaultAuthType}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.authScope || "tenant"}</td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editIntegrationForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
                                   </td>
                                 </tr>
-                              ) : (
-                                integrations.map((row) => (
-                                  <tr key={row.id}>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.key}</td>
-                                    <td className="px-3 py-2 font-medium text-slate-900">{row.name}</td>
-                                    <td className="px-3 py-2 text-xs text-slate-700">{row.category || "-"}</td>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.defaultAuthType}</td>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.authScope || "tenant"}</td>
-                                    <td className="px-3 py-2">
-                                      <button
-                                        onClick={() => editIntegrationForm(row)}
-                                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        type="button"
-                                      >
-                                        Edit
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </TableWrap>
-
-                        <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSubmitIntegration}>
-                          <Field label="Key">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={integrationForm.key}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({ ...prev, key: event.target.value }))
-                              }
-                              placeholder="salesforce"
-                            />
-                          </Field>
-                          <Field label="Name">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={integrationForm.name}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({ ...prev, name: event.target.value }))
-                              }
-                              placeholder="Salesforce CRM"
-                            />
-                          </Field>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <Field label="Category">
-                              <input
-                                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                                value={integrationForm.category}
-                                onChange={(event) =>
-                                  setIntegrationForm((prev) => ({ ...prev, category: event.target.value }))
-                                }
-                                placeholder="crm"
-                              />
-                            </Field>
-                            <Field label="Default Auth">
-                              <select
-                                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                                value={integrationForm.defaultAuthType}
-                                onChange={(event) =>
-                                  setIntegrationForm((prev) => ({
-                                    ...prev,
-                                    defaultAuthType: event.target.value,
-                                  }))
-                                }
-                              >
-                                <option value="none">none</option>
-                                <option value="bearer">bearer</option>
-                                <option value="api_key_header">api_key_header</option>
-                                <option value="api_key_query">api_key_query</option>
-                                <option value="basic">basic</option>
-                                <option value="oauth2_client_credentials">oauth2_client_credentials</option>
-                              </select>
-                            </Field>
-                            <Field label="Auth Scope">
-                              <select
-                                className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                                value={integrationForm.authScope}
-                                onChange={(event) =>
-                                  setIntegrationForm((prev) => ({
-                                    ...prev,
-                                    authScope: event.target.value as "global" | "tenant" | "user",
-                                  }))
-                                }
-                              >
-                                <option value="global">global</option>
-                                <option value="tenant">tenant</option>
-                                <option value="user">user</option>
-                              </select>
-                            </Field>
-                          </div>
-                          <Field label="Base URL">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={integrationForm.baseUrl}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({ ...prev, baseUrl: event.target.value }))
-                              }
-                              placeholder="https://api.example.com"
-                            />
-                          </Field>
-                          <Field label="OpenAPI URL">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={integrationForm.openapiUrl}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({ ...prev, openapiUrl: event.target.value }))
-                              }
-                              placeholder="https://api.example.com/openapi.json"
-                            />
-                          </Field>
-                          <Field label="Default Headers (JSON)">
-                            <textarea
-                              className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                              value={integrationForm.defaultHeadersText}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({
-                                  ...prev,
-                                  defaultHeadersText: event.target.value,
-                                }))
-                              }
-                              placeholder='{"Accept":"application/json"}'
-                            />
-                          </Field>
-                          <Field label="Auth Config Schema (JSON)">
-                            <textarea
-                              className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                              value={integrationForm.authConfigSchemaText}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({
-                                  ...prev,
-                                  authConfigSchemaText: event.target.value,
-                                }))
-                              }
-                              placeholder='{"fields":[{"key":"api_key","type":"secret_ref"}]}'
-                            />
-                          </Field>
-                          <Field label="Global Auth Config (JSON)">
-                            <textarea
-                              className="h-20 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                              value={integrationForm.globalAuthConfigText}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({
-                                  ...prev,
-                                  globalAuthConfigText: event.target.value,
-                                }))
-                              }
-                              placeholder='{"vaultKey":"crm_prod_token"}'
-                            />
-                          </Field>
-                          <Field label="Assistant Docs (Markdown)">
-                            <textarea
-                              className="h-32 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                              value={integrationForm.assistantDocsMarkdown}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({
-                                  ...prev,
-                                  assistantDocsMarkdown: event.target.value,
-                                }))
-                              }
-                              placeholder="Describe endpoints, workflows, constraints, and examples for the assistant."
-                            />
-                          </Field>
-                          <label className="mb-2 flex items-center gap-2 text-xs text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={integrationForm.isActive}
-                              onChange={(event) =>
-                                setIntegrationForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                              }
-                            />
-                            Integration active
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            <button className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800" type="submit">
-                              Save Integration
-                            </button>
-                            <button
-                              className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                              type="button"
-                              onClick={() => void onDeleteIntegration()}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </form>
-                      </div>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </TableWrap>
                     </SectionCard>
                   ) : null}
 
@@ -1487,113 +1151,46 @@ export default function PlatformAdminApp() {
                       actionLabel="New Global Skill"
                       onAction={newSkillForm}
                     >
-                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_500px]">
-                        <TableWrap>
-                          <table className="min-w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <TableWrap>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Key</th>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Scope</th>
+                              <th className="px-2 py-1.5">Active</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {globalSkills.length === 0 ? (
                               <tr>
-                                <th className="px-3 py-2">Key</th>
-                                <th className="px-3 py-2">Name</th>
-                                <th className="px-3 py-2">Scope</th>
-                                <th className="px-3 py-2">Active</th>
-                                <th className="px-3 py-2" />
+                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                  No global skills yet.
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {globalSkills.length === 0 ? (
-                                <tr>
-                                  <td className="px-3 py-3 text-sm text-slate-500" colSpan={5}>
-                                    No global skills yet.
+                            ) : (
+                              globalSkills.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.key}</td>
+                                  <td className="px-2 py-1.5 font-medium text-slate-900">{row.name || row.key}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.scope || "global"}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.isActive ? "yes" : "no"}</td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editSkillForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
                                   </td>
                                 </tr>
-                              ) : (
-                                globalSkills.map((row) => (
-                                  <tr key={row.id}>
-                                    <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.key}</td>
-                                    <td className="px-3 py-2 font-medium text-slate-900">{row.name || row.key}</td>
-                                    <td className="px-3 py-2 text-xs text-slate-700">{row.scope || "global"}</td>
-                                    <td className="px-3 py-2 text-xs text-slate-700">{row.isActive ? "yes" : "no"}</td>
-                                    <td className="px-3 py-2">
-                                      <button
-                                        onClick={() => editSkillForm(row)}
-                                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        type="button"
-                                      >
-                                        Edit
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </TableWrap>
-
-                        <form className="rounded-xl border border-slate-200 bg-white p-3" onSubmit={onSubmitSkill}>
-                          <Field label="Skill Key">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-mono"
-                              value={skillForm.key}
-                              onChange={(event) =>
-                                setSkillForm((prev) => ({ ...prev, key: event.target.value }))
-                              }
-                              placeholder="crm_followup"
-                            />
-                          </Field>
-                          <Field label="Display Name">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={skillForm.name}
-                              onChange={(event) =>
-                                setSkillForm((prev) => ({ ...prev, name: event.target.value }))
-                              }
-                              placeholder="CRM Follow-up Automation"
-                            />
-                          </Field>
-                          <Field label="Description">
-                            <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
-                              value={skillForm.description}
-                              onChange={(event) =>
-                                setSkillForm((prev) => ({ ...prev, description: event.target.value }))
-                              }
-                              placeholder="What this skill does and when to use it"
-                            />
-                          </Field>
-                          <Field label="Skill Markdown">
-                            <textarea
-                              className="h-48 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-mono"
-                              value={skillForm.bodyMarkdown}
-                              onChange={(event) =>
-                                setSkillForm((prev) => ({ ...prev, bodyMarkdown: event.target.value }))
-                              }
-                              placeholder="# Objective&#10;...&#10;&#10;# Constraints&#10;..."
-                            />
-                          </Field>
-                          <label className="mb-2 flex items-center gap-2 text-xs text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={skillForm.isActive}
-                              onChange={(event) =>
-                                setSkillForm((prev) => ({ ...prev, isActive: event.target.checked }))
-                              }
-                            />
-                            Skill active
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            <button className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800" type="submit">
-                              Save Skill
-                            </button>
-                            <button
-                              className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                              type="button"
-                              onClick={() => void onDeleteSkill()}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </form>
-                      </div>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </TableWrap>
                     </SectionCard>
                   ) : null}
 
@@ -1622,7 +1219,7 @@ export default function PlatformAdminApp() {
                           <button
                             type="button"
                             onClick={() => pluginUploadInputRef.current?.click()}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                           >
                             Choose Plugin ZIP
                           </button>
@@ -1633,7 +1230,7 @@ export default function PlatformAdminApp() {
                             type="button"
                             disabled={!pluginUploadFile || pluginUploadBusy}
                             onClick={() => void onUploadPluginBundle()}
-                            className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {pluginUploadBusy ? "Uploading..." : "Upload Plugin ZIP"}
                           </button>
@@ -1641,7 +1238,7 @@ export default function PlatformAdminApp() {
                       </div>
 
                       {pluginSync.invalid.length > 0 ? (
-                        <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
                           <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">
                             Invalid Plugin Bundles
                           </div>
@@ -1661,18 +1258,18 @@ export default function PlatformAdminApp() {
                           <table className="min-w-full text-left text-sm">
                             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                               <tr>
-                                <th className="px-3 py-2">Plugin</th>
-                                <th className="px-3 py-2">Version</th>
-                                <th className="px-3 py-2">Validated</th>
-                                <th className="px-3 py-2">Platform</th>
-                                <th className="px-3 py-2">Source</th>
-                                <th className="px-3 py-2" />
+                                <th className="px-2 py-1.5">Plugin</th>
+                                <th className="px-2 py-1.5">Version</th>
+                                <th className="px-2 py-1.5">Validated</th>
+                                <th className="px-2 py-1.5">Platform</th>
+                                <th className="px-2 py-1.5">Source</th>
+                                <th className="px-2 py-1.5" />
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {plugins.length === 0 ? (
                                 <tr>
-                                  <td className="px-3 py-3 text-sm text-slate-500" colSpan={6}>
+                                  <td className="px-2 py-2 text-sm text-slate-500" colSpan={6}>
                                     No plugins discovered yet.
                                   </td>
                                 </tr>
@@ -1684,7 +1281,7 @@ export default function PlatformAdminApp() {
                                       key={row.pluginId}
                                       className={selected ? "bg-sky-50/60" : ""}
                                     >
-                                      <td className="px-3 py-2">
+                                      <td className="px-2 py-1.5">
                                         <div className="flex items-center gap-2">
                                           <PluginAvatar
                                             iconDataUrl={row.iconDataUrl}
@@ -1697,15 +1294,15 @@ export default function PlatformAdminApp() {
                                           </div>
                                         </div>
                                       </td>
-                                      <td className="px-3 py-2 font-mono text-xs text-slate-700">{row.version || "-"}</td>
-                                      <td className="px-3 py-2 text-xs text-slate-700">
+                                      <td className="px-2 py-1.5 font-mono text-xs text-slate-700">{row.version || "-"}</td>
+                                      <td className="px-2 py-1.5 text-xs text-slate-700">
                                         {row.isValidated ? "yes" : "no"}
                                       </td>
-                                      <td className="px-3 py-2 text-xs text-slate-700">
+                                      <td className="px-2 py-1.5 text-xs text-slate-700">
                                         {row.isPlatformApproved ? "approved" : "blocked"}
                                       </td>
-                                      <td className="px-3 py-2 text-xs text-slate-700">{row.sourceType || "-"}</td>
-                                      <td className="px-3 py-2">
+                                      <td className="px-2 py-1.5 text-xs text-slate-700">{row.sourceType || "-"}</td>
+                                      <td className="px-2 py-1.5">
                                         <button
                                           type="button"
                                           onClick={() => setSelectedPluginId(row.pluginId)}
@@ -1722,7 +1319,7 @@ export default function PlatformAdminApp() {
                           </table>
                         </TableWrap>
 
-                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="rounded-lg border border-slate-200 bg-white p-3">
                           {selectedPlugin ? (
                             <>
                               <div className="mb-2">
@@ -1830,7 +1427,7 @@ export default function PlatformAdminApp() {
                                       !selectedPlugin.isPlatformApproved
                                     )
                                   }
-                                  className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                                  className={`rounded-lg px-2 py-1.5 text-xs font-semibold ${
                                     selectedPlugin.isPlatformApproved
                                       ? "border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
                                       : "border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
@@ -1926,12 +1523,209 @@ export default function PlatformAdminApp() {
                     </SectionCard>
                   ) : null}
 
+                  {sectionVisible("configuration") ? (
+                    <SectionCard title="Platform configuration" subtitle="Site, OAuth, WhatsApp, Facebook/Meta, and Shopify settings.">
+                      <form className="rounded-lg border border-slate-200 bg-white p-3" onSubmit={onSaveConfiguration}>
+                        <div className="space-y-4">
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">General</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="Site name">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                                  value={configForm.siteName}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, siteName: e.target.value }))}
+                                  placeholder="Moio"
+                                />
+                              </Field>
+                              <Field label="Company">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                                  value={configForm.company}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, company: e.target.value }))}
+                                  placeholder="Acme Inc"
+                                />
+                              </Field>
+                              <div className="sm:col-span-2">
+                                <Field label="Base URL (my_url)">
+                                  <input
+                                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                    type="url"
+                                    value={configForm.myUrl}
+                                    onChange={(e) => setConfigForm((p) => ({ ...p, myUrl: e.target.value }))}
+                                    placeholder="https://app.example.com/"
+                                  />
+                                </Field>
+                              </div>
+                              {configForm.logoUrl ? (
+                                <div className="sm:col-span-2 text-xs text-slate-500">Logo: {configForm.logoUrl}</div>
+                              ) : null}
+                              {configForm.faviconUrl ? (
+                                <div className="sm:col-span-2 text-xs text-slate-500">Favicon: {configForm.faviconUrl}</div>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">WhatsApp</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="Webhook token">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.whatsappWebhookToken}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, whatsappWebhookToken: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                              <Field label="Webhook redirect URL">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="url"
+                                  value={configForm.whatsappWebhookRedirect}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, whatsappWebhookRedirect: e.target.value }))}
+                                  placeholder="https://..."
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Facebook / Meta</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="System token">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.fbSystemToken}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, fbSystemToken: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                              <Field label="Bot app ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.fbMoioBotAppId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, fbMoioBotAppId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                              <Field label="Business manager ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.fbMoioBusinessManagerId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, fbMoioBusinessManagerId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                              <Field label="Bot app secret">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.fbMoioBotAppSecret}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, fbMoioBotAppSecret: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                              <Field label="Bot configuration ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.fbMoioBotConfigurationId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, fbMoioBotConfigurationId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Google OAuth</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="Client ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.googleOauthClientId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, googleOauthClientId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                              <Field label="Client secret">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.googleOauthClientSecret}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, googleOauthClientSecret: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Microsoft OAuth</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="Client ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.microsoftOauthClientId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, microsoftOauthClientId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                              <Field label="Client secret">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.microsoftOauthClientSecret}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, microsoftOauthClientSecret: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Shopify</h3>
+                            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+                              <Field label="Client ID">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  value={configForm.shopifyClientId}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, shopifyClientId: e.target.value }))}
+                                  placeholder=""
+                                />
+                              </Field>
+                              <Field label="Client secret">
+                                <input
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                                  type="password"
+                                  autoComplete="off"
+                                  value={configForm.shopifyClientSecret}
+                                  onChange={(e) => setConfigForm((p) => ({ ...p, shopifyClientSecret: e.target.value }))}
+                                  placeholder="••••••••"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <button
+                            type="submit"
+                            className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                          >
+                            Save configuration
+                          </button>
+                        </div>
+                      </form>
+                    </SectionCard>
+                  ) : null}
+
                   {sectionVisible("security") ? (
                     <SectionCard title="Security" subtitle="Platform-level access and runtime guardrails.">
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Current Session</h3>
-                          <dl className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      <div className="grid gap-2 lg:grid-cols-2">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Current Session</h3>
+                          <dl className="mt-1.5 space-y-1 text-xs text-slate-700">
                             <div className="flex justify-between gap-2">
                               <dt>User</dt>
                               <dd className="font-mono text-xs">{currentUser.email}</dd>
@@ -1946,35 +1740,35 @@ export default function PlatformAdminApp() {
                             </div>
                           </dl>
                         </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Recommendations</h3>
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Recommendations</h3>
+                          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs text-slate-700">
                             <li>Use tenant-scoped memberships and keep viewer users read-only.</li>
                             <li>Rotate vendor keys in vault regularly.</li>
                             <li>Use integration docs to constrain assistant behavior by tenant.</li>
                           </ul>
                         </div>
                       </div>
-                      <form className="mt-3 rounded-xl border border-slate-200 bg-white p-4" onSubmit={onSaveNotifications}>
-                        <div className="mb-3 flex items-center justify-between gap-3">
+                      <form className="mt-2 rounded-lg border border-slate-200 bg-white p-3" onSubmit={onSaveNotifications}>
+                        <div className="mb-2 flex items-center justify-between gap-2">
                           <div>
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Notification Defaults</h3>
-                            <p className="mt-1 text-sm text-slate-600">
-                              Configure the default presentation for completion notifications and test them in this browser.
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Notification Defaults</h3>
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              Configure default presentation for completion notifications.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => void onTestNotification()}
-                            className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                            className="rounded border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
                           >
-                            Test Notification
+                            Test
                           </button>
                         </div>
-                        <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="grid gap-2 lg:grid-cols-2">
                           <Field label="Default Title">
                             <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                               value={notificationForm.title}
                               onChange={(event) =>
                                 setNotificationForm((prev) => ({ ...prev, title: event.target.value }))
@@ -1984,7 +1778,7 @@ export default function PlatformAdminApp() {
                           </Field>
                           <Field label="Icon URL">
                             <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                               value={notificationForm.iconUrl}
                               onChange={(event) =>
                                 setNotificationForm((prev) => ({ ...prev, iconUrl: event.target.value }))
@@ -1994,7 +1788,7 @@ export default function PlatformAdminApp() {
                           </Field>
                           <Field label="Badge URL">
                             <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                               value={notificationForm.badgeUrl}
                               onChange={(event) =>
                                 setNotificationForm((prev) => ({ ...prev, badgeUrl: event.target.value }))
@@ -2004,7 +1798,7 @@ export default function PlatformAdminApp() {
                           </Field>
                           <Field label="Test Title">
                             <input
-                              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                               value={notificationForm.testTitle}
                               onChange={(event) =>
                                 setNotificationForm((prev) => ({ ...prev, testTitle: event.target.value }))
@@ -2014,7 +1808,7 @@ export default function PlatformAdminApp() {
                           </Field>
                           <Field label="Test Body">
                             <textarea
-                              className="h-24 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+                              className="h-24 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                               value={notificationForm.testBody}
                               onChange={(event) =>
                                 setNotificationForm((prev) => ({ ...prev, testBody: event.target.value }))
@@ -2058,30 +1852,280 @@ export default function PlatformAdminApp() {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <button
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                            className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
                             type="submit"
                           >
-                            Save Notification Settings
+                            Save notification settings
                           </button>
-                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                            Web Push VAPID keys remain env-backed. This form controls presentation defaults only.
-                          </div>
+                          <span className="text-[11px] text-slate-500">VAPID keys are env-backed; this form controls presentation only.</span>
                         </div>
                       </form>
                     </SectionCard>
                   ) : null}
                 </div>
+                ) : null}
               </>
             )}
           </div>
         </section>
       </div>
 
+      <Modal open={tenantModalOpen} onClose={() => setTenantModalOpen(false)} title={tenantForm.id ? "Edit tenant" : "New tenant"}>
+        <form onSubmit={onSubmitTenant}>
+          <Field label="Tenant Name">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={tenantForm.name}
+              onChange={(e) => setTenantForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="Acme Corp"
+            />
+          </Field>
+          <Field label="Tenant Slug">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={tenantForm.slug}
+              onChange={(e) => setTenantForm((p) => ({ ...p, slug: e.target.value }))}
+              placeholder="acme"
+            />
+          </Field>
+          <Field label="Schema Name">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+              value={tenantForm.schemaName}
+              onChange={(e) => setTenantForm((p) => ({ ...p, schemaName: e.target.value }))}
+              placeholder="acme"
+            />
+          </Field>
+          <Field label="Primary Domain">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+              value={tenantForm.primaryDomain}
+              onChange={(e) => setTenantForm((p) => ({ ...p, primaryDomain: e.target.value }))}
+              placeholder="acme.localhost"
+            />
+          </Field>
+          <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={tenantForm.isActive}
+              onChange={(e) => setTenantForm((p) => ({ ...p, isActive: e.target.checked }))}
+            />
+            Tenant active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
+              Save Tenant
+            </button>
+            {tenantForm.id ? (
+              <button
+                type="button"
+                className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                onClick={() => void onDeleteTenant()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setTenantModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title={userForm.id ? "Edit user" : "New user"} size="lg">
+        <form onSubmit={onSubmitUser}>
+          <Field label="Email">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+              value={userForm.email}
+              onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))}
+              placeholder="user@company.com"
+            />
+          </Field>
+          <Field label="Display Name">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={userForm.displayName}
+              onChange={(e) => setUserForm((p) => ({ ...p, displayName: e.target.value }))}
+              placeholder="User Name"
+            />
+          </Field>
+          <Field label="Password (leave empty to keep current)">
+            <input
+              type="password"
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={userForm.password}
+              onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))}
+              placeholder="********"
+            />
+          </Field>
+          <div className="mb-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={userForm.isPlatformAdmin} onChange={(e) => setUserForm((p) => ({ ...p, isPlatformAdmin: e.target.checked }))} />
+              Platform admin
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={userForm.isActive} onChange={(e) => setUserForm((p) => ({ ...p, isActive: e.target.checked }))} />
+              Active
+            </label>
+          </div>
+          <div className="mb-1.5 rounded border border-slate-200 bg-slate-50 p-2">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Tenant Memberships</div>
+            <div className="space-y-1">
+              {tenants.map((tenant) => {
+                const membership = userForm.tenantMemberships.find((r) => r.tenantSlug === tenant.slug) || null;
+                const active = Boolean(membership);
+                return (
+                  <div key={tenant.slug} className="rounded border border-slate-200 bg-white p-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              removeUserMembership(tenant.slug);
+                              return;
+                            }
+                            upsertUserMembership(tenant.slug, { tenantSlug: tenant.slug, role: "member", isActive: true });
+                          }}
+                        />
+                        {tenant.name || tenant.slug}
+                      </label>
+                      {active ? (
+                        <div className="flex items-center gap-2 text-xs">
+                          <select
+                            className="rounded border border-slate-300 px-1.5 py-0.5 text-xs"
+                            value={membership?.role || "member"}
+                            onChange={(e) => upsertUserMembership(tenant.slug, { role: e.target.value as TenantMembership["role"] })}
+                          >
+                            <option value="admin">admin</option>
+                            <option value="member">member</option>
+                            <option value="viewer">viewer</option>
+                          </select>
+                          <label className="inline-flex items-center gap-1 text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={membership?.isActive ?? true}
+                              onChange={(e) => upsertUserMembership(tenant.slug, { isActive: e.target.checked })}
+                            />
+                            active
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
+              Save User
+            </button>
+            {userForm.id ? (
+              <button type="button" className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100" onClick={() => void onDeleteUser()}>
+                Delete
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setUserModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={integrationModalOpen} onClose={() => setIntegrationModalOpen(false)} title={integrationForm.key ? "Edit integration" : "New integration"} size="xl">
+        <form onSubmit={onSubmitIntegration}>
+          <Field label="Key">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono" value={integrationForm.key} onChange={(e) => setIntegrationForm((p) => ({ ...p, key: e.target.value }))} placeholder="salesforce" />
+          </Field>
+          <Field label="Name">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={integrationForm.name} onChange={(e) => setIntegrationForm((p) => ({ ...p, name: e.target.value }))} placeholder="Salesforce CRM" />
+          </Field>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field label="Category">
+              <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={integrationForm.category} onChange={(e) => setIntegrationForm((p) => ({ ...p, category: e.target.value }))} placeholder="crm" />
+            </Field>
+            <Field label="Default Auth">
+              <select className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={integrationForm.defaultAuthType} onChange={(e) => setIntegrationForm((p) => ({ ...p, defaultAuthType: e.target.value }))}>
+                <option value="none">none</option>
+                <option value="bearer">bearer</option>
+                <option value="api_key_header">api_key_header</option>
+                <option value="api_key_query">api_key_query</option>
+                <option value="basic">basic</option>
+                <option value="oauth2_client_credentials">oauth2_client_credentials</option>
+              </select>
+            </Field>
+            <Field label="Auth Scope">
+              <select className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={integrationForm.authScope} onChange={(e) => setIntegrationForm((p) => ({ ...p, authScope: e.target.value as "global" | "tenant" | "user" }))}>
+                <option value="global">global</option>
+                <option value="tenant">tenant</option>
+                <option value="user">user</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="Base URL">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono" value={integrationForm.baseUrl} onChange={(e) => setIntegrationForm((p) => ({ ...p, baseUrl: e.target.value }))} placeholder="https://api.example.com" />
+          </Field>
+          <Field label="OpenAPI URL">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono" value={integrationForm.openapiUrl} onChange={(e) => setIntegrationForm((p) => ({ ...p, openapiUrl: e.target.value }))} placeholder="https://api.example.com/openapi.json" />
+          </Field>
+          <Field label="Default Headers (JSON)">
+            <textarea className="h-20 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono" value={integrationForm.defaultHeadersText} onChange={(e) => setIntegrationForm((p) => ({ ...p, defaultHeadersText: e.target.value }))} placeholder='{"Accept":"application/json"}' />
+          </Field>
+          <Field label="Auth Config Schema (JSON)">
+            <textarea className="h-20 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono" value={integrationForm.authConfigSchemaText} onChange={(e) => setIntegrationForm((p) => ({ ...p, authConfigSchemaText: e.target.value }))} placeholder='{"fields":[{"key":"api_key","type":"secret_ref"}]}' />
+          </Field>
+          <Field label="Global Auth Config (JSON)">
+            <textarea className="h-20 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono" value={integrationForm.globalAuthConfigText} onChange={(e) => setIntegrationForm((p) => ({ ...p, globalAuthConfigText: e.target.value }))} placeholder='{"vaultKey":"crm_prod_token"}' />
+          </Field>
+          <Field label="Assistant Docs (Markdown)">
+            <textarea className="h-32 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono" value={integrationForm.assistantDocsMarkdown} onChange={(e) => setIntegrationForm((p) => ({ ...p, assistantDocsMarkdown: e.target.value }))} placeholder="Describe endpoints, workflows, constraints, and examples for the assistant." />
+          </Field>
+          <label className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={integrationForm.isActive} onChange={(e) => setIntegrationForm((p) => ({ ...p, isActive: e.target.checked }))} />
+            Integration active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">Save Integration</button>
+            {integrationForm.key ? <button type="button" className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100" onClick={() => void onDeleteIntegration()}>Delete</button> : null}
+            <button type="button" onClick={() => setIntegrationModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={skillModalOpen} onClose={() => setSkillModalOpen(false)} title={skillForm.key ? "Edit global skill" : "New global skill"} size="lg">
+        <form onSubmit={onSubmitSkill}>
+          <Field label="Skill Key">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono" value={skillForm.key} onChange={(e) => setSkillForm((p) => ({ ...p, key: e.target.value }))} placeholder="crm_followup" />
+          </Field>
+          <Field label="Display Name">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={skillForm.name} onChange={(e) => setSkillForm((p) => ({ ...p, name: e.target.value }))} placeholder="CRM Follow-up Automation" />
+          </Field>
+          <Field label="Description">
+            <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" value={skillForm.description} onChange={(e) => setSkillForm((p) => ({ ...p, description: e.target.value }))} placeholder="What this skill does and when to use it" />
+          </Field>
+          <Field label="Skill Markdown">
+            <textarea className="h-48 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono" value={skillForm.bodyMarkdown} onChange={(e) => setSkillForm((p) => ({ ...p, bodyMarkdown: e.target.value }))} placeholder="# Objective&#10;...&#10;&#10;# Constraints&#10;..." />
+          </Field>
+          <label className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={skillForm.isActive} onChange={(e) => setSkillForm((p) => ({ ...p, isActive: e.target.checked }))} />
+            Skill active
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">Save Skill</button>
+            {skillForm.key ? <button type="button" className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100" onClick={() => void onDeleteSkill()}>Delete</button> : null}
+            <button type="button" onClick={() => setSkillModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          </div>
+        </form>
+      </Modal>
+
       {loading ? (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-slate-900/20 backdrop-blur-[1px]">
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-lg">
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-lg">
             Loading...
           </div>
         </div>
@@ -2091,24 +2135,31 @@ export default function PlatformAdminApp() {
 }
 
 function Panel(props: SectionProps) {
+  const fill = Boolean(props.fillHeight);
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <section
+      className={
+        fill
+          ? "flex min-h-0 flex-1 flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+          : "rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+      }
+    >
+      <div className="shrink-0 mb-2 flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">{props.title}</h2>
-          <p className="mt-1 text-sm text-slate-600">{props.subtitle}</p>
+          <h2 className="text-base font-semibold text-slate-900">{props.title}</h2>
+          <p className="text-xs text-slate-500">{props.subtitle}</p>
         </div>
         {props.actionLabel && props.onAction ? (
           <button
             type="button"
             onClick={props.onAction}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             {props.actionLabel}
           </button>
         ) : null}
       </div>
-      {props.children}
+      {fill ? <div className="min-h-0 flex-1 flex flex-col overflow-hidden">{props.children}</div> : props.children}
     </section>
   );
 }
@@ -2117,18 +2168,78 @@ function SectionCard(props: SectionProps) {
   return <Panel {...props} />;
 }
 
-function TableWrap(props: { children: React.ReactNode }) {
+function Modal(props: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
+}) {
+  const sizeClass =
+    props.size === "xl"
+      ? "max-w-2xl"
+      : props.size === "lg"
+      ? "max-w-xl"
+      : props.size === "sm"
+      ? "max-w-sm"
+      : "max-w-md";
+  if (!props.open) return null;
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="max-h-[360px] overflow-auto">{props.children}</div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={props.onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={`relative w-full ${sizeClass} max-h-[90vh] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 id="modal-title" className="text-base font-semibold text-slate-900">
+            {props.title}
+          </h2>
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{props.children}</div>
+      </div>
+    </div>
+  );
+}
+
+function TableWrap(props: { children: React.ReactNode; fillHeight?: boolean }) {
+  const fill = Boolean(props.fillHeight);
+  return (
+    <div
+      className={
+        fill
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white"
+          : "overflow-hidden rounded-lg border border-slate-200 bg-white"
+      }
+    >
+      <div className={fill ? "min-h-0 flex-1 overflow-auto" : "max-h-[320px] overflow-auto"}>{props.children}</div>
     </div>
   );
 }
 
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-2">
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="mb-1.5">
+      <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {props.label}
       </label>
       {props.children}
@@ -2138,9 +2249,9 @@ function Field(props: { label: string; children: React.ReactNode }) {
 
 function MetricCard(props: { label: string; value: number }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-sm text-slate-500">{props.label}</p>
-      <p className="mt-1 text-4xl font-semibold tracking-tight text-slate-900">
+    <article className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{props.label}</p>
+      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">
         {new Intl.NumberFormat().format(props.value)}
       </p>
     </article>
@@ -2187,11 +2298,11 @@ function TenantIntegrationCard(props: {
   }, [props.enabled, props.notes, props.override, props.tenantAuthConfigText, props.integration.key]);
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-3">
+    <article className="rounded-lg border border-slate-200 bg-white p-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="font-semibold text-slate-900">{props.integration.name || props.integration.key}</div>
-          <div className="font-mono text-xs text-slate-600">
+          <div className="text-sm font-semibold text-slate-900">{props.integration.name || props.integration.key}</div>
+          <div className="font-mono text-[11px] text-slate-500">
             {props.integration.key} | {props.integration.defaultAuthType || "bearer"}
           </div>
         </div>

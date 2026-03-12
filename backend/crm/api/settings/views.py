@@ -5,7 +5,8 @@ import logging
 from typing import Any, Dict, Optional, Type
 
 
-from django.db import IntegrityError
+from django.conf import settings
+from django.db import IntegrityError, connection
 from django.http import Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -34,6 +35,22 @@ from .serializers import (
 from .preferences import build_user_preferences, update_user_preferences, update_user_location
 
 logger = logging.getLogger(__name__)
+
+
+def _set_connection_tenant(tenant) -> None:
+    """
+    Ensure tenant-scoped queries run against the tenant schema.
+    This avoids `relation does not exist` when middleware/auth timing leaves the
+    DB connection on the public schema.
+    """
+    if not tenant or not getattr(tenant, "schema_name", None):
+        return
+    if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+        return
+    try:
+        connection.set_tenant(tenant)
+    except Exception as exc:
+        logger.warning("Unable to switch DB tenant schema to %s: %s", tenant.schema_name, exc)
 
 
 SUPPORTED_INTEGRATIONS = {
@@ -129,6 +146,7 @@ class AgentConfigurationViewSet(viewsets.ViewSet):
         if context_tenant != tenant:
             logger.debug(f"Setting tenant context: {tenant.id} (was: {context_tenant})")
             current_tenant.set(tenant)
+        _set_connection_tenant(tenant)
 
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault("context", self.get_serializer_context())
@@ -440,3 +458,27 @@ class LocationViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
         result = update_user_location(request.user, serializer.validated_data["address"])
         return Response(result)
+
+
+class McpConnectionViewSet(viewsets.ViewSet):
+    """
+    Backward-compatible placeholder endpoint.
+    Frontend expects this route in tenant settings; return empty list until
+    persistent MCP connections are introduced server-side.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request) -> Response:
+        return Response([])
+
+
+class JsonSchemaViewSet(viewsets.ViewSet):
+    """
+    Backward-compatible placeholder endpoint for schema manager screens.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request) -> Response:
+        return Response([])

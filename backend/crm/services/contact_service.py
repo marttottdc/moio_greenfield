@@ -35,6 +35,8 @@ class ContactService:
                     )
                 elif ctype_pk:
                     ctype = ContactType.objects.get(pk=ctype_pk)
+                if ctype is None:
+                    ctype = ContactType.objects.filter(tenant=tenant, is_default=True).first()
 
                 # Create the contact
                 contact = Contact.create_or_update(

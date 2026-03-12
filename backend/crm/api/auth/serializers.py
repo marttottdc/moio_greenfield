@@ -27,6 +27,8 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "full_name",
             "role",
+            "is_staff",
+            "is_superuser",
             "avatar_url",
             "organization",
             "preferences",
@@ -68,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
         return {
             "id": str(tenant.pk),
             "name": tenant.nombre,
+            "plan": str(getattr(tenant, "plan", "free") or "free"),
             "domain": str(getattr(tenant, "domain", "") or ""),
             "subdomain": str(getattr(tenant, "subdomain", "") or ""),
             "primary_domain": str(getattr(tenant, "primary_domain", "") or ""),

@@ -146,18 +146,27 @@ def _create_event_log(
     return event
 
 
-def _dispatch_to_router(event_id: UUID):
+def _dispatch_to_router(event_id: UUID, tenant_id: UUID):
     """Dispatch event to router for flow matching (async via Celery)."""
     try:
         from .tasks import route_event_task
         from moio_platform.settings import FLOWS_Q
 
         # Ensure event routing lands on the flows queue (some deployments do not consume the default queue).
-        route_event_task.apply_async(args=[str(event_id)], queue=FLOWS_Q)
+        route_event_task.apply_async(args=[str(event_id), str(tenant_id)], queue=FLOWS_Q)
     except ImportError:
         logger.warning("Event routing task not available, routing synchronously")
         from .router import route_event
-        route_event(event_id)
+        from central_hub.models import Tenant
+        from tenancy.tenant_support import tenant_schema_context
+
+        tenant = Tenant.objects.filter(tenant_code=tenant_id).only("schema_name").first()
+        if not tenant:
+            logger.error("Unable to route event %s: tenant %s not found", event_id, tenant_id)
+            return
+
+        with tenant_schema_context(getattr(tenant, "schema_name", None)):
+            route_event(event_id)
 
 
 def emit_event(
@@ -235,9 +244,9 @@ def emit_event(
     )
     
     if defer_routing:
-        transaction.on_commit(lambda: _dispatch_to_router(event.id))
+        transaction.on_commit(lambda: _dispatch_to_router(event.id, tenant_id))
     else:
-        _dispatch_to_router(event.id)
+        _dispatch_to_router(event.id, tenant_id)
     
     return event.id
 

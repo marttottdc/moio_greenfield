@@ -44,6 +44,7 @@ class IntegrationConfigSerializer(serializers.ModelSerializer):
             "instance_id",
             "name",
             "enabled",
+            "status",
             "config",
             "metadata",
             "integration_name",
@@ -185,9 +186,14 @@ class IntegrationConfigUpdateSerializer(IntegrationConfigSerializer):
             new_config = validated_data.pop("config")
             sensitive_fields = get_sensitive_fields(instance.slug)
             updated_config = dict(instance.config)
+            # Shopify: never overwrite store_url/access_token with empty (managed by OAuth/embed)
+            shopify_protected = ("store_url", "access_token", "webhook_secret") if instance.slug == "shopify" else ()
             for key, value in new_config.items():
                 if key in sensitive_fields and self._looks_like_mask(value):
                     continue
+                if key in shopify_protected:
+                    if value is None or value == "" or (isinstance(value, str) and not (value or "").strip()):
+                        continue  # preserve existing; do not overwrite with empty
                 updated_config[key] = value
             instance.config = updated_config
         if instance.is_configured() and not instance.enabled:

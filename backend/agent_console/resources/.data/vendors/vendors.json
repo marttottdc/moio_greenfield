@@ -1,0 +1,91 @@
+{
+  "vendors": [
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "models_endpoint": "/models",
+      "api_key": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "enabled": true,
+      "source": "default",
+      "reason": "",
+      "models": [
+        {
+          "id": "gpt-4.1-mini",
+          "label": "GPT-4.1 mini"
+        },
+        {
+          "id": "gpt-4.1",
+          "label": "GPT-4.1"
+        },
+        {
+          "id": "o4-mini",
+          "label": "o4-mini"
+        }
+      ],
+      "capabilities": {
+        "supportsThinking": true,
+        "supportsVerbosity": true,
+        "supportsTemperature": true,
+        "supportsMaxOutputTokens": true,
+        "supportsTools": true,
+        "supportsStreaming": true
+      }
+    },
+    {
+      "id": "xai",
+      "label": "xAI",
+      "base_url": "https://api.x.ai/v1",
+      "models_endpoint": "/models",
+      "api_key": "",
+      "api_key_env": "XAI_API_KEY",
+      "enabled": true,
+      "source": "default",
+      "reason": "",
+      "models": [
+        {
+          "id": "grok-4",
+          "label": "Grok 4"
+        },
+        {
+          "id": "grok-3-mini",
+          "label": "Grok 3 mini"
+        }
+      ],
+      "capabilities": {
+        "supportsThinking": true,
+        "supportsVerbosity": true,
+        "supportsTemperature": true,
+        "supportsMaxOutputTokens": true,
+        "supportsTools": true,
+        "supportsStreaming": true
+      }
+    },
+    {
+      "id": "anthropic",
+      "label": "Anthropic Claude",
+      "base_url": "https://api.anthropic.com/v1",
+      "models_endpoint": "/models",
+      "api_key": "",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "enabled": false,
+      "source": "default",
+      "reason": "not wired in this replica runtime yet",
+      "models": [
+        {
+          "id": "claude-3-7-sonnet",
+          "label": "Claude 3.7 Sonnet"
+        }
+      ],
+      "capabilities": {
+        "supportsThinking": true,
+        "supportsVerbosity": true,
+        "supportsTemperature": true,
+        "supportsMaxOutputTokens": true,
+        "supportsTools": true,
+        "supportsStreaming": true
+      }
+    }
+  ]
+}

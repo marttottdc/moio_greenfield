@@ -15,6 +15,11 @@ export function resolveApiBase(path: string, explicitBase: string | undefined): 
 export function resolveWebSocketBase(explicitBase: string | undefined): string {
   const explicit = stripTrailingSlash(explicitBase || "");
   if (explicit) return explicit;
+  // In dev, use same-origin /ws (proxied by Express to backend) so agent console connects locally
+  if (import.meta.env?.DEV) {
+    const proto = typeof window !== "undefined" && window.location?.protocol === "https:" ? "wss" : "ws";
+    return `${proto}://${typeof window !== "undefined" ? window.location.host : "localhost:5177"}/ws`;
+  }
   if (API_ORIGIN) {
     const url = new URL(API_ORIGIN);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -23,6 +28,6 @@ export function resolveWebSocketBase(explicitBase: string | undefined): string {
     url.hash = "";
     return stripTrailingSlash(url.toString());
   }
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${window.location.host}/ws`;
+  const proto = typeof window !== "undefined" && window.location?.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${typeof window !== "undefined" ? window.location.host : "localhost"}/ws`;
 }

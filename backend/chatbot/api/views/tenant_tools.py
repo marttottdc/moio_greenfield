@@ -1,9 +1,10 @@
 """API endpoints for tenant tool configuration."""
 import logging
+from django.conf import settings
+from django.db import connection
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import action
 
 from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
 from chatbot.api.serializers.tenant_tool_config import TenantToolConfigurationSerializer
@@ -11,6 +12,17 @@ from central_hub.context_utils import current_tenant
 from resources.api.views import BUILTIN_TOOLS
 
 logger = logging.getLogger(__name__)
+
+
+def _set_connection_tenant(tenant) -> None:
+    if not tenant or not getattr(tenant, "schema_name", None):
+        return
+    if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
+        return
+    try:
+        connection.set_tenant(tenant)
+    except Exception as exc:
+        logger.warning("Unable to switch DB tenant schema to %s: %s", tenant.schema_name, exc)
 
 
 def _builtin_tool_list_items():
@@ -65,7 +77,8 @@ class TenantToolConfigurationViewSet(viewsets.ModelViewSet):
         # Ensure tenant context is set for TenantManager (though we use explicit filter)
         if current_tenant.get() != tenant:
             current_tenant.set(tenant)
-        
+        _set_connection_tenant(tenant)
+
         return TenantToolConfiguration.objects.filter(tenant=tenant).order_by('tool_name')
 
     def list(self, request, *args, **kwargs):
@@ -100,10 +113,8 @@ class TenantToolConfigurationViewSet(viewsets.ModelViewSet):
             return response
         except Exception as e:
             logger.error(f"Error listing tenant tools: {e}")
-            return Response(
-                {"error": "Failed to list tool configurations"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            # Degrade gracefully so settings screens can still render builtins.
+            return Response(_builtin_tool_list_items(), status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
         """Get a specific tool configuration."""

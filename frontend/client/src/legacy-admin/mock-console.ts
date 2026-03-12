@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useEffect } from "react";
+import { getAccessToken } from "@/lib/api";
 
 type MockConsoleMessage = {
   role: "user" | "assistant" | "system";
@@ -738,6 +739,12 @@ function mockConsoleFetch(input: RequestInfo | URL, init?: RequestInit): Respons
 
 export function useLegacyAgentConsoleMockPreview() {
   useEffect(() => {
+    const mainToken = getAccessToken();
+    const hasRealToken = Boolean(typeof mainToken === "string" && mainToken.trim());
+    if (hasRealToken) {
+      return;
+    }
+
     ensureLegacyAgentConsoleMockState();
 
     const originalFetch = window.fetch.bind(window);

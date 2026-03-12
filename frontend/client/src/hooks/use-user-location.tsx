@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
+import { isShopifyAppRoute } from "@/constants/shopify";
 
 const LOCATION_SAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const LOCATION_PATH = apiV1("/settings/location/");
@@ -62,8 +64,11 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const [location] = useLocation();
+  const isShopifyEmbed = isShopifyAppRoute(location);
+
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user || isShopifyEmbed) return;
 
     const tick = async () => {
       const addr = await fetchUserLocation();
@@ -73,7 +78,7 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
     tick();
     const id = setInterval(tick, LOCATION_SAVE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [isAuthenticated, user?.id, saveLocation]);
+  }, [isAuthenticated, user?.id, saveLocation, isShopifyEmbed]);
 
   const value: UserLocationContextType = {
     lastLocation: effective,

@@ -8,13 +8,13 @@ import {
   getStoredPublicSessionState,
   joinPublic,
   loginPublic,
-  mintTenantSession,
   persistPublicSession,
-  revokeActiveTenantSession,
+  setActiveTenantSessionContext,
   type PublicTenantRow,
   type PublicWorkspaceRow,
   type StoredPublicSessionState,
 } from "../lib/publicAuthApi";
+import { clearStoredTokens } from "@/lib/api";
 
 type Mode = "login" | "join";
 type Destination = "agent" | "platform";
@@ -232,14 +232,20 @@ export default function AccessHubApp() {
     setError("");
     setStatus("");
     try {
-      await mintTenantSession({
-        tenantId: selectedTenant.uuid || undefined,
-        tenantSchema: selectedTenant.schemaName || undefined,
-        tenantSlug: selectedTenant.schemaName ? undefined : selectedTenant.slug || undefined,
-        workspaceId: selectedWorkspace.uuid || undefined,
-        workspaceSlug: selectedWorkspace.slug || "main",
+      setActiveTenantSessionContext({
+        tenantId: String(selectedTenant.uuid || "").trim(),
+        tenantSlug: String(selectedTenant.slug || "").trim().toLowerCase(),
+        tenantSchema: String(selectedTenant.schemaName || "").trim().toLowerCase(),
+        workspaceId: String(selectedWorkspace.uuid || "").trim(),
+        workspaceSlug: String(selectedWorkspace.slug || "main").trim().toLowerCase(),
       });
       const url = buildAbsoluteUrl(AGENT_CONSOLE_PATH);
+      if (selectedTenant.uuid) {
+        url.searchParams.set("tenantId", selectedTenant.uuid);
+      }
+      if (selectedTenant.schemaName || selectedTenant.slug) {
+        url.searchParams.set("tenant", selectedTenant.schemaName || selectedTenant.slug);
+      }
       if (selectedWorkspace.uuid) {
         url.searchParams.set("workspaceId", selectedWorkspace.uuid);
       } else {
@@ -254,7 +260,7 @@ export default function AccessHubApp() {
   }
 
   async function onLogout() {
-    await revokeActiveTenantSession();
+    clearStoredTokens();
     clearPublicSessions();
     setSession(getStoredPublicSessionState());
     setStatus("Signed out.");

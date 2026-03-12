@@ -9,6 +9,10 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+# Import nested Shopify Celery tasks so workers registering the central_hub app
+# also see central_hub.integrations.shopify.tasks.
+from central_hub.integrations.shopify import tasks as _shopify_tasks  # noqa: F401,E402
+
 
 @shared_task(bind=True, name="central_hub.tasks.self_provision_tenant")
 def self_provision_tenant_task(

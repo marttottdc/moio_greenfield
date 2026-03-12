@@ -12,6 +12,8 @@ interface MarkdownRendererProps {
   content?: string;
   content_html?: string;
   onTocGenerated?: (toc: TocItem[]) => void;
+  /** "dark" = docs theme (default), "light" = light background (e.g. agent chat) */
+  variant?: "dark" | "light";
 }
 
 // Configure marked to add IDs to headings for deep linking
@@ -38,7 +40,7 @@ renderer.heading = function (text: string, level: number) {
 
 marked.setOptions({ renderer });
 
-export function MarkdownRenderer({ content, content_html, onTocGenerated }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, content_html, onTocGenerated, variant = "dark" }: MarkdownRendererProps) {
   const { html, toc } = useMemo(() => {
     // Reset headings for each render
     headings.length = 0;
@@ -91,24 +93,15 @@ export function MarkdownRenderer({ content, content_html, onTocGenerated }: Mark
     return <p className="text-slate-400">No content available.</p>;
   }
 
+  const isLight = variant === "light";
+  const proseClass = isLight
+    ? "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-slate-800 prose-h1:text-xl prose-h1:mt-0 prose-h2:text-lg prose-h2:mt-5 prose-h3:text-base prose-h3:mt-4 prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-slate-700 prose-code:before:content-[''] prose-code:after:content-[''] prose-pre:bg-slate-50 prose-pre:border prose-pre:border-slate-200 prose-pre:rounded-lg prose-a:text-brand-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-slate-800 prose-li:marker:text-slate-400 prose-table:border prose-table:border-slate-200 prose-th:bg-slate-50 prose-th:border prose-th:border-slate-200 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-slate-200 prose-td:px-3 prose-td:py-1.5 prose-blockquote:border-l-brand-300 prose-blockquote:bg-brand-50/40"
+    : "prose prose-invert max-w-none prose-headings:scroll-mt-24 prose-headings:font-semibold prose-h1:text-2xl prose-h1:border-b prose-h1:border-slate-800 prose-h1:pb-2 prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-lg prose-h3:mt-6 prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800 prose-pre:rounded-lg prose-code:before:content-[''] prose-code:after:content-[''] prose-code:bg-slate-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-cyan-300 prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:text-cyan-300 hover:prose-a:underline prose-strong:text-slate-100 prose-blockquote:border-l-cyan-500 prose-blockquote:bg-slate-900/50 prose-blockquote:py-1 prose-blockquote:px-4 prose-li:marker:text-cyan-500 prose-table:border prose-table:border-slate-800 prose-th:bg-slate-900 prose-th:border prose-th:border-slate-800 prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-slate-800 prose-td:px-3 prose-td:py-2";
+
   return (
     <div
       onClick={handleClick}
-      className="prose prose-invert max-w-none 
-        prose-headings:scroll-mt-24 prose-headings:font-semibold
-        prose-h1:text-2xl prose-h1:border-b prose-h1:border-slate-800 prose-h1:pb-2
-        prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4
-        prose-h3:text-lg prose-h3:mt-6
-        prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800 prose-pre:rounded-lg
-        prose-code:before:content-[''] prose-code:after:content-['']
-        prose-code:bg-slate-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-cyan-300
-        prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:text-cyan-300 hover:prose-a:underline
-        prose-strong:text-slate-100
-        prose-blockquote:border-l-cyan-500 prose-blockquote:bg-slate-900/50 prose-blockquote:py-1 prose-blockquote:px-4
-        prose-li:marker:text-cyan-500
-        prose-table:border prose-table:border-slate-800
-        prose-th:bg-slate-900 prose-th:border prose-th:border-slate-800 prose-th:px-3 prose-th:py-2
-        prose-td:border prose-td:border-slate-800 prose-td:px-3 prose-td:py-2"
+      className={proseClass}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

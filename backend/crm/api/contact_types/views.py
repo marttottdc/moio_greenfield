@@ -44,6 +44,7 @@ class ContactTypesView(PaginationMixin, ProtectedAPIView):
             "name": contact_type.name,
             "description": contact_type.description,
             "color": contact_type.color,
+            "is_default": contact_type.is_default,
             "name_label": contact_type.get_name_display(),
             "default_agent_id": str(contact_type.default_agent_id) if contact_type.default_agent_id else None,
         }
@@ -89,13 +90,15 @@ class ContactTypesView(PaginationMixin, ProtectedAPIView):
         if error:
             return error
 
-        contact_type = ContactType.objects.create(
+        contact_type = ContactType(
             tenant=tenant,
             name=name,
             description=payload.get("description") or "",
             color=payload.get("color") or "",
+            is_default=bool(payload.get("is_default", False)),
             default_agent=default_agent,
         )
+        contact_type.save()
         return Response(self._serialize_contact_type(contact_type), status=status.HTTP_201_CREATED)
 
 
@@ -135,6 +138,7 @@ class ContactTypeDetailView(PaginationMixin, ProtectedAPIView):
             "name": contact_type.name,
             "description": contact_type.description,
             "color": contact_type.color,
+            "is_default": contact_type.is_default,
             "name_label": contact_type.get_name_display(),
             "default_agent_id": str(contact_type.default_agent_id) if contact_type.default_agent_id else None,
         }
@@ -170,6 +174,9 @@ class ContactTypeDetailView(PaginationMixin, ProtectedAPIView):
             if error:
                 return error
             contact_type.default_agent = default_agent
+
+        if "is_default" in payload:
+            contact_type.is_default = bool(payload["is_default"])
 
         contact_type.save()
         return Response(self._serialize_contact_type(contact_type))

@@ -55,6 +55,9 @@ class ContactCreateSerializer(ContactAPIMixin, serializers.ModelSerializer):
         contact_type, error = self._resolve_contact_type(tenant, attrs.get("type"))
         if error:
             raise ValidationError({"type": error})
+        if contact_type is None:
+            from crm.models import ContactType
+            contact_type = ContactType.objects.filter(tenant=tenant, is_default=True).first()
         attrs["ctype"] = contact_type
         attrs.pop("type", None)
 

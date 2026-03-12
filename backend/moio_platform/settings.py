@@ -9,6 +9,7 @@ from urllib.parse import quote_plus
 
 from corsheaders.defaults import default_headers
 import dj_database_url
+from kombu import Exchange, Queue
 
 from decouple import config
 from dotenv import load_dotenv
@@ -108,6 +109,7 @@ TENANT_APPS = [
     "flows",
     "moio_calendar",
     "websockets_app",
+    "agent_console.apps.AgentConsoleConfig",
     "datalab.apps.DatalabConfig",
 ]
 
@@ -363,38 +365,45 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REDIS_URL = get_config_value('REDIS_URL')
 
-CELERY_BROKER_URL = REDIS_URL or 'memory://'
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache'
-
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TASK_SERIALIZER = 'json'
-
 # App name for queue prefixes
 APP_NAME = os.environ.get("APP_NAME", "default")
-
-# Named queues
 HIGH_PRIORITY_Q = f'{APP_NAME}-HIGH'
 MEDIUM_PRIORITY_Q = f'{APP_NAME}-MEDIUM'
 LOW_PRIORITY_Q = f'{APP_NAME}-LOW'
 FLOWS_Q = f'{APP_NAME}-FLOWS'
+ALL_CELERY_QUEUE_NAMES = (
+    APP_NAME,
+    HIGH_PRIORITY_Q,
+    MEDIUM_PRIORITY_Q,
+    LOW_PRIORITY_Q,
+    FLOWS_Q,
+)
+CELERY_WORKER_QUEUES = ",".join(ALL_CELERY_QUEUE_NAMES)
 
-# Celery queue configuration
-CELERY_QUEUES = {
-    'default': {
-        'exchange': 'default',
-        'routing_key': 'default'
-    },
-    'flows': {
-        'exchange': 'flows',
-        'routing_key': 'flows'
-    },
-}
+CELERY_BROKER_URL = REDIS_URL or 'memory://'
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TASK_DEFAULT_QUEUE = APP_NAME
+CELERY_TASK_DEFAULT_EXCHANGE = APP_NAME
+CELERY_TASK_DEFAULT_ROUTING_KEY = APP_NAME
+CELERY_TASK_CREATE_MISSING_QUEUES = False
+CELERY_TASK_QUEUES = (
+    Queue(APP_NAME, Exchange(APP_NAME), routing_key=APP_NAME),
+    Queue(HIGH_PRIORITY_Q, Exchange(HIGH_PRIORITY_Q), routing_key=HIGH_PRIORITY_Q),
+    Queue(MEDIUM_PRIORITY_Q, Exchange(MEDIUM_PRIORITY_Q), routing_key=MEDIUM_PRIORITY_Q),
+    Queue(LOW_PRIORITY_Q, Exchange(LOW_PRIORITY_Q), routing_key=LOW_PRIORITY_Q),
+    Queue(FLOWS_Q, Exchange(FLOWS_Q), routing_key=FLOWS_Q),
+)
 
 CELERY_TASK_ROUTES = {
     'flows.tasks.*': {
-        'queue': FLOWS_Q
+        'queue': FLOWS_Q,
+        'routing_key': FLOWS_Q,
     }
 }
 

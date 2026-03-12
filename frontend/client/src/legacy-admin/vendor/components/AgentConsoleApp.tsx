@@ -12,12 +12,13 @@ import {
 import {
   clearPublicSessions,
   getActiveTenantSessionContext,
-  getStoredTenantSessionTokens,
-  revokeActiveTenantSession,
   setActiveTenantSessionContext,
-  setStoredTenantSessionTokens,
 } from "../lib/publicAuthApi";
+import { tenantBootstrap } from "../lib/tenantAdminApi";
+import { getAccessToken, getRefreshToken, setAccessToken } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { resolveApiBase, resolveWebSocketBase } from "../lib/runtimeConfig";
+import { MarkdownRenderer } from "@/components/docs/markdown-renderer";
 
 type SessionRow = {
   sessionKey: string;
@@ -40,6 +41,7 @@ type UiMessage = {
   authorLabel?: string;
   runId?: string;
   usage?: UsageTotals | null;
+  exchangedFiles?: ExchangedFileRef[];
 };
 
 type RunStatus = "idle" | "queued" | "thinking" | "tools" | "done" | "aborted" | "error";
@@ -79,6 +81,14 @@ type PendingAttachment = {
   previewUrl: string;
 };
 
+type ExchangedFileRef = {
+  id: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  source: "uploaded" | "generated";
+};
+
 type AgentConfig = {
   tenant: string;
   workspace: string;
@@ -96,19 +106,7 @@ type TenantWorkspaceOption = {
   name: string;
 };
 
-type TenantChoice = {
-  uuid: string;
-  slug: string;
-  schemaName: string;
-  name: string;
-  workspaces: TenantWorkspaceOption[];
-};
-
-const PUBLIC_USER_STORAGE_KEY = "moio_public_user";
-const PUBLIC_TOKEN_STORAGE_KEY = "moio_public_tokens";
 const PUBLIC_TENANTS_STORAGE_KEY = "moio_public_tenants";
-const PLATFORM_ACCESS_TOKEN_KEY = "platform_admin_access_token";
-const PLATFORM_REFRESH_TOKEN_KEY = "platform_admin_refresh_token";
 const AUTH_BASE = resolveApiBase("/api/auth", import.meta.env.VITE_PLATFORM_ADMIN_AUTH_BASE);
 const WS_BASE = resolveWebSocketBase(import.meta.env.VITE_WS_BASE_URL);
 
@@ -116,15 +114,52 @@ const FOLLOW_THRESHOLD_PX = 96;
 const MAX_PENDING_ATTACHMENTS = 8;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-function hasAccessChoicesFromStorage(): boolean {
-  const tokenObj = parseStoredObject(PUBLIC_TOKEN_STORAGE_KEY);
-  const hasTenantToken = Boolean(String(tokenObj?.access ?? "").trim());
-  let hasPlatformToken = false;
-  try {
-    hasPlatformToken = Boolean(String(localStorage.getItem(PLATFORM_ACCESS_TOKEN_KEY) || "").trim());
-  } catch {
-    hasPlatformToken = false;
+function resolveBackendOrigin(): string {
+  if (typeof window === "undefined") return "";
+  const candidates = [resolveApiBase("/", undefined), AUTH_BASE, WS_BASE];
+  for (const candidate of candidates) {
+    const value = String(candidate || "").trim();
+    if (!value) continue;
+    try {
+      const parsed = new URL(value, window.location.origin);
+      const protocol = parsed.protocol.toLowerCase();
+      if (protocol === "ws:" || protocol === "wss:") {
+        const httpProtocol = protocol === "wss:" ? "https:" : "http:";
+        return `${httpProtocol}//${parsed.host}`;
+      }
+      return parsed.origin;
+    } catch {
+      // ignore malformed URL candidates
+    }
   }
+  return window.location.origin;
+}
+
+function resolveFileUrl(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("//")) {
+    if (typeof window === "undefined") return `https:${raw}`;
+    return `${window.location.protocol}${raw}`;
+  }
+  if (raw.startsWith("/")) {
+    const origin = resolveBackendOrigin();
+    return origin ? `${origin}${raw}` : raw;
+  }
+  return raw;
+}
+
+function isPreviewableFile(file: ExchangedFileRef): boolean {
+  const mime = String(file.mimeType || "").toLowerCase();
+  if (mime.startsWith("image/")) return true;
+  if (mime === "application/pdf") return true;
+  const lowerName = file.name.toLowerCase();
+  return lowerName.endsWith(".png") || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".webp") || lowerName.endsWith(".gif") || lowerName.endsWith(".pdf");
+}
+
+function hasAccessChoicesFromStorage(): boolean {
+  const hasPlatformToken = Boolean((getAccessToken() ?? "").trim());
   const rawTenants = (() => {
     try {
       const raw = localStorage.getItem(PUBLIC_TENANTS_STORAGE_KEY);
@@ -134,7 +169,7 @@ function hasAccessChoicesFromStorage(): boolean {
     }
   })();
   const tenants = Array.isArray(rawTenants) ? rawTenants : [];
-  const canTenant = hasTenantToken && tenants.length > 0;
+  const canTenant = hasPlatformToken && tenants.length > 0;
   const tenantChoices =
     canTenant &&
     (tenants.length > 1 ||
@@ -334,55 +369,6 @@ function truncateName(name: string, max = 32): string {
   return `${value.slice(0, max - 3)}...`;
 }
 
-function parseStoredObject(key: string): Record<string, unknown> | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-function readTenantChoicesFromStorage(): TenantChoice[] {
-  try {
-    const raw = localStorage.getItem(PUBLIC_TENANTS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const rows = Array.isArray(parsed) ? parsed : [];
-    return rows
-      .map((row) => {
-        const item = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
-        const workspacesRaw = Array.isArray(item.workspaces) ? item.workspaces : [];
-        const workspaces = workspacesRaw
-          .map((entry) => {
-            const ws = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
-            const uuid = String(ws.uuid ?? "").trim();
-            const slug = String(ws.slug ?? "").trim().toLowerCase();
-            const value = uuid || slug;
-            if (!value || !slug) return null;
-            return {
-              value,
-              uuid,
-              slug,
-              name: String(ws.name ?? ws.displayName ?? ws.slug ?? slug).trim() || slug,
-            };
-          })
-          .filter((entry): entry is TenantWorkspaceOption => Boolean(entry));
-        return {
-          uuid: String(item.uuid ?? item.id ?? "").trim(),
-          slug: String(item.slug ?? "").trim().toLowerCase(),
-          schemaName: String(item.schemaName ?? "").trim().toLowerCase(),
-          name: String(item.name ?? item.slug ?? item.schemaName ?? "tenant").trim(),
-          workspaces,
-        };
-      })
-      .filter((row) => Boolean(row.uuid || row.slug || row.schemaName));
-  } catch {
-    return [];
-  }
-}
-
 function clearAuthState(): void {
   clearPublicSessions();
   document.cookie = "tenant=; Max-Age=0; Path=/; SameSite=Lax";
@@ -406,11 +392,45 @@ function fileHintsFromMessageMeta(item: Record<string, unknown>, baseText: strin
     if (!entry || typeof entry !== "object") continue;
     const row = entry as Record<string, unknown>;
     const name = String(row.name ?? "").trim() || "generated file";
-    const path = String(row.path ?? "").trim();
-    lines.push(path ? `- ${name} (${path})` : `- ${name}`);
+    const downloadUrl = resolveFileUrl(row.downloadUrl);
+    if (downloadUrl) {
+      lines.push(`- [${name}](${downloadUrl})`);
+      continue;
+    }
+    lines.push(`- ${name}`);
   }
   if (!lines.length) return "";
   return `\n\nFiles referenced in this turn:\n${lines.join("\n")}`;
+}
+
+function exchangedFilesFromMessageMeta(item: Record<string, unknown>): ExchangedFileRef[] {
+  const out: ExchangedFileRef[] = [];
+  const seen = new Set<string>();
+
+  const pushEntry = (entry: Record<string, unknown>, source: "uploaded" | "generated") => {
+    const name = String(entry.name ?? "").trim() || "file";
+    const url = resolveFileUrl(entry.downloadUrl ?? entry.localUrl);
+    const mimeType = String(entry.mimeType ?? "").trim();
+    if (!url) return;
+    const id = `${source}|${name}|${url}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, name, url, mimeType, source });
+  };
+
+  const attachments = Array.isArray(item.attachments) ? item.attachments : [];
+  for (const entry of attachments) {
+    if (!entry || typeof entry !== "object") continue;
+    pushEntry(entry as Record<string, unknown>, "uploaded");
+  }
+
+  const generatedFiles = Array.isArray(item.generatedFiles) ? item.generatedFiles : [];
+  for (const entry of generatedFiles) {
+    if (!entry || typeof entry !== "object") continue;
+    pushEntry(entry as Record<string, unknown>, "generated");
+  }
+
+  return out;
 }
 
 function toUiMessages(rows: unknown[]): UiMessage[] {
@@ -426,6 +446,7 @@ function toUiMessages(rows: unknown[]): UiMessage[] {
     if (!text) continue;
     const usage = usageFromAny(item.usage);
     const authorLabel = labelFromActor(item.author) || labelFromActor(item.owner);
+    const exchangedFiles = exchangedFilesFromMessageMeta(item);
     const fallbackId = `${roleRaw}-${String(item.timestamp ?? Date.now())}-${out.length}`;
     out.push({
       id: runId ? `${roleRaw}-${runId}` : fallbackId,
@@ -434,6 +455,7 @@ function toUiMessages(rows: unknown[]): UiMessage[] {
       text,
       authorLabel,
       usage,
+      exchangedFiles,
     });
   }
   return out;
@@ -522,6 +544,7 @@ const AGENT_CONSOLE_PATH = "/desktop-agent-console/console/";
 const TENANT_ADMIN_PATH = "/desktop-agent-console/tenant-admin/";
 
 export default function AgentConsoleApp() {
+  const { toast } = useToast();
   const location = useMemo(() => ({ search: window.location.search }), []);
   const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const activeTenantContext = useMemo(() => getActiveTenantSessionContext(), []);
@@ -534,19 +557,14 @@ export default function AgentConsoleApp() {
       .trim()
       .toLowerCase();
     if (activeTenant) return activeTenant;
-    if (!tenantIdFromQuery) return "public";
-    const match = readTenantChoicesFromStorage().find((row) => row.uuid === tenantIdFromQuery);
-    return String(match?.schemaName || match?.slug || "public").trim().toLowerCase() || "public";
+    return "public";
   })();
   const workspaceFromQuery = (() => {
     const explicit = (query.get("workspace") || "").trim().toLowerCase();
     if (explicit) return explicit;
     const activeWorkspace = String(activeTenantContext?.workspaceSlug || "").trim().toLowerCase();
     if (activeWorkspace) return activeWorkspace;
-    if (!tenantIdFromQuery || !workspaceIdFromQuery) return "main";
-    const tenant = readTenantChoicesFromStorage().find((row) => row.uuid === tenantIdFromQuery);
-    const ws = (tenant?.workspaces || []).find((row) => row.uuid === workspaceIdFromQuery);
-    return String(ws?.slug || "main").trim().toLowerCase() || "main";
+    return "main";
   })();
 
   const [config, setConfig] = useState<AgentConfig>({
@@ -579,11 +597,11 @@ export default function AgentConsoleApp() {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sendInFlight, setSendInFlight] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userDockOpen, setUserDockOpen] = useState(false);
   const [rightRailTab, setRightRailTab] = useState<"status" | "activity">("activity");
   const [sessionSearch, setSessionSearch] = useState("");
   const [socketRetryTick, setSocketRetryTick] = useState(0);
   const [hasAccessChoices, setHasAccessChoices] = useState(false);
+  const [backendWorkspaceOptions, setBackendWorkspaceOptions] = useState<TenantWorkspaceOption[] | null>(null);
   const [installAvailable, setInstallAvailable] = useState(() => isInstallPromptAvailable());
   const [pushState, setPushState] = useState(() => {
     if (typeof window === "undefined" || typeof Notification === "undefined") return "unsupported";
@@ -591,6 +609,21 @@ export default function AgentConsoleApp() {
   });
   const [geoState, setGeoState] = useState("not shared");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [filePreview, setFilePreview] = useState<ExchangedFileRef | null>(null);
+  const exchangedFiles = useMemo(() => {
+    const seen = new Set<string>();
+    const out: ExchangedFileRef[] = [];
+    for (const message of messages) {
+      const entries = Array.isArray(message.exchangedFiles) ? message.exchangedFiles : [];
+      for (const entry of entries) {
+        const key = `${entry.source}|${entry.name}|${entry.url}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(entry);
+      }
+    }
+    return out;
+  }, [messages]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -600,6 +633,9 @@ export default function AgentConsoleApp() {
   const liveMessageIdByRunRef = useRef<Map<string, string>>(new Map());
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const sessionLoadingTimeoutRef = useRef<number | null>(null);
+  const authRefreshInFlightRef = useRef<Promise<boolean> | null>(null);
+  const fatalSocketErrorRef = useRef<string>("");
 
   function pushToolEvent(text: string, phase: string): void {
     setToolEvents((prev) => {
@@ -626,6 +662,38 @@ export default function AgentConsoleApp() {
     setResourcesSummary((prev) => decorateResourcesSummary(prev, sessionKey, scope));
   }
 
+  async function refreshMainAccessToken(): Promise<boolean> {
+    if (authRefreshInFlightRef.current) return authRefreshInFlightRef.current;
+    const refreshToken = String(getRefreshToken() ?? "").trim();
+    if (!refreshToken) return false;
+    const task = (async () => {
+      try {
+        const refreshed = await fetch(`${AUTH_BASE}/refresh`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        const refreshedData = await refreshed.json().catch(() => ({}));
+        const renewedAccess = String(
+          (refreshedData as Record<string, unknown>)?.payload &&
+            typeof (refreshedData as Record<string, unknown>).payload === "object"
+            ? ((refreshedData as Record<string, unknown>).payload as Record<string, unknown>).access ?? ""
+            : "",
+        ).trim();
+        if (!refreshed.ok || !renewedAccess) return false;
+        setAccessToken(renewedAccess);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        authRefreshInFlightRef.current = null;
+      }
+    })();
+    authRefreshInFlightRef.current = task;
+    return task;
+  }
+
   useEffect(() => {
     activeSessionRef.current = config.sessionKey;
   }, [config.sessionKey]);
@@ -647,6 +715,41 @@ export default function AgentConsoleApp() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const accessToken = String(getAccessToken() ?? "").trim();
+    if (!accessToken) {
+      setBackendWorkspaceOptions(null);
+      return;
+    }
+    void tenantBootstrap(workspaceFromQuery || "main")
+      .then((payload) => {
+        if (!active) return;
+        const rows = Array.isArray(payload.workspaces) ? payload.workspaces : [];
+        const options = rows
+          .map((entry) => {
+            const slug = String(entry?.slug ?? "").trim().toLowerCase();
+            if (!slug) return null;
+            const uuid = String(entry?.id ?? "").trim();
+            return {
+              value: uuid || slug,
+              uuid,
+              slug,
+              name: String(entry?.name ?? entry?.displayName ?? slug).trim() || slug,
+            };
+          })
+          .filter((entry): entry is TenantWorkspaceOption => Boolean(entry));
+        setBackendWorkspaceOptions(options.length ? options : [{ value: "main", uuid: "", slug: "main", name: "main" }]);
+      })
+      .catch(() => {
+        if (!active) return;
+        setBackendWorkspaceOptions(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceFromQuery, workspaceIdFromQuery, socketRetryTick]);
+
+  useEffect(() => {
     const eventName = installPromptEventName();
     const syncInstallAvailability = () => {
       setInstallAvailable(isInstallPromptAvailable());
@@ -660,9 +763,8 @@ export default function AgentConsoleApp() {
   }, []);
 
   useEffect(() => {
-    const tokenObj = getStoredTenantSessionTokens();
-    const accessToken = String(tokenObj?.access ?? "").trim();
-    if (tenantFromQuery !== "public" && !accessToken) {
+    const accessToken = String(getAccessToken() ?? "").trim();
+    if (!accessToken) {
       const url = new URL(window.location.origin + ACCESS_HUB_PATH);
       if (workspaceIdFromQuery) url.searchParams.set("nextWorkspaceId", workspaceIdFromQuery);
       if (workspaceFromQuery) url.searchParams.set("nextWorkspace", workspaceFromQuery);
@@ -677,7 +779,8 @@ export default function AgentConsoleApp() {
     let disposed = false;
     const scheduleReconnect = () => {
       if (disposed || tenantFromQuery === "public") return;
-      const latestToken = String(getStoredTenantSessionTokens()?.access ?? "").trim();
+      if (fatalSocketErrorRef.current) return;
+      const latestToken = String(getAccessToken() ?? "").trim();
       if (!latestToken || reconnectTimerRef.current !== null) return;
       const nextAttempt = reconnectAttemptRef.current + 1;
       reconnectAttemptRef.current = nextAttempt;
@@ -694,12 +797,14 @@ export default function AgentConsoleApp() {
     if (workspaceFromQuery) wsQuery.set("workspace", workspaceFromQuery);
     if (workspaceIdFromQuery) wsQuery.set("workspaceId", workspaceIdFromQuery);
     if (accessToken) wsQuery.set("accessToken", accessToken);
-    const wsUrl = `${WS_BASE}${wsQuery.toString() ? `?${wsQuery.toString()}` : ""}`;
+    const wsBase = (WS_BASE || "").replace(/\/+$/, "");
+    const wsUrl = `${wsBase}/agent-console${wsQuery.toString() ? `?${wsQuery.toString()}` : ""}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
       if (wsRef.current !== ws) return;
+      fatalSocketErrorRef.current = "";
       setGatewayConnected(true);
       const wasReconnect = reconnectAttemptRef.current > 0;
       reconnectAttemptRef.current = 0;
@@ -714,12 +819,38 @@ export default function AgentConsoleApp() {
         );
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       if (wsRef.current !== ws) return;
+      if (sessionLoadingTimeoutRef.current !== null) {
+        window.clearTimeout(sessionLoadingTimeoutRef.current);
+        sessionLoadingTimeoutRef.current = null;
+      }
       setGatewayConnected(false);
       setSessionLoading(false);
       setSendInFlight(false);
       wsRef.current = null;
+      if (event.code === 4401) {
+        setRunStatus("idle");
+        setRunStatusMeta("auth expired, refreshing session");
+        void (async () => {
+          const refreshed = await refreshMainAccessToken();
+          if (refreshed) {
+            reconnectAttemptRef.current = 0;
+            setRunStatusMeta("auth refreshed, reconnecting");
+            setSocketRetryTick((prev) => prev + 1);
+            return;
+          }
+          clearAuthState();
+          const url = new URL(window.location.origin + ACCESS_HUB_PATH);
+          if (workspaceIdFromQuery) url.searchParams.set("nextWorkspaceId", workspaceIdFromQuery);
+          if (workspaceFromQuery) url.searchParams.set("nextWorkspace", workspaceFromQuery);
+          window.location.replace(url.toString());
+        })();
+        return;
+      }
+      if (fatalSocketErrorRef.current) {
+        return;
+      }
       scheduleReconnect();
     };
     ws.onerror = () => {
@@ -739,6 +870,10 @@ export default function AgentConsoleApp() {
 
     return () => {
       disposed = true;
+      if (sessionLoadingTimeoutRef.current !== null) {
+        window.clearTimeout(sessionLoadingTimeoutRef.current);
+        sessionLoadingTimeoutRef.current = null;
+      }
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
@@ -776,6 +911,10 @@ export default function AgentConsoleApp() {
   }
 
   function beginSessionSwitch(nextSessionKey: string): void {
+    if (sessionLoadingTimeoutRef.current !== null) {
+      window.clearTimeout(sessionLoadingTimeoutRef.current);
+      sessionLoadingTimeoutRef.current = null;
+    }
     setSessionLoading(true);
     draftByRunRef.current.clear();
     liveMessageIdByRunRef.current.clear();
@@ -792,6 +931,10 @@ export default function AgentConsoleApp() {
     sendAction("chat_queue", { sessionKey: nextSessionKey });
     sendAction("chat_summary", { sessionKey: nextSessionKey });
     sendAction("chat_usage", { sessionKey: nextSessionKey });
+    sessionLoadingTimeoutRef.current = window.setTimeout(() => {
+      sessionLoadingTimeoutRef.current = null;
+      setSessionLoading(false);
+    }, 12000);
   }
 
   function applyQueuePayload(envelope: Record<string, unknown>): void {
@@ -865,12 +1008,26 @@ export default function AgentConsoleApp() {
     markSessionActivity(nextSession, activeScope);
     setRunStatus("idle");
     setRunStatusMeta("ready");
+    setSessionLoading(false);
   }
 
   function handleFrame(frame: Record<string, unknown>): void {
     const type = String(frame.type ?? "");
     if (type === "init") {
       handleInit(frame);
+      return;
+    }
+
+    if (type === "auth_expiring") {
+      setRunStatusMeta("session expiring, refreshing auth");
+      void (async () => {
+        const refreshed = await refreshMainAccessToken();
+        if (!refreshed) return;
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          setRunStatusMeta("auth refreshed, reconnecting");
+          wsRef.current.close(4002, "auth_refreshed");
+        }
+      })();
       return;
     }
 
@@ -891,6 +1048,10 @@ export default function AgentConsoleApp() {
       const payload = (envelope.payload as Record<string, unknown>) || {};
       const sessionKey = normalizeSessionKey(payload.sessionKey);
       if (sessionKey !== normalizeSessionKey(activeSessionRef.current)) return;
+      if (sessionLoadingTimeoutRef.current !== null) {
+        window.clearTimeout(sessionLoadingTimeoutRef.current);
+        sessionLoadingTimeoutRef.current = null;
+      }
       const rows = Array.isArray(payload.messages) ? payload.messages : [];
       setMessages(toUiMessages(rows));
       setSessionLoading(false);
@@ -1105,7 +1266,14 @@ export default function AgentConsoleApp() {
           setMessages((prev) =>
             prev.map((item) =>
               item.id === liveMessageId
-                ? { ...item, text: finalText, usage: nextUsage, runId: runId || item.runId }
+                ? {
+                    ...item,
+                    ...(finalMessage || {}),
+                    id: item.id,
+                    text: finalText,
+                    usage: nextUsage ?? finalMessage?.usage ?? item.usage,
+                    runId: runId || item.runId,
+                  }
                 : item,
             ),
           );
@@ -1184,11 +1352,37 @@ export default function AgentConsoleApp() {
     }
 
     if (type === "error") {
-      const payload = (frame.error as Record<string, unknown>) || {};
+      const payload = (frame.payload as Record<string, unknown>) || (frame.error as Record<string, unknown>) || {};
+      const message = String(payload.message ?? "request failed");
+      const code = String(payload.code ?? "");
+      const lowerMessage = message.toLowerCase();
       setSessionLoading(false);
       setSendInFlight(false);
       setRunStatus("error");
-      setRunStatusMeta(String(payload.message ?? "request failed"));
+      setRunStatusMeta(message);
+      if (code === "tenant_required") {
+        const url = new URL(window.location.origin + ACCESS_HUB_PATH);
+        if (workspaceIdFromQuery) url.searchParams.set("nextWorkspaceId", workspaceIdFromQuery);
+        if (workspaceFromQuery) url.searchParams.set("nextWorkspace", workspaceFromQuery);
+        window.location.replace(url.toString());
+        return;
+      }
+      if (code === "openai_not_configured" || message.toLowerCase().includes("openai")) {
+        fatalSocketErrorRef.current = code || "openai_not_configured";
+        toast({
+          title: "Configuración requerida",
+          description: message,
+          variant: "destructive",
+        });
+      }
+      if (code === "backend_error" && lowerMessage.includes("missing model api key")) {
+        fatalSocketErrorRef.current = "backend_error";
+        toast({
+          title: "Modelo sin configurar",
+          description: "Falta API key del modelo para este tenant. Configura OpenAI en Integrations.",
+          variant: "destructive",
+        });
+      }
     }
   }
 
@@ -1319,20 +1513,21 @@ export default function AgentConsoleApp() {
 
   function switchWorkspace(nextValue: string): void {
     const target = currentWorkspaceOptions.find((row) => row.value === nextValue);
-    if (!target || !currentTenantChoice) return;
+    if (!target) return;
     if (target.value === selectedWorkspaceValue) return;
     setMobileMenuOpen(false);
+    const current = getActiveTenantSessionContext();
     setActiveTenantSessionContext({
-      ...(getActiveTenantSessionContext() || {
-        tenantId: currentTenantChoice.uuid || "",
-        tenantSlug: currentTenantChoice.slug || "",
-        tenantSchema: currentTenantChoice.schemaName || "",
+      ...(current || {
+        tenantId: tenantIdFromQuery || "",
+        tenantSlug: "",
+        tenantSchema: config.tenant || "",
         workspaceId: "",
         workspaceSlug: "",
       }),
-      tenantId: currentTenantChoice.uuid || "",
-      tenantSlug: currentTenantChoice.slug || "",
-      tenantSchema: currentTenantChoice.schemaName || config.tenant || "",
+      tenantId: current?.tenantId || tenantIdFromQuery || "",
+      tenantSlug: current?.tenantSlug || "",
+      tenantSchema: current?.tenantSchema || config.tenant || "",
       workspaceId: target.uuid || "",
       workspaceSlug: target.slug || "main",
     });
@@ -1347,7 +1542,6 @@ export default function AgentConsoleApp() {
 
   async function logout(): Promise<void> {
     setMobileMenuOpen(false);
-    await revokeActiveTenantSession();
     clearAuthState();
     window.location.assign(ACCESS_HUB_PATH);
   }
@@ -1469,9 +1663,8 @@ export default function AgentConsoleApp() {
   }
 
   async function enablePushNotifications(): Promise<void> {
-    const tokenObj = getStoredTenantSessionTokens();
-    let accessToken = String(tokenObj?.access ?? "").trim();
-    const refreshToken = String(tokenObj?.refresh ?? "").trim();
+    let accessToken = String(getAccessToken() ?? "").trim();
+    const refreshToken = String(getRefreshToken() ?? "").trim();
 
     const withTenantAuth = async (path: string, init: RequestInit): Promise<Response> => {
       const execute = (token: string) =>
@@ -1501,7 +1694,7 @@ export default function AgentConsoleApp() {
         ).trim();
         if (refreshed.ok && renewedAccess) {
           accessToken = renewedAccess;
-          setStoredTenantSessionTokens({ access: renewedAccess, refresh: refreshToken });
+          setAccessToken(renewedAccess);
           response = await execute(renewedAccess);
         }
       }
@@ -1581,25 +1774,10 @@ export default function AgentConsoleApp() {
   }
 
   const nf = useMemo(() => new Intl.NumberFormat(), []);
-  const tenantChoices = useMemo(() => readTenantChoicesFromStorage(), [hasAccessChoices]);
-  const currentTenantChoice = useMemo(() => {
-    if (!tenantChoices.length) return null;
-    if (tenantIdFromQuery) {
-      const byId = tenantChoices.find((row) => row.uuid === tenantIdFromQuery);
-      if (byId) return byId;
-    }
-    const tenantKey = String(config.tenant || "").trim().toLowerCase();
-    return (
-      tenantChoices.find((row) => row.schemaName === tenantKey || row.slug === tenantKey || row.uuid === tenantKey) ||
-      tenantChoices[0] ||
-      null
-    );
-  }, [tenantChoices, tenantIdFromQuery, config.tenant]);
   const currentWorkspaceOptions = useMemo(() => {
-    if (!currentTenantChoice) return [];
-    if (currentTenantChoice.workspaces.length > 0) return currentTenantChoice.workspaces;
+    if (backendWorkspaceOptions && backendWorkspaceOptions.length > 0) return backendWorkspaceOptions;
     return [{ value: "main", uuid: "", slug: "main", name: "main" }];
-  }, [currentTenantChoice]);
+  }, [backendWorkspaceOptions]);
   const selectedWorkspaceValue = useMemo(() => {
     if (!currentWorkspaceOptions.length) return "main";
     if (workspaceIdFromQuery) {
@@ -1619,34 +1797,24 @@ export default function AgentConsoleApp() {
     });
   }, [sessions, sessionQuery]);
   const composerProfileLabel = `${config.model || "default"} | ${config.thinking || "default"} | ${config.verbosity || "minimal"}`;
-  const userRecord = parseStoredObject(PUBLIC_USER_STORAGE_KEY);
-  const userName = String(userRecord?.displayName ?? userRecord?.email ?? `${config.tenant} user`).trim();
-  const userEmail = String(userRecord?.email ?? "Not signed in").trim();
-  const userInitials = userName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((x) => x[0] || "")
-    .join("")
-    .toUpperCase() || "U";
   const activeSessionScope = sessionScopeForKey(sessions, config.sessionKey);
   const sidebarNav = (
     <>
-      <header className="border-b border-slate-500/40 px-4 py-4">
-        <h2 className="text-2xl font-semibold tracking-tight">moio</h2>
-        <p className="text-xs uppercase tracking-widest text-slate-300">CRM Platform</p>
+      <header className="border-b border-sidebar-border px-4 py-4">
+        <h2 className="text-2xl font-semibold tracking-tight text-sidebar-foreground">moio</h2>
+        <p className="text-xs uppercase tracking-widest text-sidebar-foreground/70">CRM Platform · Agent</p>
       </header>
       <section className="min-h-0 flex flex-1 flex-col overflow-hidden p-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-widest text-[#58a6ff]">Sessions</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-widest text-sidebar-primary">Sessions</p>
           <div className="flex items-center gap-2">
-            <span className="rounded-full border border-slate-500/45 bg-slate-700/60 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">
+            <span className="rounded-full border border-sidebar-border bg-sidebar-accent px-1.5 py-0.5 font-mono text-[10px] text-sidebar-foreground">
               {filteredSessions.length}
             </span>
             <button
               type="button"
               onClick={() => createSession()}
-              className="rounded-md border border-slate-400/40 bg-slate-600/70 px-2 py-1 text-[11px] font-semibold hover:bg-slate-500/70"
+              className="rounded-md border border-sidebar-border bg-sidebar-accent px-2 py-1 text-[11px] font-semibold text-sidebar-foreground hover:bg-sidebar-accent/80"
               title="Create private conversation"
             >
               New
@@ -1659,7 +1827,7 @@ export default function AgentConsoleApp() {
             value={sessionSearch}
             onChange={(event) => setSessionSearch(event.target.value)}
             placeholder="Search sessions"
-            className="w-full rounded-md border border-slate-400/50 bg-slate-600/70 px-2 py-1.5 text-[12px] text-slate-100 placeholder:text-slate-300 outline-none"
+            className="w-full rounded-md border border-sidebar-border bg-sidebar-accent px-2 py-1.5 text-[12px] text-sidebar-foreground placeholder:text-sidebar-foreground/60 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           />
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -1672,8 +1840,8 @@ export default function AgentConsoleApp() {
                 onClick={() => selectSession(row.sessionKey)}
                 className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
                   active
-                    ? "border-brand-300 bg-brand-500/20 text-white"
-                    : "border-slate-500/40 bg-slate-600/50 text-slate-200 hover:bg-slate-500/50"
+                    ? "border-sidebar-primary bg-sidebar-primary/20 text-sidebar-primary-foreground"
+                    : "border-sidebar-border bg-sidebar-accent/50 text-sidebar-foreground hover:bg-sidebar-accent"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -1682,7 +1850,7 @@ export default function AgentConsoleApp() {
                     {row.scope === "shared" ? (
                       <svg
                         viewBox="0 0 24 24"
-                        className="h-3.5 w-3.5 shrink-0 text-emerald-200"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-400"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="1.8"
@@ -1697,37 +1865,37 @@ export default function AgentConsoleApp() {
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-0.5 font-mono text-[10px] opacity-80">
+                <div className="mt-0.5 font-mono text-[10px] text-sidebar-foreground/80">
                   {row.sessionKey} · {row.messageCount} messages
                 </div>
               </button>
             );
           })}
           {!filteredSessions.length ? (
-            <div className="rounded-lg border border-dashed border-slate-400/50 bg-slate-600/45 px-3 py-2 text-[11px] text-slate-300">
+            <div className="rounded-lg border border-dashed border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-[11px] text-sidebar-foreground/70">
               No sessions match this search.
             </div>
           ) : null}
         </div>
       </section>
-      <footer className="shrink-0 border-t border-slate-500/40 px-3 py-3 text-[11px] text-slate-200">
+      <footer className="shrink-0 border-t border-sidebar-border px-3 py-3 text-[11px] text-sidebar-foreground">
         <div className="space-y-2.5">
-          <div className="rounded-xl border border-slate-500/45 bg-slate-600/45 p-2.5">
+          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-2.5">
             <div className="mb-2 flex items-start justify-between gap-2">
               <div className="space-y-0.5 text-[12px] leading-4">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-300">Tenant:</span>
-                  <span className="font-semibold text-slate-100">{config.tenant}</span>
+                  <span className="text-sidebar-foreground/70">Tenant:</span>
+                  <span className="font-semibold text-sidebar-foreground">{config.tenant}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-slate-300">Workspace:</span>
-                    <span className="font-semibold text-slate-100">{config.workspace}</span>
+                    <span className="text-sidebar-foreground/70">Workspace:</span>
+                    <span className="font-semibold text-sidebar-foreground">{config.workspace}</span>
                   </div>
                   <button
                     type="button"
                     onClick={openTenantAdmin}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-400/60 bg-slate-700/70 text-slate-100 transition hover:bg-slate-500/70"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent text-sidebar-foreground transition hover:bg-sidebar-accent/80"
                     aria-label="Workspace settings"
                     title="Workspace settings"
                   >
@@ -1742,7 +1910,7 @@ export default function AgentConsoleApp() {
                 <button
                   type="button"
                   onClick={openAccessHub}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-400/60 bg-slate-700/70 text-slate-100 transition hover:bg-slate-500/70"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent text-sidebar-foreground transition hover:bg-sidebar-accent/80"
                   aria-label="Switch tenant and workspace"
                   title="Switch tenant and workspace"
                 >
@@ -1753,91 +1921,76 @@ export default function AgentConsoleApp() {
                 </button>
               ) : null}
             </div>
-            <label className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-300">
+            <label className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/70">
               Workspace
             </label>
             <select
               value={selectedWorkspaceValue}
               onChange={(event) => switchWorkspace(event.target.value)}
-              className="w-full rounded-lg border border-slate-400/55 bg-slate-700/60 px-2.5 py-1.5 text-[12px] text-slate-100 outline-none"
+              className="w-full rounded-lg border border-sidebar-border bg-sidebar-accent px-2.5 py-1.5 text-[12px] text-sidebar-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             >
               {currentWorkspaceOptions.map((row) => (
-                <option key={row.value} value={row.value} className="text-slate-900">
+                <option key={row.value} value={row.value} className="bg-background text-foreground">
                   {row.name}
                 </option>
               ))}
             </select>
           </div>
         </div>
-        <div className="mt-2.5 border-t border-slate-500/40 pt-2.5">
-          <button
-            type="button"
-            onClick={() => setUserDockOpen((x) => !x)}
-            className="flex w-full items-center gap-2 rounded-xl border border-slate-500/50 bg-slate-600/70 px-2.5 py-2 text-left transition hover:bg-slate-500/70"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300/70 bg-slate-500/80 text-[11px] font-semibold uppercase text-white">
-              {userInitials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] font-semibold text-slate-100">{userName}</div>
-              <div className="truncate text-[10px] text-slate-300">{userEmail}</div>
-            </div>
-          </button>
-          {userDockOpen ? (
-            <div className="mt-2 rounded-xl border border-slate-400/55 bg-slate-700/95 p-2">
-              <div className="mb-2 rounded-md border border-slate-500/50 bg-slate-600/55 p-2">
-                <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-300">
-                  Preferences
-                </div>
-                <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void installApp()}
-                    disabled={!installAvailable}
-                    className="flex w-full items-center justify-between rounded-md border border-slate-400/55 bg-slate-700/70 px-2.5 py-1.5 text-[10px] font-semibold text-slate-100 transition hover:bg-slate-500/70 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span>Install app</span>
-                    <span className="text-[9px] uppercase tracking-wide text-slate-300">{installAvailable ? "ready" : "used"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void enablePushNotifications()}
-                    className="flex w-full items-center justify-between rounded-md border border-slate-400/55 bg-slate-700/70 px-2.5 py-1.5 text-[10px] font-semibold text-slate-100 transition hover:bg-slate-500/70"
-                  >
-                    <span>Push notifications</span>
-                    <span className="text-[9px] uppercase tracking-wide text-slate-300">{describePushState(pushState)}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void shareLocation()}
-                    className="flex w-full items-center justify-between rounded-md border border-slate-400/55 bg-slate-700/70 px-2.5 py-1.5 text-[10px] font-semibold text-slate-100 transition hover:bg-slate-500/70"
-                  >
-                    <span>Share location</span>
-                    <span className="text-[9px] uppercase tracking-wide text-slate-300">
-                      {geoState === "not shared" ? "idle" : "shared"}
-                    </span>
-                  </button>
-                </div>
-                <div className="mt-1 text-[10px] leading-4 text-slate-300">
-                  Push: {describePushState(pushState)} · Geo: {geoState}
-                </div>
+        <div className="mt-2.5 border-t border-sidebar-border pt-2.5">
+          <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/80 p-2">
+            <div className="mb-2 rounded-md border border-sidebar-border bg-sidebar-accent/60 p-2">
+              <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/70">
+                Preferences
               </div>
-              <button
-                type="button"
-                onClick={openTenantAdmin}
-                className="mb-1 w-full rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-slate-100 transition hover:bg-slate-600/70"
-              >
-                Tenant Admin
-              </button>
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-slate-100 transition hover:bg-slate-600/70"
-              >
-                Logout
-              </button>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => void installApp()}
+                  disabled={!installAvailable}
+                  className="flex w-full items-center justify-between rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-1.5 text-[10px] font-semibold text-sidebar-foreground transition hover:bg-sidebar-accent/80 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span>Install app</span>
+                  <span className="text-[9px] uppercase tracking-wide text-sidebar-foreground/60">{installAvailable ? "ready" : "used"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void enablePushNotifications()}
+                  className="flex w-full items-center justify-between rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-1.5 text-[10px] font-semibold text-sidebar-foreground transition hover:bg-sidebar-accent/80"
+                >
+                  <span>Push notifications</span>
+                  <span className="text-[9px] uppercase tracking-wide text-sidebar-foreground/60">{describePushState(pushState)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void shareLocation()}
+                  className="flex w-full items-center justify-between rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-1.5 text-[10px] font-semibold text-sidebar-foreground transition hover:bg-sidebar-accent/80"
+                >
+                  <span>Share location</span>
+                  <span className="text-[9px] uppercase tracking-wide text-sidebar-foreground/60">
+                    {geoState === "not shared" ? "idle" : "shared"}
+                  </span>
+                </button>
+              </div>
+              <div className="mt-1 text-[10px] leading-4 text-sidebar-foreground/60">
+                Push: {describePushState(pushState)} · Geo: {geoState}
+              </div>
             </div>
-          ) : null}
+            <button
+              type="button"
+              onClick={openTenantAdmin}
+              className="mb-1 w-full rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-sidebar-foreground transition hover:bg-sidebar-accent"
+            >
+              Tenant Admin
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="w-full rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-sidebar-foreground transition hover:bg-sidebar-accent"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </footer>
     </>
@@ -1846,17 +1999,17 @@ export default function AgentConsoleApp() {
   return (
     <main className="h-screen p-2 md:p-4 text-slate-900">
       {mobileMenuOpen ? (
-        <div className="fixed inset-0 z-40 bg-slate-900/45 backdrop-blur-sm lg:hidden" onClick={() => setMobileMenuOpen(false)}>
+        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden" onClick={() => setMobileMenuOpen(false)}>
           <aside
-            className="absolute inset-y-0 left-0 flex w-[84vw] max-w-[320px] min-h-0 flex-col overflow-hidden border-r border-slate-600/70 bg-slate-700/95 text-slate-100 shadow-[0_20px_60px_rgba(7,21,44,0.18)]"
+            className="absolute inset-y-0 left-0 flex w-[84vw] max-w-[320px] min-h-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-500/40 px-4 py-3 lg:hidden">
-              <div className="font-mono text-[11px] font-semibold uppercase tracking-widest text-[#58a6ff]">Menu</div>
+            <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-3 lg:hidden">
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-widest text-sidebar-primary">Menu</div>
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-400/60 bg-slate-600/70 text-slate-100"
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80"
                 aria-label="Close menu"
               >
                 ×
@@ -1867,7 +2020,7 @@ export default function AgentConsoleApp() {
         </div>
       ) : null}
       <section className="grid h-full grid-cols-1 gap-3 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_340px]">
-        <aside className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-600/70 bg-slate-700/95 text-slate-100 shadow-[0_20px_60px_rgba(7,21,44,0.12)] lg:flex">
+        <aside className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm lg:flex">
           {sidebarNav}
         </aside>
 
@@ -1981,7 +2134,11 @@ export default function AgentConsoleApp() {
                         : "text-[14px] leading-6 text-slate-800 md:text-[15px] md:leading-7"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{msg.text}</div>
+                    {msg.text != null && msg.text !== "" ? (
+                      <MarkdownRenderer content={msg.text} variant="light" />
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.text ?? ""}</div>
+                    )}
                     {msg.usage ? (
                       <div className="mt-2 font-mono text-[11px] text-slate-400">{formatUsage(msg.usage)}</div>
                     ) : null}
@@ -2381,7 +2538,87 @@ export default function AgentConsoleApp() {
               </button>
             </div>
             <div className="overflow-y-auto bg-white px-5 py-4 text-[14px] leading-7 text-slate-800">
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-500">Files exchanged</div>
+                {exchangedFiles.length > 0 ? (
+                  <ul className="mt-2 space-y-2 text-sm leading-6">
+                    {exchangedFiles.map((file) => (
+                      <li key={file.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-slate-800">{file.name}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {file.source === "uploaded" ? "uploaded" : "generated"}
+                            {file.mimeType ? ` · ${file.mimeType}` : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {isPreviewableFile(file) ? (
+                            <button
+                              type="button"
+                              onClick={() => setFilePreview(file)}
+                              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                            >
+                              Preview
+                            </button>
+                          ) : null}
+                          <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            download={file.name}
+                            className="rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="mt-1 text-sm text-slate-500">(no files exchanged yet)</div>
+                )}
+              </div>
               <div className="whitespace-pre-wrap">{summaryText || "(no summary yet)"}</div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {filePreview ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm">
+          <section className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+            <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold text-slate-900">{filePreview.name}</h2>
+                <p className="text-[11px] text-slate-500">{filePreview.mimeType || "file preview"}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={filePreview.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  download={filePreview.name}
+                  className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setFilePreview(null)}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-hidden bg-slate-50">
+              {String(filePreview.mimeType || "").toLowerCase().startsWith("image/") ? (
+                <div className="flex h-full items-center justify-center p-4">
+                  <img src={filePreview.url} alt={filePreview.name} className="max-h-full max-w-full rounded-lg border border-slate-200 bg-white object-contain" />
+                </div>
+              ) : (
+                <iframe title={filePreview.name} src={filePreview.url} className="h-full w-full border-0" />
+              )}
             </div>
           </section>
         </div>

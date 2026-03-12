@@ -23,6 +23,10 @@ interface User {
   email?: string;
   username?: string;
   avatar_url?: string | null;
+  /** Django admin: can access Django admin and platform-admin entry point. */
+  is_staff?: boolean;
+  /** Django superuser: full platform admin (tenants, users, integrations, plugins). */
+  is_superuser?: boolean;
   organization?: {
     id: string;
     name: string | null;
@@ -37,8 +41,16 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  /** True if user has Django admin access (is_staff or is_superuser). Required for /platform-admin. */
+  isDjangoAdmin: boolean;
+  /** True if user can access Platform Admin: superuser/staff with no tenant or public schema only. */
+  canAccessPlatformAdmin: boolean;
+  /** True if user is a Django superuser. Only superusers may access /platform-admin (avoids redirect loops). */
+  isSuperuser: boolean;
+  /** True if user has a real tenant (not null, not public schema). Enables CRM / tenant app. */
+  hasTenantAccess: boolean;
+  login: (email: string, password: string, options?: { redirectTo?: string | null }) => Promise<void>;
+  logout: (options?: { redirectTo?: string }) => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
 }
 
@@ -75,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Login function (each step logged so we can see where login fails)
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, options?: { redirectTo?: string | null }) => {
     let lastStep: LoginStep = "clear_cache";
     try {
       clearQueryCacheWithLogging("login - clearing previous session data");
@@ -137,9 +149,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applyTenantConnectionTarget(meData.organization);
       logLoginStep("fetch_profile", "ok");
 
-      lastStep = "redirect";
-      setLocation("/login");
-      logLoginStep("redirect", "ok");
+      if (options && Object.prototype.hasOwnProperty.call(options, "redirectTo")) {
+        lastStep = "redirect";
+        if (options.redirectTo) {
+          setLocation(options.redirectTo);
+        }
+        logLoginStep("redirect", "ok");
+      }
     } catch (error) {
       logLoginStep(lastStep, "fail", undefined, error);
       const message = error instanceof Error ? error.message : String(error);
@@ -149,8 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Logout function
-  const logout = async () => {
+  // Logout function. Pass redirectTo to land on a specific path (e.g. platform-admin login).
+  const logout = async (options?: { redirectTo?: string }) => {
     try {
       await apiRequest("POST", apiV1("/auth/logout/"));
     } catch (error) {
@@ -160,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTenantConnectionTarget();
       clearQueryCacheWithLogging("logout - clearing user session data");
       setUser(null);
-      setLocation("/login");
+      setLocation(options?.redirectTo ?? "/login");
     }
   };
 
@@ -191,10 +207,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
+  const org = user?.organization;
+  const schemaName = (org?.schema_name ?? "").trim().toLowerCase();
+  const publicSchema = "public";
+  const hasTenantAccess = Boolean(org && schemaName && schemaName !== publicSchema);
+  const canAccessPlatformAdmin = Boolean(
+    (user?.is_staff || user?.is_superuser) && (!org || schemaName === publicSchema)
+  );
+  const isSuperuser = Boolean(user?.is_superuser);
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
+    isDjangoAdmin: Boolean(user?.is_staff || user?.is_superuser),
+    canAccessPlatformAdmin,
+    isSuperuser,
+    hasTenantAccess,
     login,
     logout,
     refreshAccessToken,
@@ -207,10 +236,14 @@ const FALLBACK_AUTH: AuthContextType = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
-  login: async () => {
+  isDjangoAdmin: false,
+  canAccessPlatformAdmin: false,
+  isSuperuser: false,
+  hasTenantAccess: false,
+  login: async (_email: string, _password: string, _options?: { redirectTo?: string | null }) => {
     console.warn("[Auth] login() called outside AuthProvider – no-op");
   },
-  logout: async () => {
+  logout: async (_options?: { redirectTo?: string }) => {
     console.warn("[Auth] logout() called outside AuthProvider – no-op");
   },
   refreshAccessToken: async () => false,

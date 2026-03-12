@@ -44,6 +44,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from central_hub.context_utils import current_tenant
+from tenancy.capabilities import get_effective_capabilities
 from .core.compiler import (
     FlowCompilationError,
     compile_flow_graph,
@@ -433,7 +434,7 @@ def _flow_api_endpoints(flow: Flow) -> dict[str, str]:
         "save": reverse("flows_api:api_flow_save", args=[flow.id]),
         "validate": reverse("flows_api:api_flow_validate", args=[flow.id]),
         "preview": reverse("flows_api:api_flow_preview", args=[flow.id]),
-        "webhooks": reverse("flows:available_webhooks", args=[flow.id]),
+        "webhooks": reverse("flows_api:api_flow_available_webhooks", args=[flow.id]),
     }
     fake_run_id = uuid.uuid4()
     preview_status_url = reverse(
@@ -1607,6 +1608,22 @@ def api_flow_crm_model_detail(request: Request, slug: str):
 @permission_classes([IsAuthenticated])
 def api_flow_list(request: Request):
     if request.method == "POST":
+        tenant = current_tenant.get() or getattr(request.user, "tenant", None)
+        if tenant:
+            eff = get_effective_capabilities(request.user, tenant)
+            flows_limit = eff.limits.get("flows")
+            if flows_limit is not None and flows_limit <= 0:
+                return Response(
+                    {"ok": False, "error": "Flows are not available on your plan. Upgrade to create flows."},
+                    status=403,
+                )
+            if flows_limit is not None and flows_limit > 0:
+                current_count = Flow.objects.filter(tenant=tenant).count()
+                if current_count >= flows_limit:
+                    return Response(
+                        {"ok": False, "error": f"Flow limit reached ({flows_limit}). Upgrade your plan for more flows."},
+                        status=403,
+                    )
         serializer = FlowCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         tenant = current_tenant.get() or getattr(request.user, "tenant", None)

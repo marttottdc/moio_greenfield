@@ -60,7 +60,13 @@ class ContactType(TenantScopedModel):
     name = models.CharField(max_length=20, choices=ContactTypeChoices.choices, default=ContactTypeChoices.LEAD)
     description = models.TextField(blank=True, default="")
     color = models.CharField(max_length=20, blank=True, default="")
+    is_default = models.BooleanField(default=False)
     default_agent = models.ForeignKey(AgentConfiguration, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_default and self.tenant_id:
+            ContactType.objects.filter(tenant=self.tenant, is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -1689,4 +1695,10 @@ class Deal(TenantScopedModel):
         return comment
 
 
-# ===============================================================================
+# Shopify sync models (tenant-scoped; migrations in crm so they run on tenant schemas only)
+from crm.shopify_sync_models import (  # noqa: E402
+    ShopifyCustomer,
+    ShopifyOrder,
+    ShopifyProduct,
+    ShopifySyncLog,
+)

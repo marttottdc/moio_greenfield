@@ -1,13 +1,21 @@
 // @ts-nocheck
 import type { BootstrapPayload, PluginAdminState } from "../types";
 import { resolveApiBase } from "./runtimeConfig";
+import { getAccessToken } from "@/lib/api";
+import { refreshAccessToken, forceLogout } from "@/lib/queryClient";
 
 const API_BASE = resolveApiBase("/api/platform", import.meta.env.VITE_PLATFORM_ADMIN_API_BASE);
-const AUTH_BASE = resolveApiBase("/api/auth", import.meta.env.VITE_PLATFORM_ADMIN_AUTH_BASE);
-const ACCESS_TOKEN_KEY = "platform_admin_access_token";
-const REFRESH_TOKEN_KEY = "platform_admin_refresh_token";
-const PUBLIC_USER_STORAGE_KEY = "moio_public_user";
-const PUBLIC_TOKEN_STORAGE_KEY = "moio_public_tokens";
+const AUTH_BASE = resolveApiBase("/api/v1/auth", import.meta.env.VITE_PLATFORM_ADMIN_AUTH_BASE);
+
+/** Ensure path has a trailing slash before any query string (Django APPEND_SLASH). */
+function pathWithTrailingSlash(path: string): string {
+  const s = String(path || "").trim();
+  const q = s.indexOf("?");
+  const pathOnly = q >= 0 ? s.slice(0, q) : s;
+  const query = q >= 0 ? s.slice(q) : "";
+  const withSlash = pathOnly.endsWith("/") ? pathOnly : `${pathOnly}/`;
+  return withSlash + query;
+}
 
 export class PlatformAdminApiError extends Error {
   status: number;
@@ -37,12 +45,13 @@ async function request<TPayload>(
   if (!options.formData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const accessToken = authEnabled ? getAccessToken() : "";
+  const accessToken = authEnabled ? (getAccessToken() ?? "") : "";
   if (authEnabled && accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
+  const normalizedPath = pathWithTrailingSlash(path);
+  const response = await fetch(`${baseUrl}${normalizedPath}`, {
     method: options.method || "GET",
     credentials: "same-origin",
     headers,
@@ -68,7 +77,7 @@ async function request<TPayload>(
   ) {
     const refreshed = await tryRefreshAccessToken();
     if (refreshed) {
-      return request<TPayload>(path, { ...options, retryAuth: false });
+      return request<TPayload>(normalizedPath, { ...options, retryAuth: false });
     }
   }
 
@@ -91,33 +100,45 @@ export function saveNotificationSettings(input: {
   return request<BootstrapPayload>("/notifications", { method: "POST", bodyJson: input });
 }
 
+export function savePlatformConfiguration(input: Partial<{
+  siteName: string;
+  company: string;
+  myUrl: string;
+  whatsappWebhookToken: string;
+  whatsappWebhookRedirect: string;
+  fbSystemToken: string;
+  fbMoioBotAppId: string;
+  fbMoioBusinessManagerId: string;
+  fbMoioBotAppSecret: string;
+  fbMoioBotConfigurationId: string;
+  googleOauthClientId: string;
+  googleOauthClientSecret: string;
+  microsoftOauthClientId: string;
+  microsoftOauthClientSecret: string;
+  shopifyClientId: string;
+  shopifyClientSecret: string;
+}>) {
+  return request<BootstrapPayload>("/configuration", { method: "POST", bodyJson: input });
+}
+
 export function login(input: {
   email: string;
   password: string;
 }) {
-  return request<{ tokens: { access: string; refresh: string }; state: BootstrapPayload }>("/login", {
+  return request<{ access: string; refresh: string }>("/login", {
     baseUrl: AUTH_BASE,
     method: "POST",
     bodyJson: input,
     auth: false,
-  }).then((payload) => {
-    const access = String(payload?.tokens?.access || "").trim();
-    const refresh = String(payload?.tokens?.refresh || "").trim();
-    if (access && refresh) {
-      setTokens(access, refresh);
-    }
-    return payload.state as BootstrapPayload;
   });
 }
 
 export function logout() {
-  return request<{ loggedOut: boolean }>("/logout", { baseUrl: AUTH_BASE, method: "POST" }).finally(() => {
-    clearTokens();
-  });
+  forceLogout("Logged out from Platform Admin");
 }
 
 export function clearPlatformAuthSession() {
-  clearTokens();
+  forceLogout("Session expired or unauthorized. Sign in again at the Access Hub.");
 }
 
 export function saveTenant(input: {
@@ -231,62 +252,7 @@ export function uploadPluginBundle(input: { file: File; tenantSlug?: string }) {
   });
 }
 
-function getAccessToken(): string {
-  try {
-    return String(localStorage.getItem(ACCESS_TOKEN_KEY) || "").trim();
-  } catch {
-    return "";
-  }
-}
-
-function getRefreshToken(): string {
-  try {
-    return String(localStorage.getItem(REFRESH_TOKEN_KEY) || "").trim();
-  } catch {
-    return "";
-  }
-}
-
-function setTokens(access: string, refresh: string): void {
-  try {
-    localStorage.setItem(ACCESS_TOKEN_KEY, access);
-    localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
-  } catch {
-    // ignore storage failures
-  }
-}
-
-function clearTokens(): void {
-  try {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(PUBLIC_USER_STORAGE_KEY);
-    localStorage.removeItem(PUBLIC_TOKEN_STORAGE_KEY);
-  } catch {
-    // ignore storage failures
-  }
-}
-
 async function tryRefreshAccessToken(): Promise<boolean> {
-  const refresh = getRefreshToken();
-  if (!refresh) return false;
-  try {
-    const payload = await request<{ access: string }>("/refresh", {
-      baseUrl: AUTH_BASE,
-      method: "POST",
-      bodyJson: { refresh },
-      auth: false,
-      retryAuth: false,
-    });
-    const access = String(payload?.access || "").trim();
-    if (!access) {
-      clearTokens();
-      return false;
-    }
-    setTokens(access, refresh);
-    return true;
-  } catch {
-    clearTokens();
-    return false;
-  }
+  const nextAccess = await refreshAccessToken();
+  return nextAccess != null && nextAccess.length > 0;
 }

@@ -1,0 +1,19 @@
+{
+  "sessionKey": "private-mmnl33et-zlf8",
+  "title": "",
+  "updatedAtMs": 1773326959880,
+  "messages": [],
+  "summary": "",
+  "summaryUpTo": 0,
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "total": 0
+  },
+  "scope": "private",
+  "owner": {
+    "id": 1,
+    "email": "demo@moio.ai",
+    "displayName": "demo@moio.ai"
+  }
+}
