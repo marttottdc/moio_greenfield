@@ -10,23 +10,37 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
+from chatbot.models.agent_session import AgentSession, SessionThread
 from chatbot.models.agent_configuration import AgentConfiguration, CHANNEL_DESKTOP
 from agent_console.services.runtime_service import (
     get_runtime_backend_for_user,
     runtime_initiator_from_user,
+    runtime_base_url_from_request,
     TenantRequiredError,
 )
 from central_hub.models import MoioUser
+from tenancy.resolution import ensure_request_tenant_context
 
 logger = logging.getLogger(__name__)
+
+
+def _request_tenant(request: Request):
+    try:
+        return ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
+    except Exception:
+        return getattr(request.user, "tenant", None)
+
+
+def _request_tenant_id(request: Request):
+    tenant = _request_tenant(request)
+    return getattr(tenant, "pk", None)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_desktop_sessions(request: Request) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -37,7 +51,7 @@ def list_desktop_sessions(request: Request) -> Response:
     if not user_contact:
         return Response({"sessions": []})
     
-    sessions_qs = ChatbotSession.objects.filter(
+    sessions_qs = AgentSession.objects.filter(
         tenant_id=tenant_id,
         contact=user_contact,
         channel=CHANNEL_DESKTOP
@@ -45,12 +59,12 @@ def list_desktop_sessions(request: Request) -> Response:
     
     sessions = []
     for session in sessions_qs[:50]:
-        last_message = ChatbotMemory.objects.filter(
+        last_message = SessionThread.objects.filter(
             session=session
         ).exclude(role='system').order_by('-created').first()
         
         sessions.append({
-            "session_id": str(session.session),
+            "session_id": str(session.pk),
             "active": session.active,
             "started_at": session.start.isoformat() if session.start else None,
             "last_interaction": session.last_interaction.isoformat() if session.last_interaction else None,
@@ -65,7 +79,7 @@ def list_desktop_sessions(request: Request) -> Response:
 @permission_classes([IsAuthenticated])
 def get_session_history(request: Request, session_id: str) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -77,16 +91,16 @@ def get_session_history(request: Request, session_id: str) -> Response:
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
     
     try:
-        session = ChatbotSession.objects.get(
-            session=session_id,
+        session = AgentSession.objects.get(
+            pk=session_id,
             tenant_id=tenant_id,
             contact=user_contact,
             channel=CHANNEL_DESKTOP
         )
-    except ChatbotSession.DoesNotExist:
+    except (AgentSession.DoesNotExist, ValueError):
         return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
     
-    messages = ChatbotMemory.objects.filter(
+    messages = SessionThread.objects.filter(
         session=session
     ).exclude(role='system').order_by('created')
     
@@ -101,7 +115,7 @@ def get_session_history(request: Request, session_id: str) -> Response:
     ]
     
     return Response({
-        "session_id": str(session.session),
+        "session_id": str(session.pk),
         "active": session.active,
         "current_agent": session.current_agent,
         "messages": history
@@ -112,7 +126,7 @@ def get_session_history(request: Request, session_id: str) -> Response:
 @permission_classes([IsAuthenticated])
 def close_session(request: Request, session_id: str) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -124,13 +138,13 @@ def close_session(request: Request, session_id: str) -> Response:
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
     
     try:
-        session = ChatbotSession.objects.get(
-            session=session_id,
+        session = AgentSession.objects.get(
+            pk=session_id,
             tenant_id=tenant_id,
             contact=user_contact,
             channel=CHANNEL_DESKTOP
         )
-    except ChatbotSession.DoesNotExist:
+    except (AgentSession.DoesNotExist, ValueError):
         return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
     
     session.active = False
@@ -139,7 +153,7 @@ def close_session(request: Request, session_id: str) -> Response:
     
     return Response({
         "success": True,
-        "session_id": str(session.session),
+        "session_id": str(session.pk),
         "message": "Session closed successfully"
     })
 
@@ -148,7 +162,7 @@ def close_session(request: Request, session_id: str) -> Response:
 @permission_classes([IsAuthenticated])
 def get_agent_status(request: Request) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -206,7 +220,7 @@ def get_agent_status(request: Request) -> Response:
 @permission_classes([IsAuthenticated])
 def list_available_agents(request: Request) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -233,7 +247,7 @@ def list_available_agents(request: Request) -> Response:
 @permission_classes([IsAuthenticated])
 def set_user_agent(request: Request) -> Response:
     user = request.user
-    tenant_id = getattr(user, 'tenant_id', None)
+    tenant_id = _request_tenant_id(request)
     
     if not tenant_id:
         return Response({"error": "Tenant not found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -275,9 +289,17 @@ def set_user_agent(request: Request) -> Response:
 @permission_classes([IsAuthenticated])
 def get_runtime_resources(request: Request) -> Response:
     try:
-        backend = get_runtime_backend_for_user(request.user)
+        workspace_slug = str(
+            request.query_params.get("workspace")
+            or request.headers.get("X-Workspace")
+            or "main"
+        ).strip().lower() or "main"
+        backend = get_runtime_backend_for_user(request.user, workspace_slug=workspace_slug)
         payload = async_to_sync(backend.resources)(
-            initiator=runtime_initiator_from_user(request.user),
+            initiator=runtime_initiator_from_user(
+                request.user,
+                base_url=runtime_base_url_from_request(request),
+            ),
         )
         return Response(payload)
     except TenantRequiredError as exc:

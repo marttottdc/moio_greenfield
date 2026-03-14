@@ -6,8 +6,7 @@ from django.utils import timezone
 from openai import OpenAI
 
 from chatbot.models.chatbot_configuration import ChatbotConfiguration
-from chatbot.models.chatbot_session import ChatbotMemory
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 from chatbot.core.messenger import Messenger
 from chatbot.core.human_mode_context import append_context_message
 
@@ -39,7 +38,7 @@ class MemoryThread:
             author = role
 
         try:
-            latest_utterance = ChatbotMemory.objects.filter(session=self.session).latest("created")
+            latest_utterance = SessionThread.objects.filter(session=self.session).latest("created")
             print(f"Latest utterance {latest_utterance.content}")
 
             #  ============================================================
@@ -54,7 +53,7 @@ class MemoryThread:
             else:
                 print(f'Last utterance ->{latest_utterance.role}')
 
-                new_utterance = ChatbotMemory(
+                new_utterance = SessionThread(
                     session=self.session,
                     role=role,
                     content=content,
@@ -63,9 +62,9 @@ class MemoryThread:
                 new_utterance.save()
 
         #  ============================================================
-        except ChatbotMemory.DoesNotExist:
+        except SessionThread.DoesNotExist:
 
-            new_utterance = ChatbotMemory(
+            new_utterance = SessionThread(
                 session=self.session,
                 role=role,
                 content=content,
@@ -81,7 +80,7 @@ class MemoryThread:
     def load_chat_transcript(self):
 
         gpt_conversation = []
-        for dialog in ChatbotMemory.objects.filter(session=self.session).order_by("created"):
+        for dialog in SessionThread.objects.filter(session=self.session).order_by("created"):
             gpt_dialog = {
                 "role": dialog.role,
                 "content": dialog.content
@@ -91,10 +90,10 @@ class MemoryThread:
 
     def get_latest_user_utterance(self):
         try:
-            latest = ChatbotMemory.objects.filter(session=self.session, role="user").latest("created")
+            latest = SessionThread.objects.filter(session=self.session, role="user").latest("created")
             return latest
 
-        except ChatbotMemory.DoesNotExist:
+        except SessionThread.DoesNotExist:
             return None
 
 
@@ -121,15 +120,15 @@ class Chatbot:
         self._multi_message = False
 
         try:
-            self.session = ChatbotSession.objects.get(contact=contact, active=True, tenant=self.tenant)
+            self.session = AgentSession.objects.get(contact=contact, active=True, tenant=self.tenant)
             print(f'session: {self.session}')
 
-        except ChatbotSession.MultipleObjectsReturned:
-            self.session = ChatbotSession.objects.filter(contact=contact, active=True, tenant=self.tenant).latest("start")
+        except AgentSession.MultipleObjectsReturned:
+            self.session = AgentSession.objects.filter(contact=contact, active=True, tenant=self.tenant).latest("start")
             print(f'session: {self.session}')
 
-        except ChatbotSession.DoesNotExist:
-            self.session = ChatbotSession(
+        except AgentSession.DoesNotExist:
+            self.session = AgentSession(
                 contact=contact,
                 start=timezone.now(),
                 last_interaction=timezone.now(),
@@ -244,18 +243,18 @@ class MoioAssistant:
         self.poll_interval = 300
 
         try:
-            assistant_session = ChatbotSession.objects.get(contact=contact, tenant_id=tenant_id, active=True, channel=channel)
+            assistant_session = AgentSession.objects.get(contact=contact, tenant_id=tenant_id, active=True, channel=channel)
 
             self.thread = self.client.beta.threads.retrieve(assistant_session.thread_id)
             self.assistant = self.client.beta.assistants.retrieve(assistant_session.assistant_id)
 
-        except ChatbotSession.DoesNotExist:
+        except AgentSession.DoesNotExist:
             print("Session does not exist")
 
             self.thread = self.client.beta.threads.create()
             self.assistant = self.client.beta.assistants.retrieve(default_assistant_id)
 
-            assistant_session = ChatbotSession(
+            assistant_session = AgentSession(
                 tenant_id=tenant_id,
                 contact=contact,
                 thread_id=self.thread.id,
@@ -267,10 +266,10 @@ class MoioAssistant:
             )
             assistant_session.save()
 
-        except ChatbotSession.MultipleObjectsReturned:
+        except AgentSession.MultipleObjectsReturned:
             print("Multiple Session already exists")
 
-            assistant_session = ChatbotSession.objects.filter(contact=contact, tenant_id=tenant_id, active=True, channel=self.channel).latest("last_interaction")
+            assistant_session = AgentSession.objects.filter(contact=contact, tenant_id=tenant_id, active=True, channel=self.channel).latest("last_interaction")
 
         except Exception as e:
             logger.error(str(e))

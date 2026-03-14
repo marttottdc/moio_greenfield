@@ -2150,7 +2150,13 @@ export default function Activities() {
   }
 
   return (
-    <PageLayout title={t("activities.title")} description={t("activities.description")} toolbar={activitiesNavBar} toolbarClassName="py-2" className="pt-2">
+    <PageLayout
+      title={t("activities.title")}
+      description={t("activities.description")}
+      toolbar={activitiesNavBar}
+      toolbarClassName="py-2"
+      className={timelineView === "cards" ? "pt-2 px-3 md:px-6" : "pt-2"}
+    >
       {activitiesContent}
     </PageLayout>
   );

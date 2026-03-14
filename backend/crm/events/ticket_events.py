@@ -99,7 +99,7 @@ def emit_ticket_created(
     
     # Emit event for flow triggers
     def emit_on_commit():
-        emit_event(
+        event_id = emit_event(
             name="ticket.created",
             tenant_id=tenant_code,
             actor={"type": "user", "id": str(actor_id)},
@@ -107,6 +107,13 @@ def emit_ticket_created(
             payload=payload,
             source="api",
         )
+        # Create activities immediately from the emitted event so tickets
+        # show up in timeline even if async workers are delayed/unavailable.
+        try:
+            from crm.services.event_activity_ingestion import create_activities_from_event
+            create_activities_from_event(event_id)
+        except Exception as ingest_err:
+            logger.warning("Immediate ticket activity ingestion failed for %s: %s", event_id, ingest_err)
         
         # Send WebSocket notification
         _send_ticket_websocket(
@@ -153,7 +160,7 @@ def emit_ticket_updated(
     }
     
     def emit_on_commit():
-        emit_event(
+        event_id = emit_event(
             name="ticket.updated",
             tenant_id=tenant_code,
             actor={"type": "user", "id": str(actor_id)},
@@ -161,6 +168,12 @@ def emit_ticket_updated(
             payload=payload,
             source="api",
         )
+        # Keep activities in sync without waiting for async routing.
+        try:
+            from crm.services.event_activity_ingestion import create_activities_from_event
+            create_activities_from_event(event_id)
+        except Exception as ingest_err:
+            logger.warning("Immediate ticket activity ingestion failed for %s: %s", event_id, ingest_err)
         
         _send_ticket_websocket(
             tenant_id=tenant_id,
@@ -201,7 +214,7 @@ def emit_ticket_closed(
     }
     
     def emit_on_commit():
-        emit_event(
+        event_id = emit_event(
             name="ticket.closed",
             tenant_id=tenant_code,
             actor={"type": "user", "id": str(actor_id)},
@@ -209,6 +222,12 @@ def emit_ticket_closed(
             payload=payload,
             source="api",
         )
+        # Keep activities in sync without waiting for async routing.
+        try:
+            from crm.services.event_activity_ingestion import create_activities_from_event
+            create_activities_from_event(event_id)
+        except Exception as ingest_err:
+            logger.warning("Immediate ticket activity ingestion failed for %s: %s", event_id, ingest_err)
         
         _send_ticket_websocket(
             tenant_id=tenant_id,

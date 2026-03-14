@@ -14,10 +14,11 @@ from datetime import datetime
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.db import IntegrityError
 from django.utils import timezone
 from agents import Runner, set_default_openai_key
 
-from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
+from chatbot.models.agent_session import AgentSession, SessionThread
 from chatbot.models.agent_configuration import AgentConfiguration, CHANNEL_SHOPIFY_WEBCHAT
 from central_hub.tenant_config import get_tenant_config
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
@@ -34,17 +35,24 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._initialized = False
+        self._session_group: Optional[str] = None
         self.shop_domain: Optional[str] = None
         self.tenant_id = None
         self.tenant = None
-        self.session: Optional[ChatbotSession] = None
+        self.session: Optional[AgentSession] = None
         self.agent_config: Optional[AgentConfiguration] = None
         self.tenant_config: Optional[Any] = None
 
     async def connect(self):
         await self.accept()
+        logger.info("Shopify storefront chat connected (awaiting init)")
 
     async def disconnect(self, close_code):
+        if getattr(self, "_session_group", None) and self.channel_layer:
+            try:
+                await self.channel_layer.group_discard(self._session_group, self.channel_name)
+            except Exception:
+                logger.warning("Shopify storefront chat group_discard failed: %s", self._session_group)
         if self.session:
             try:
                 await self.close_session()
@@ -73,12 +81,26 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
                         "payload": {"message": "Send init first with shop_domain and anonymous_id", "code": "init_required"},
                     })
                     return
+                logger.info("Shopify storefront chat init received shop_domain=%s", (data.get("shop_domain") or data.get("shop") or ""))
                 await self.handle_init(data)
                 return
 
             if action == "send_message":
+                logger.info(
+                    "Shopify storefront chat send_message shop=%s tenant=%s session_id=%s len=%s",
+                    self.shop_domain,
+                    self.tenant_id,
+                    str(self.session.pk) if self.session else None,
+                    len(str(data.get("content") or "")),
+                )
                 await self.handle_send_message(data)
             elif action == "get_history":
+                logger.info(
+                    "Shopify storefront chat get_history shop=%s tenant=%s session_id=%s",
+                    self.shop_domain,
+                    self.tenant_id,
+                    str(self.session.pk) if self.session else None,
+                )
                 await self.handle_get_history(data)
             else:
                 await self.send_json({
@@ -98,6 +120,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
     async def handle_init(self, data: Dict[str, Any]):
         shop_domain = (data.get("shop_domain") or data.get("shop") or "").strip()
         anonymous_id = (data.get("anonymous_id") or "").strip()
+        requested_session_id = str(data.get("session_id") or "").strip()
         customer_id = data.get("customer_id")  # optional, Shopify customer id when logged in
 
         if not shop_domain or not anonymous_id:
@@ -110,6 +133,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
         result = await self.resolve_tenant_and_contact(shop_domain, anonymous_id, customer_id)
         if result.get("error"):
+            logger.info("Shopify storefront chat init failed shop=%s error=%s", shop_domain, result["error"])
             await self.send_json({
                 "event_type": "error",
                 "payload": {"message": result["error"], "code": "setup_failed"},
@@ -124,6 +148,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
         agent_result = await self.get_agent_for_tenant(self.tenant_id)
         if agent_result.get("error"):
+            logger.info("Shopify storefront chat init failed shop=%s tenant=%s error=%s", shop_domain, self.tenant_id, agent_result["error"])
             await self.send_json({
                 "event_type": "error",
                 "payload": {"message": agent_result["error"], "code": "agent_not_configured"},
@@ -134,8 +159,9 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         self.agent_config = agent_result["agent"]
         self.tenant_config = agent_result["tenant_config"]
 
-        session_result = await self.get_or_create_session(contact)
+        session_result = await self.get_or_create_session(contact, requested_session_id=requested_session_id)
         if session_result.get("error"):
+            logger.info("Shopify storefront chat init failed shop=%s tenant=%s error=%s", shop_domain, self.tenant_id, session_result["error"])
             await self.send_json({
                 "event_type": "error",
                 "payload": {"message": session_result["error"], "code": "session_failed"},
@@ -146,12 +172,35 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         self.session = session_result["session"]
         self._initialized = True
 
+        # session_id: widget must persist (e.g. localStorage) and send in next init to continue this session
+        session_id_str = str(self.session.pk)
+        logger.info(
+            "Shopify storefront chat session_started shop=%s tenant=%s session_id=%s",
+            self.shop_domain,
+            self.tenant_id,
+            session_id_str,
+        )
         await self.send_json({
             "event_type": "session_started",
             "payload": {
-                "conversation_id": str(self.session.session),
+                "conversation_id": session_id_str,
+                "session_id": session_id_str,
                 "agent_name": self.agent_config.name,
-                "session_id": str(self.session.session),
+            },
+        })
+        self._session_group = f"shopify_chat_session_{session_id_str}"
+        if getattr(self, "channel_layer", None):
+            await self.channel_layer.group_add(self._session_group, self.channel_name)
+
+    async def human_message(self, event):
+        """Push human-mode message from communications center to the widget in real time."""
+        await self.send_json({
+            "event_type": "bot_message",
+            "payload": {
+                "role": "assistant",
+                "content": event.get("content", ""),
+                "author": event.get("author", ""),
+                "timestamp": event.get("timestamp", ""),
             },
         })
 
@@ -228,13 +277,34 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
             return {"error": str(e)}
 
     @database_sync_to_async
-    def get_or_create_session(self, contact) -> Dict[str, Any]:
+    def get_or_create_session(self, contact, requested_session_id: str = "") -> Dict[str, Any]:
         from tenancy.tenant_support import tenant_schema_context
 
         try:
             schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
             with tenant_schema_context(schema_name):
-                session = ChatbotSession.objects.filter(
+                if requested_session_id:
+                    session = AgentSession.objects.filter(
+                        pk=requested_session_id,
+                        tenant_id=self.tenant_id,
+                        contact=contact,
+                        channel=CHANNEL_SHOPIFY_WEBCHAT,
+                    ).first()
+                    if session:
+                        update_fields = []
+                        if not session.active:
+                            session.active = True
+                            update_fields.append("active")
+                        if session.end is not None:
+                            session.end = None
+                            update_fields.append("end")
+                        session.last_interaction = timezone.now()
+                        update_fields.append("last_interaction")
+                        if update_fields:
+                            session.save(update_fields=update_fields)
+                        return {"session": session}
+
+                session = AgentSession.objects.filter(
                     tenant_id=self.tenant_id,
                     contact=contact,
                     channel=CHANNEL_SHOPIFY_WEBCHAT,
@@ -243,7 +313,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
                 if session:
                     return {"session": session}
 
-                session = ChatbotSession.objects.create(
+                session = AgentSession.objects.create(
                     tenant_id=self.tenant_id,
                     contact=contact,
                     channel=CHANNEL_SHOPIFY_WEBCHAT,
@@ -253,12 +323,15 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
                     started_by="user",
                     agent_id=self.agent_config.id if self.agent_config else None,
                 )
-                ChatbotMemory.objects.create(
-                    session=session,
-                    role="system",
-                    content=f"Shopify storefront chat session started. Shop: {self.shop_domain}",
-                    author="moio",
-                )
+                try:
+                    SessionThread.objects.create(
+                        session=session,
+                        role="system",
+                        content=f"Shopify storefront chat session started. Shop: {self.shop_domain}",
+                        author="moio",
+                    )
+                except IntegrityError as e:
+                    logger.warning("get_or_create_session: could not create initial SessionThread: %s", e)
                 return {"session": session}
         except Exception as e:
             logger.exception("get_or_create_session failed")
@@ -301,6 +374,12 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
             if response:
                 text_content, rich_content = self._extract_response_payload(response)
                 await self.add_utterance(text_content, "assistant", author=self.agent_config.name)
+                logger.info(
+                    "Shopify storefront chat bot_message sent shop=%s tenant=%s session_id=%s",
+                    self.shop_domain,
+                    self.tenant_id,
+                    str(self.session.pk) if self.session else None,
+                )
                 await self.send_json({
                     "event_type": "bot_message",
                     "payload": {
@@ -329,9 +408,17 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_get_history(self, data: Dict[str, Any]):
         if not self.session:
+            logger.info("Shopify storefront chat history sent shop=%s count=0 (no session)", self.shop_domain)
             await self.send_json({"event_type": "history", "payload": {"messages": []}})
             return
-        history = await self.get_session_history(str(self.session.session))
+        history = await self.get_session_history(str(self.session.pk))
+        logger.info(
+            "Shopify storefront chat history sent shop=%s tenant=%s session_id=%s count=%s",
+            self.shop_domain,
+            self.tenant_id,
+            str(self.session.pk),
+            len(history),
+        )
         await self.send_json({"event_type": "history", "payload": {"messages": history}})
 
     @database_sync_to_async
@@ -345,15 +432,15 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
         with tenant_schema_context(schema_name):
             try:
-                latest = ChatbotMemory.objects.filter(session=self.session).latest("created")
+                latest = SessionThread.objects.filter(session=self.session).latest("created")
                 if latest.role == "user" and role == "user":
                     latest.content = f"{latest.content} {content}"
                     latest.stitches = getattr(latest, "stitches", 0) + 1
                     latest.save()
                     return
-            except ChatbotMemory.DoesNotExist:
+            except SessionThread.DoesNotExist:
                 pass
-            ChatbotMemory.objects.create(
+            SessionThread.objects.create(
                 session=self.session,
                 role=role,
                 content=content,
@@ -369,7 +456,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         try:
             schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
             with tenant_schema_context(schema_name):
-                messages = ChatbotMemory.objects.filter(
+                messages = SessionThread.objects.filter(
                     session_id=session_id,
                 ).exclude(role="system").order_by("created")
                 return [
@@ -385,6 +472,15 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
             logger.warning("get_session_history failed: %s", e)
             return []
 
+    def _normalize_role_for_openai(self, role: Optional[str]) -> str:
+        """OpenAI API expects 'assistant', 'user', 'system' (lowercase). SessionThread may store 'ASSISTANT'."""
+        r = (role or "user").strip().lower()
+        if r in ("assistant", "user", "system"):
+            return r
+        if r == "developer":
+            return "developer"
+        return "user"
+
     @database_sync_to_async
     def get_session_context(self) -> Optional[list]:
         from tenancy.tenant_support import tenant_schema_context
@@ -393,12 +489,15 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
             return None
         schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
         with tenant_schema_context(schema_name):
-            messages = ChatbotMemory.objects.filter(
+            messages = SessionThread.objects.filter(
                 session=self.session,
             ).exclude(role="system").order_by("created")
             if not messages.exists():
                 return None
-            return [{"role": msg.role, "content": msg.content} for msg in messages]
+            return [
+                {"role": self._normalize_role_for_openai(msg.role), "content": msg.content}
+                for msg in messages
+            ]
 
     async def process_with_agent(self, user_message: str) -> Optional[Any]:
         if not self.agent_config or not self.tenant_config or not self.session:

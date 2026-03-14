@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 AUTO_APPLY_MIN_CONFIDENCE = 0.85
+ADMINISTRATIVE_ANCHOR_ID = "__administrative__"
+ADMINISTRATIVE_ANCHOR_ALIASES = {
+    ADMINISTRATIVE_ANCHOR_ID,
+    "administrative",
+    "admin",
+    "actividad_administrativa",
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +44,8 @@ class OpenAIConfig:
 
 def _normalize_anchor_model(anchor_model: str) -> str:
     normalized = (anchor_model or "").strip().lower()
+    if normalized in {"crm.administrative", "administrative", "admin"}:
+        return CaptureAnchorModel.CONTACT
     if normalized in {"crm.account", "crm.company", "crm.organization", "crm.client"}:
         normalized = CaptureAnchorModel.CUSTOMER
     if normalized in {CaptureAnchorModel.DEAL, CaptureAnchorModel.CONTACT, CaptureAnchorModel.CUSTOMER}:
@@ -57,6 +66,8 @@ def _resolve_anchor_label(*, tenant, anchor_model: str, anchor_id: str) -> str:
             raise ValueError("Anchor deal not found")
         return deal.title
     if anchor_model == CaptureAnchorModel.CONTACT:
+        if (anchor_id or "").strip().lower() in ADMINISTRATIVE_ANCHOR_ALIASES:
+            return "Administrative activity"
         contact = Contact.objects.filter(tenant=tenant).filter(Q(pk=anchor_id) | Q(user_id=anchor_id)).first()
         if not contact:
             raise ValueError("Anchor contact not found")
@@ -74,6 +85,8 @@ def _assign_activity_anchor_kwargs(anchor_model: str, anchor_id: str) -> dict:
     if anchor_model == CaptureAnchorModel.DEAL:
         return {"deal_id": anchor_id}
     if anchor_model == CaptureAnchorModel.CONTACT:
+        if (anchor_id or "").strip().lower() in ADMINISTRATIVE_ANCHOR_ALIASES:
+            return {}
         return {"contact_id": anchor_id}
     if anchor_model == CaptureAnchorModel.CUSTOMER:
         return {"customer_id": anchor_id}
@@ -291,8 +304,13 @@ def create_capture_entry(
     if not raw_text_norm:
         raise ValueError("raw_text_required")
 
+    raw_anchor_model = (anchor_model or "").strip().lower()
     anchor_model_norm = _normalize_anchor_model(anchor_model)
     anchor_id_norm = str(anchor_id or "").strip()
+    if anchor_id_norm.lower() in ADMINISTRATIVE_ANCHOR_ALIASES:
+        anchor_id_norm = ADMINISTRATIVE_ANCHOR_ID
+    if not anchor_id_norm and raw_anchor_model in {"crm.administrative", "administrative", "admin"}:
+        anchor_id_norm = ADMINISTRATIVE_ANCHOR_ID
     if not anchor_id_norm:
         raise ValueError("anchor_id_required")
 

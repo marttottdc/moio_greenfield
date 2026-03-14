@@ -46,7 +46,6 @@ distro==1.9.0
 dj-config-url==0.1.1
 dj-database-url==2.1.0
 Django==5.2.12
-django-tenants==3.10.0
 django-cacheops==7.2
 django-celery-beat==2.8.1
 django-celery-results==2.6.0

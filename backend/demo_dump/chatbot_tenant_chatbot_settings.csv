@@ -1,0 +1,2 @@
+id,assistants_enabled,assistants_default_id,conversation_handler,assistant_smart_reply_enabled,assistant_output_formatting_instructions,assistant_output_schema,assistants_inactivity_limit,chatbot_enabled,default_agent_id,agent_allow_reopen_session,agent_reopen_threshold,tenant_id
+1,False,,assistant,False,,,30,False,,False,360,1

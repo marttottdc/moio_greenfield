@@ -11,7 +11,7 @@ from rest_framework.response import Response
 
 from crm.api.mixins import CommunicationsAPIMixin, ProtectedAPIView, _error
 from crm.models import Contact
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 
 
 @extend_schema(tags=["communications"])
@@ -47,7 +47,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
 
         latest_messages = Subquery(
             tenant_sessions.filter(pk=OuterRef("pk"))
-            .annotate(latest=Max("memory_thread__created"))
+            .annotate(latest=Max("threads__created"))
             .values("latest")[:1]
         )
 
@@ -125,7 +125,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
 
         now = timezone.now()
-        session = ChatbotSession.objects.create(
+        session = AgentSession.objects.create(
             tenant=tenant,
             contact=contact,
             channel=channel,
@@ -259,7 +259,7 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
         )
         page = self._parse_int(request.query_params.get("page"), default=1)
         offset = (page - 1) * page_size
-        messages_qs = session.memory_thread.order_by("-created")
+        messages_qs = session.threads.order_by("-created")
         total = messages_qs.count()
         messages = list(messages_qs[offset : offset + page_size])
         payload = {
@@ -281,7 +281,7 @@ class CommunicationsConversationMarkReadView(ProtectedAPIView, CommunicationsAPI
             return _error("conversation_not_found", "Conversation not found", status.HTTP_404_NOT_FOUND)
 
         latest_user_message = (
-            session.memory_thread.filter(role__iexact="USER").order_by("-created").first()
+            session.threads.filter(role__iexact="USER").order_by("-created").first()
         )
         now = timezone.now()
         context = dict(session.context or {})

@@ -14,9 +14,7 @@ from typing import Any
 
 from asgiref.sync import async_to_sync
 from celery import shared_task
-from django_tenants.utils import schema_context
-
-from tenancy.tenant_support import public_schema_name
+from tenancy.tenant_support import public_schema_name, schema_context
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +47,13 @@ def run_agent_console_automation(
     )
 
     with schema_context(public_schema_name()):
+        from django.db.models import Q
         from tenancy.models import Tenant
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        tenant = Tenant.objects.filter(schema_name=tenant_schema).first()
+        tenant = Tenant.objects.filter(
+            Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)
+        ).first()
         if not tenant:
             logger.warning("run_agent_console_automation: tenant not found schema=%s", tenant_schema)
             return {"error": "tenant not found", "tenant_schema": tenant_schema}

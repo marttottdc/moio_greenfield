@@ -34,7 +34,7 @@ from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.wa_payloads import WaPayloads
 from moio_platform.lib.tools import check_elapsed_time, has_time_passed
 
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 from chatbot.core.moio_agent import MoioAgent
 from crm.services.contact import get_contact_by_phone, is_blacklisted_contact
 
@@ -378,7 +378,7 @@ def process_message_with_chatbot(received_whatsapp: WhatsappMessage, config):
         reply = "Tenemos problemas técnicos, intenta mas tarde por favor"
         chatbot = None
         chatbot_session = (
-            ChatbotSession.objects.filter(
+            AgentSession.objects.filter(
                 contact=contact,
                 active=True,
                 tenant=config.tenant,
@@ -546,7 +546,7 @@ def session_sweeper(self):
     logger.info(f'Processing chatbot heartbeat ---> {task_id} from {q_name}')
     
     for _tenant, config in iter_configs_with_integration_enabled("whatsapp"):
-        sessions = ChatbotSession.objects.filter(
+        sessions = AgentSession.objects.filter(
             tenant_id=config.tenant_id,
             active=True,
             channel="whatsapp"
@@ -919,7 +919,7 @@ def archive_conversation(self, session_id):
 
     print(f"Ending Conversation {session_id}")
 
-    session = ChatbotSession.objects.get(session=session_id)
+    session = AgentSession.objects.get(pk=session_id)
     config = get_tenant_config(session.tenant)
 
     agent = MoioAgent(config=config, contact=session.contact)
@@ -969,39 +969,14 @@ def sync_tenant_tools_task(self):
 def sync_single_tenant_tools_task(self, tenant_id: int):
     """
     Sync all available tools for a specific tenant.
-    
+
     Called when a new tenant is created.
     """
     try:
-        from central_hub.models import Tenant
-        from chatbot.models.sync_tools import get_all_available_tools
-        from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
-        from django.db import transaction
-        
-        tenant = Tenant.objects.get(id=tenant_id)
-        all_tools = get_all_available_tools()
-        
-        with transaction.atomic():
-            for tool in all_tools:
-                tool_name = tool.get('name')
-                tool_type = tool.get('type')
-                
-                if not tool_name or not tool_type:
-                    continue
-                
-                TenantToolConfiguration.objects.get_or_create(
-                    tenant=tenant,
-                    tool_name=tool_name,
-                    defaults={
-                        'tool_type': tool_type,
-                        'enabled': True,
-                        'custom_description': '',
-                        'custom_display_name': '',
-                        'default_params': {},
-                    }
-                )
-        
-        logger.info(f"Successfully synced tools for tenant {tenant_id}")
+        from chatbot.services.sync_tools import sync_tenant_tools
+
+        sync_tenant_tools(tenant_ids=[tenant_id])
+        logger.info("Successfully synced tools for tenant %s", tenant_id)
     except Exception as e:
-        logger.error(f"Error syncing tools for tenant {tenant_id}: {e}")
+        logger.error("Error syncing tools for tenant %s: %s", tenant_id, e)
         raise

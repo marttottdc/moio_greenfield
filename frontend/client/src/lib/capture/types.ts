@@ -37,6 +37,11 @@ export interface CaptureEntry {
 
   anchor_model?: AnchorModel | string;
   anchor_id?: string;
+
+  /** Set after classification (sync or async). */
+  suggested_activities?: ProposedActivity[];
+  classification?: Record<string, unknown>;
+  error_details?: Record<string, unknown>;
 }
 
 export interface CreateCaptureEntryRequest {

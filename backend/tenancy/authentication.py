@@ -1,5 +1,6 @@
 """Authentication: UserApiKey, JWT with tenant claims."""
 import hashlib
+import logging
 
 from django.utils import timezone
 from rest_framework import authentication
@@ -11,6 +12,15 @@ from rest_framework_simplejwt.exceptions import InvalidToken
 
 from tenancy.context_utils import current_tenant
 from tenancy.models import UserApiKey
+from tenancy.resolution import (
+    TenantResolutionError,
+    _current_connection_schema,
+    bind_request_tenant,
+    ensure_request_tenant_context,
+    route_requires_tenant,
+)
+
+_log = logging.getLogger("tenancy_trace")
 
 try:
     from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
@@ -55,8 +65,23 @@ class UserApiKeyAuthentication(authentication.BaseAuthentication):
         if api_key.expires_at and timezone.now() > api_key.expires_at:
             raise AuthenticationFailed("API key has expired")
 
-        tenant = _resolve_request_tenant(request, api_key.tenant)
-        current_tenant.set(tenant)
+        try:
+            tenant = ensure_request_tenant_context(
+                request,
+                user=getattr(api_key, "user", None),
+                require_tenant=route_requires_tenant(request),
+            )
+        except TenantResolutionError as exc:
+            raise AuthenticationFailed(str(exc)) from exc
+        if tenant is None:
+            tenant = _resolve_request_tenant(request, api_key.tenant)
+            bind_request_tenant(
+                request,
+                tenant,
+                user=getattr(api_key, "user", None),
+                source=getattr(request, "tenant_resolution_source", None) or "api_key",
+                route_policy=getattr(request, "tenant_route_policy", None),
+            )
 
         api_key.last_used_at = timezone.now()
         api_key.save(update_fields=["last_used_at"])
@@ -80,12 +105,33 @@ class TenantJWTAAuthentication(JWTAuthentication):
         if result is None:
             return None
         user, validated_token = result
-        current_tenant.set(_resolve_request_tenant(request, getattr(user, "tenant", None)))
+        try:
+            tenant = ensure_request_tenant_context(
+                request,
+                user=user,
+                require_tenant=route_requires_tenant(request),
+            )
+        except TenantResolutionError as exc:
+            raise AuthenticationFailed(str(exc)) from exc
+        if tenant is None:
+            bind_request_tenant(
+                request,
+                _resolve_request_tenant(request, getattr(user, "tenant", None)),
+                user=user,
+                source=getattr(request, "tenant_resolution_source", None) or "user",
+                route_policy=getattr(request, "tenant_route_policy", None),
+            )
+        _log.debug(
+            "TenantJWTAAuthentication: request.tenant=%s user.tenant_id=%s conn_schema=%s",
+            getattr(request, "tenant", None) and getattr(getattr(request, "tenant", None), "schema_name", ""),
+            getattr(user, "tenant_id", None),
+            _current_connection_schema(),
+        )
         return user, validated_token
 
     def get_validated_token(self, raw_token):
         token = super().get_validated_token(raw_token)
-        if BlacklistedToken is not None:
+        if BlacklistedToken is not None and hasattr(BlacklistedToken, "objects"):
             jti = token.get("jti")
             if jti and BlacklistedToken.objects.filter(token__jti=jti).exists():
                 raise InvalidToken("Token is blacklisted")

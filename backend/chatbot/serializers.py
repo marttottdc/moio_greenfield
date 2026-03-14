@@ -1,9 +1,8 @@
 from crm.serializers import ContactSerializer
-from chatbot.models.chatbot_session import ChatbotSession, ChatbotMemory
+from chatbot.models.agent_session import AgentSession, SessionThread
 
 
-def build_message_payload(message: ChatbotMemory):
-
+def build_message_payload(message: SessionThread):
     return {
         "id": str(message.pk),
         "session_id": str(message.session_id),
@@ -14,7 +13,7 @@ def build_message_payload(message: ChatbotMemory):
     }
 
 
-def build_session_payload(session: ChatbotSession):
+def build_session_payload(session: AgentSession):
     contact_data = {}
     if session.contact:
         contact_data = ContactSerializer(session.contact).data

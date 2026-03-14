@@ -76,6 +76,8 @@ type WorkspaceFormState = {
   displayName: string;
   specialtyPrompt: string;
   toolAllowlistText: string;
+  pluginAllowlist: string[];
+  integrationAllowlist: string[];
   defaultVendor: string;
   defaultModel: string;
   defaultThinking: string;
@@ -263,6 +265,8 @@ const DEFAULT_WORKSPACE_FORM: WorkspaceFormState = {
   displayName: "",
   specialtyPrompt: "",
   toolAllowlistText: "",
+  pluginAllowlist: [],
+  integrationAllowlist: [],
   defaultVendor: "",
   defaultModel: "",
   defaultThinking: "default",
@@ -397,6 +401,18 @@ function parseToolAllowlistText(raw: string): string[] {
   }
   return out;
 }
+
+const WORKSPACE_TOOL_HINTS = [
+  "files.read",
+  "files.write",
+  "files.search",
+  "shell.run",
+  "web.fetch",
+  "web.request",
+  "api.run",
+  "moio_api.run",
+  "tools.list",
+];
 
 function pluginAssignmentDraftFromRow(row: TenantPluginAssignment): PluginAssignmentDraft {
   return {
@@ -784,6 +800,8 @@ export default function TenantAdminApp() {
       displayName: row.displayName,
       specialtyPrompt: row.specialtyPrompt || "",
       toolAllowlistText: Array.isArray(row.toolAllowlist) ? row.toolAllowlist.join("\n") : "",
+      pluginAllowlist: Array.isArray(row.pluginAllowlist) ? row.pluginAllowlist.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean) : [],
+      integrationAllowlist: Array.isArray(row.integrationAllowlist) ? row.integrationAllowlist.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean) : [],
       defaultVendor: row.defaultVendor || "",
       defaultModel: row.defaultModel || "",
       defaultThinking: row.defaultThinking || "default",
@@ -1021,6 +1039,8 @@ export default function TenantAdminApp() {
         displayName: workspace?.displayName || workspace?.name || workspaceSlug.toUpperCase(),
         specialtyPrompt: workspace?.specialtyPrompt || "",
         toolAllowlist: Array.isArray(workspace?.toolAllowlist) ? workspace.toolAllowlist : [],
+        pluginAllowlist: Array.isArray(workspace?.pluginAllowlist) ? workspace.pluginAllowlist : [],
+        integrationAllowlist: Array.isArray(workspace?.integrationAllowlist) ? workspace.integrationAllowlist : [],
         enabledSkillKeys,
         isActive: workspace?.isActive ?? true,
       });
@@ -1052,6 +1072,8 @@ export default function TenantAdminApp() {
         defaultThinking: workspaceForm.defaultThinking.trim().toLowerCase(),
         defaultVerbosity: workspaceForm.defaultVerbosity.trim().toLowerCase(),
         toolAllowlist: parseToolAllowlistText(workspaceForm.toolAllowlistText),
+        pluginAllowlist: [...workspaceForm.pluginAllowlist],
+        integrationAllowlist: [...workspaceForm.integrationAllowlist],
         enabledSkillKeys: existingWorkspace?.enabledSkillKeys || [],
         isActive: workspaceForm.isActive,
       });
@@ -2523,6 +2545,93 @@ export default function TenantAdminApp() {
               onChange={(event) => setWorkspaceForm((prev) => ({ ...prev, toolAllowlistText: event.target.value }))}
               placeholder={"api.run\nmoio_api.run\nfiles.read"}
             />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {WORKSPACE_TOOL_HINTS.map((toolName) => (
+                <button
+                  key={toolName}
+                  type="button"
+                  onClick={() =>
+                    setWorkspaceForm((prev) => {
+                      const current = parseToolAllowlistText(prev.toolAllowlistText);
+                      if (current.includes(toolName)) return prev;
+                      return {
+                        ...prev,
+                        toolAllowlistText: [...current, toolName].join("\n"),
+                      };
+                    })
+                  }
+                  className="rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  + {toolName}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Workspace Plugin Activation">
+            {plugins.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-500">
+                No plugins available.
+              </div>
+            ) : (
+              <div className="max-h-32 space-y-1.5 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+                {plugins
+                  .filter((plugin) => plugin.isValidated && plugin.isPlatformApproved)
+                  .map((plugin) => {
+                    const pluginId = String(plugin.pluginId || "").trim().toLowerCase();
+                    const checked = workspaceForm.pluginAllowlist.includes(pluginId);
+                    return (
+                      <label key={pluginId} className="flex items-center gap-2 text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) =>
+                            setWorkspaceForm((prev) => ({
+                              ...prev,
+                              pluginAllowlist: event.target.checked
+                                ? Array.from(new Set([...prev.pluginAllowlist, pluginId]))
+                                : prev.pluginAllowlist.filter((item) => item !== pluginId),
+                            }))
+                          }
+                        />
+                        <span>{plugin.name || pluginId}</span>
+                        <span className="font-mono text-[10px] text-slate-500">{pluginId}</span>
+                      </label>
+                    );
+                  })}
+              </div>
+            )}
+          </Field>
+          <Field label="Workspace Integration Activation">
+            {integrations.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-500">
+                No integrations available.
+              </div>
+            ) : (
+              <div className="max-h-32 space-y-1.5 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+                {integrations.map((integration) => {
+                  const key = String(integration.key || "").trim().toLowerCase();
+                  const checked = workspaceForm.integrationAllowlist.includes(key);
+                  return (
+                    <label key={key} className="flex items-center gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) =>
+                          setWorkspaceForm((prev) => ({
+                            ...prev,
+                            integrationAllowlist: event.target.checked
+                              ? Array.from(new Set([...prev.integrationAllowlist, key]))
+                              : prev.integrationAllowlist.filter((item) => item !== key),
+                          }))
+                        }
+                      />
+                      <span>{integration.name || key}</span>
+                      <span className="font-mono text-[10px] text-slate-500">{key}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </Field>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <Field label="Default Vendor">

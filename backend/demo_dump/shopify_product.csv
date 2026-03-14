@@ -1,0 +1,3 @@
+id,shopify_id,handle,product_type,vendor,tags,published_at,created_at_shopify,updated_at_shopify,last_synced,sync_status,tenant_id,product_id
+1,10387395576117,gift-card,giftcard,Snowboard Vendor,[],2026-01-28 19:33:46+00:00,2026-01-28 19:33:44+00:00,2026-03-12 01:28:00+00:00,2026-03-12 12:49:25.340119+00:00,active,1,662cebe7-ac06-4062-b884-01a8a9b9453c
+10,10387395903797,the-complete-snowboard,snowboard,Snowboard Vendor,"[""Premium"", ""Snow"", ""Snowboard"", ""Sport"", ""Winter""]",2026-01-28 19:33:46+00:00,2026-01-28 19:33:44+00:00,2026-03-12 01:28:02+00:00,2026-03-12 12:49:30.452059+00:00,active,1,af907f7e-63ca-4788-a182-b4252a53cab0

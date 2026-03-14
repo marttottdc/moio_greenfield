@@ -3,6 +3,7 @@ import logging
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from contextlib import contextmanager
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -39,6 +40,14 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
         self.tenant_id = None
         self.tenant_schema = None
         self.groups = []
+
+    @contextmanager
+    def tenant_db_context(self, *, use_public: bool = False):
+        from tenancy.tenant_support import tenant_schema_context, public_schema_name
+
+        schema_name = public_schema_name() if use_public else (self.tenant_schema or None)
+        with tenant_schema_context(schema_name):
+            yield
     
     async def connect(self):
         if self.requires_auth:
@@ -101,6 +110,7 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
                 return False
             
             self.scope['user'] = self.user
+            self.scope['tenant'] = None
 
             if self.tenant_id:
                 self.tenant = await self.get_tenant(self.tenant_id, self.tenant_schema)
@@ -109,6 +119,7 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
                     return False
                 if not self.tenant_schema:
                     self.tenant_schema = getattr(self.tenant, "schema_name", None)
+                self.scope['tenant'] = self.tenant
 
             return True
             
@@ -138,6 +149,7 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
                     self.tenant = await self.get_tenant(self.tenant_id, self.tenant_schema)
                     if self.tenant and not self.tenant_schema:
                         self.tenant_schema = getattr(self.tenant, "schema_name", None)
+                    self.scope['tenant'] = self.tenant
                 await self.setup_groups()
                 await self.send_json({
                     'event_type': 'authenticated',
@@ -218,7 +230,8 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def get_user(self, user_id):
         try:
-            return User.objects.get(pk=user_id)
+            with self.tenant_db_context(use_public=True):
+                return User.objects.get(pk=user_id)
         except User.DoesNotExist:
             return None
     
@@ -226,11 +239,12 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
     def get_tenant(self, tenant_id, tenant_schema=None):
         from central_hub.models import Tenant
         try:
-            if tenant_schema:
-                tenant = Tenant.objects.filter(schema_name=tenant_schema).first()
-                if tenant is not None:
-                    return tenant
-            return Tenant.objects.get(pk=tenant_id)
+            with self.tenant_db_context(use_public=True):
+                if tenant_schema:
+                    tenant = Tenant.objects.filter(schema_name=tenant_schema).first()
+                    if tenant is not None:
+                        return tenant
+                return Tenant.objects.get(pk=tenant_id)
         except Tenant.DoesNotExist:
             return None
     
@@ -242,7 +256,8 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
         if not self.tenant_id:
             return False
         try:
-            obj = model_class.objects.get(pk=resource_id)
+            with self.tenant_db_context():
+                obj = model_class.objects.get(pk=resource_id)
             if hasattr(obj, 'tenant_id'):
                 return str(obj.tenant_id) == str(self.tenant_id)
             if hasattr(obj, 'tenant'):

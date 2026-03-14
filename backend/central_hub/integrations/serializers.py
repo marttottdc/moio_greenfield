@@ -119,19 +119,24 @@ class IntegrationConfigSerializer(serializers.ModelSerializer):
             return None
     
     def to_representation(self, instance: IntegrationConfig) -> dict[str, Any]:
-        """Mask sensitive fields in the response."""
+        """Mask sensitive fields in the response. Always include sensitive keys so UI shows masked vs empty."""
         data = super().to_representation(instance)
         
         sensitive_fields = get_sensitive_fields(instance.slug)
-        config = data.get("config", {})
+        config = data.get("config", {}) or {}
         
         for field in sensitive_fields:
-            if field in config and config[field]:
-                value = config[field]
-                if isinstance(value, str) and len(value) > 8:
+            value = config.get(field)
+            if value and isinstance(value, str) and value.strip():
+                if len(value) > 8:
                     config[field] = value[:4] + "****" + value[-4:]
                 else:
                     config[field] = "****"
+            elif value and not isinstance(value, str):
+                config[field] = "****"
+            # If missing or empty, leave as-is so UI shows "not set"; don't add fake "****" for never-configured
+            else:
+                config[field] = config.get(field) or ""
         
         data["config"] = config
         return data

@@ -94,6 +94,11 @@ import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ADMIN_NAMESPACE } from "@/constants/routes";
 import { isPlatformAdminRole, isTenantAdminRole, normalizeAppRole } from "@/lib/rbac";
+import {
+  inferModuleForRoute,
+  isRouteBlockedByDevicePolicy,
+  resolveModuleEnablements,
+} from "@/lib/module-entitlements";
 
 interface OrganizationSummary {
   id?: string;
@@ -186,7 +191,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { logout } = useAuth();
   const { toast } = useToast();
-  const { open: sidebarOpen, toggleSidebar, setOpenMobile } = useSidebar();
+  const { open: sidebarOpen, toggleSidebar, setOpenMobile, isMobile } = useSidebar();
   const { theme, toggleTheme } = useTheme();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -254,6 +259,38 @@ export function AppSidebar() {
     retry: false,
   });
 
+  const { data: bootstrapData } = useQuery<
+    {
+      entitlements?: {
+        features?: Record<string, unknown>;
+        ui?: Record<string, unknown>;
+      };
+      capabilities?: {
+        effective_features?: Record<string, unknown>;
+      };
+    } | null,
+    ApiError
+  >({
+    queryKey: [apiV1("/bootstrap/")],
+    queryFn: async () => {
+      try {
+        return await fetchJson(apiV1("/bootstrap/"));
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+
+  const moduleEnablements = resolveModuleEnablements(bootstrapData);
+
   const { displayName, organizationName, avatarFallback } = useMemo(() => {
     if (!user) {
       return {
@@ -318,19 +355,29 @@ export function AppSidebar() {
           const transKey = NAV_ID_TO_TRANSLATION_KEY[node.id] ?? NAV_ID_TO_TRANSLATION_KEY[node.label?.toLowerCase()];
           const title = transKey ? t(transKey) : node.label;
           const isDataLab = node.id === "datalab" || node.label?.toLowerCase() === "data lab";
+          const isWorkflowsNode = node.id === "workflows" || String(node.url || "").trim() === "/workflows";
           const isTenantAdminOnlyNode =
             node.id === "admin" ||
             node.id === "platform_admin" ||
             (node.icon === "admin" && node.url === PLATFORM_ADMIN_NAMESPACE);
+          const nextUrl = isTenantAdminOnlyNode
+            ? tenantAdminPath
+            : isDataLab
+              ? "/datalab"
+              : isWorkflowsNode && isMobile
+                ? "/analytics"
+                : (node.url || "#");
           return {
             title,
-            url: isTenantAdminOnlyNode
-              ? tenantAdminPath
-              : isDataLab
-                ? "/datalab"
-                : (node.url || "#"),
+            url: nextUrl,
             icon: node.icon ? iconMap[node.icon] || LayoutDashboard : LayoutDashboard,
           };
+        })
+        .filter((item) => {
+          const moduleKey = inferModuleForRoute(item.url);
+          if (moduleKey && !moduleEnablements[moduleKey]) return false;
+          if (moduleKey && isRouteBlockedByDevicePolicy(item.url, moduleKey, isMobile)) return false;
+          return true;
         });
 
       return mapped;
@@ -346,11 +393,13 @@ export function AppSidebar() {
       { title: t("menu.activities"), url: "/activities", icon: CheckSquare },
       ...(!isFreeTier ? [{ title: t("menu.communications"), url: "/communications", icon: MessageSquare }] : []),
       { title: t("menu.tickets"), url: "/tickets", icon: Ticket },
-      ...(!isFreeTier ? [
-        { title: t("menu.automation_studio"), url: "/workflows", icon: Workflow },
-        { title: t("menu.agent_console"), url: "/agent-console", icon: Bot },
-        { title: t("menu.data_lab"), url: "/datalab", icon: Database },
-      ] : []),
+      ...(moduleEnablements.flowsDatalab
+        ? [
+            { title: t("menu.automation_studio"), url: isMobile ? "/analytics" : "/workflows", icon: Workflow },
+            ...(!isMobile ? [{ title: t("menu.data_lab"), url: "/datalab", icon: Database }] : []),
+          ]
+        : []),
+      ...(moduleEnablements.agentConsole ? [{ title: t("menu.agent_console"), url: "/agent-console", icon: Bot }] : []),
     ];
 
     const userRole = user?.role;
@@ -364,7 +413,7 @@ export function AppSidebar() {
     }
 
     return items;
-  }, [navigationData, user, t]);
+  }, [navigationData, user, t, moduleEnablements, isMobile]);
 
   const { data: apiKeyStatus, isLoading: apiKeyLoading } = useQuery({
     queryKey: ["auth", "api-key"],

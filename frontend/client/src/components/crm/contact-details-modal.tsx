@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Zap,
   MessageSquare,
@@ -15,23 +15,17 @@ import {
   User,
   Briefcase,
   ExternalLink,
-  Trash2,
-  MoreHorizontal,
   MapPin,
   ChevronRight,
 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { fetchJson, apiRequest, queryClient } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
@@ -40,19 +34,7 @@ import type { TimelineItem } from "@/lib/timeline/types";
 import { TimelineItemCard, ActivityDetailSheet, type ActivityDetailData } from "@/components/timeline/TimelineItemCard";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { isTenantAdminRole } from "@/lib/rbac";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export interface ContactDetailsContact {
   id: string;
@@ -77,7 +59,6 @@ export interface ContactDetailsModalProps {
   contactId: string | null;
   initialContact?: ContactDetailsContact | null;
   onEdit?: (contact: ContactDetailsContact) => void;
-  onDeleted?: () => void;
 }
 
 interface DealLite {
@@ -91,6 +72,28 @@ interface DealLite {
   contact_id?: string | null;
   contact?: string | null;
   updated_at?: string;
+}
+
+interface DealDetail {
+  id: string;
+  title: string;
+  description?: string | null;
+  stage?: string | null;
+  stage_name?: string | null;
+  status?: string | null;
+  value?: number | null;
+  currency?: string | null;
+  expected_close_date?: string | null;
+  updated_at?: string | null;
+  pipeline?: string | null;
+  stage?: string | null;
+}
+
+interface StageOption {
+  id: string;
+  name: string;
+  is_won_stage?: boolean;
+  is_lost_stage?: boolean;
 }
 
 interface ConversationLite {
@@ -192,8 +195,8 @@ function groupByDate(items: { created_at?: string }[]): Map<string, { created_at
 
 function VerticalTimelineRail({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative pl-6">
-      <div className="absolute left-[5px] top-0 bottom-0 w-px bg-border" />
+    <div className="relative pl-5 md:pl-6">
+      <div className="absolute left-[3px] md:left-[5px] top-0 bottom-0 w-px bg-border" />
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -202,7 +205,7 @@ function VerticalTimelineRail({ children }: { children: React.ReactNode }) {
 function TimelineNode({ timestamp, children }: { timestamp: string; children: React.ReactNode }) {
   return (
     <div className="relative flex gap-3">
-      <div className="absolute left-[-21px] top-1 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background" />
+      <div className="absolute left-[-19px] md:left-[-21px] top-1 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background" />
       <div className="flex-1 min-w-0 space-y-2">
         <p className="text-xs text-muted-foreground">{timestamp}</p>
         {children}
@@ -219,15 +222,6 @@ function NotificationEventCard({ item }: { item: TimelineItem }) {
         <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="font-medium truncate text-sm">{title}</span>
       </div>
-    </div>
-  );
-}
-
-function StatBox({ label, value, isLast }: { label: string; value: React.ReactNode; isLast?: boolean }) {
-  return (
-    <div className={`px-5 py-3 ${isLast ? "" : "border-r"}`}>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <div className="text-base font-semibold mt-0.5">{value}</div>
     </div>
   );
 }
@@ -250,31 +244,31 @@ function InfoRow({ icon: Icon, children }: { icon: React.ElementType; children: 
   );
 }
 
-function DealCard({ deal }: { deal: DealLite }) {
+function DealCard({ deal, onOpen }: { deal: DealLite; onOpen: (dealId: string) => void }) {
   const valueStr =
     typeof deal.value === "number"
       ? new Intl.NumberFormat(undefined, { style: "currency", currency: deal.currency ?? "USD" }).format(deal.value)
       : deal.value ?? "—";
   return (
-    <Link href="/deals">
-      <div
-        className="p-3 rounded-lg border bg-card text-sm space-y-1.5 hover:bg-muted/50 transition-colors cursor-pointer"
-        data-testid={`deal-${deal.id}`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium truncate">{deal.title}</span>
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {(deal.stage_name ?? deal.stage) && (
-            <Badge variant="secondary" className="text-xs">
-              {deal.stage_name ?? deal.stage}
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">{valueStr}</span>
-        </div>
+    <button
+      type="button"
+      onClick={() => onOpen(deal.id)}
+      className="w-full text-left p-3 rounded-lg border bg-card text-sm space-y-1.5 hover:bg-muted/50 transition-colors cursor-pointer"
+      data-testid={`deal-${deal.id}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium truncate">{deal.title}</span>
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       </div>
-    </Link>
+      <div className="flex items-center gap-2 flex-wrap">
+        {(deal.stage_name ?? deal.stage) && (
+          <Badge variant="secondary" className="text-xs">
+            {deal.stage_name ?? deal.stage}
+          </Badge>
+        )}
+        <span className="text-xs text-muted-foreground">{valueStr}</span>
+      </div>
+    </button>
   );
 }
 
@@ -309,31 +303,14 @@ export function ContactDetailsModal({
   contactId,
   initialContact,
   onEdit,
-  onDeleted,
 }: ContactDetailsModalProps) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const { toast } = useToast();
   const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
   const [activityDetailOpen, setActivityDetailOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
-  const canDelete = isTenantAdminRole(user?.role);
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", apiV1(`/crm/contacts/${id}/`));
-    },
-    onSuccess: () => {
-      toast({ title: t("contact.contact_deleted"), description: t("contact.contact_deleted_description") });
-      onOpenChange(false);
-      onDeleted?.();
-      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to delete contact", description: error.message, variant: "destructive" });
-    },
-  });
+  const [openDealId, setOpenDealId] = useState<string | null>(null);
+  const [targetStageId, setTargetStageId] = useState<string>("");
+  const [moveComment, setMoveComment] = useState<string>("");
 
   const handleActivityClick = (item: TimelineItem) => {
     if (item.type === "activity") {
@@ -391,6 +368,59 @@ export function ContactDetailsModal({
     staleTime: 60 * 1000,
   });
 
+  const dealDetailQuery = useQuery({
+    queryKey: [apiV1("/crm/deals/"), "detail", openDealId],
+    queryFn: () => fetchJson<DealDetail>(apiV1(`/crm/deals/${openDealId}/`)),
+    enabled: Boolean(openDealId),
+    retry: false,
+    staleTime: 60 * 1000,
+  });
+
+  const stageOptionsQuery = useQuery({
+    queryKey: [apiV1("/crm/deals/pipelines/"), "stages-for-deal", dealDetailQuery.data?.pipeline],
+    queryFn: async () => {
+      const raw = await fetchJson<{ pipelines?: Array<{ id: string; stages?: StageOption[] }> }>(apiV1("/crm/deals/pipelines/"));
+      const pipelines = raw?.pipelines ?? [];
+      const pipelineId = String(dealDetailQuery.data?.pipeline ?? "");
+      const pipeline = pipelines.find((p) => String(p.id) === pipelineId);
+      return pipeline?.stages ?? [];
+    },
+    enabled: Boolean(openDealId && dealDetailQuery.data?.pipeline),
+    retry: false,
+    staleTime: 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!openDealId) {
+      setTargetStageId("");
+      setMoveComment("");
+      return;
+    }
+    if (dealDetailQuery.data?.stage) {
+      setTargetStageId(String(dealDetailQuery.data.stage));
+    }
+  }, [openDealId, dealDetailQuery.data?.stage]);
+
+  const moveStageMutation = useMutation({
+    mutationFn: async (stageId: string) => {
+      if (!openDealId) return;
+      await apiRequest("POST", apiV1(`/crm/deals/${openDealId}/move-stage/`), {
+        data: { stage_id: stageId, comment: moveComment.trim() },
+      });
+    },
+    onSuccess: async () => {
+      toast({ title: "Deal moved", description: "The deal stage was updated." });
+      await Promise.all([
+        dealDetailQuery.refetch(),
+        dealsQuery.refetch(),
+      ]);
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/deals/")] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to move deal", description: error.message, variant: "destructive" });
+    },
+  });
+
   const timelineItems = timelineQuery.data?.items ?? [];
   const deals = dealsQuery.data ?? [];
   const conversations = conversationsQuery.data ?? [];
@@ -412,7 +442,7 @@ export function ContactDetailsModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden flex flex-col max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none"
+        className="max-w-[96vw] w-[96vw] h-[88vh] p-0 gap-0 overflow-hidden flex flex-col bg-background max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none"
         data-testid="dialog-contact-details"
       >
         {(contactQuery.isLoading && !initialContact) ? (
@@ -426,83 +456,194 @@ export function ContactDetailsModal({
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/20 shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 md:px-6 py-3.5 md:py-3.5 pr-14 border-b bg-gradient-to-b from-muted/30 to-muted/10 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-base font-semibold text-primary shrink-0">
+                <div className="h-11 w-11 rounded-full bg-primary/10 ring-1 ring-primary/15 flex items-center justify-center text-base font-semibold text-primary shrink-0">
                   {contact.name?.charAt(0).toUpperCase() ?? "?"}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-semibold truncate">{contact.name}</h2>
-                  {statusPill && (
-                    <Badge variant={statusPill.variant} className={cn("text-xs mt-0.5", statusPill.className)}>
-                      {statusPill.label}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h2 className="text-lg md:text-xl font-semibold tracking-tight truncate">{contact.name}</h2>
+                    {onEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        onClick={() => onEdit(contact)}
+                        data-testid="button-contact-details-edit"
+                        aria-label={t("contact.edit")}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    {contact.email && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 truncate">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{contact.email}</span>
+                      </p>
+                    )}
+                    {contact.phone && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 truncate">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{contact.phone}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    {statusPill && (
+                      <Badge variant={statusPill.variant} className={cn("text-xs px-2.5 py-0.5", statusPill.className)}>
+                        {statusPill.label}
+                      </Badge>
+                    )}
+                    {contact.type && (
+                      <Badge variant="secondary" className="text-xs px-2.5 py-0.5">
+                        {contact.type}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {onEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEdit(contact)}
-                    data-testid="button-contact-details-edit"
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                    {t("contact.edit")}
-                  </Button>
-                )}
-                {canDelete && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" data-testid="button-more-actions">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                        data-testid="menu-delete-contact"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {t("contact.delete_contact")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                <div className="hidden md:flex items-center gap-1.5 mr-1">
+                  <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                    {t("contact.messages")}: {conversations.length}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                    {t("contact.deals")}: {deals.length}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground whitespace-nowrap">
+                  <span className="uppercase tracking-[0.12em]">{t("contact.last_contact")}:</span>{" "}
+                  <span className="text-sm font-semibold text-foreground normal-case tracking-normal">
+                    {formatRelativeDate(contact.activity_summary?.last_contact)}
+                  </span>
+                </p>
               </div>
             </div>
 
-            {/* Stats ribbon */}
-            <div className="grid grid-cols-2 md:grid-cols-4 border-b bg-card shrink-0">
-              <StatBox label={t("contact.deals")} value={contact.activity_summary?.total_deals ?? deals.length} />
-              <StatBox label={t("contact.messages")} value={contact.activity_summary?.total_messages ?? conversations.length} />
-              <StatBox label={t("contact.last_contact")} value={formatRelativeDate(contact.activity_summary?.last_contact)} />
-              <StatBox
-                label={t("contact.status")}
-                value={
-                  statusPill ? (
-                    <Badge variant={statusPill.variant} className={cn("text-xs", statusPill.className)}>
-                      {statusPill.label}
-                    </Badge>
-                  ) : (
-                    "—"
-                  )
-                }
-                isLast
-              />
-            </div>
-
-            {/* Two-column body */}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_22rem] flex-1 overflow-hidden min-h-0">
-              {/* Left: Main content – Timeline + Notifications */}
+            {/* Responsive body: one smooth scroll on mobile, split columns on desktop */}
+            <div className="flex-1 overflow-hidden min-h-0">
               <ScrollArea className="h-full">
-                <div className="p-5 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)] md:gap-4 p-4 md:p-5 min-h-full">
+                  {/* Mobile-first sidebar summary */}
+                  <div className="space-y-4 md:order-2">
+                    {/* Contact info card */}
+                    <Card className="border-border/70 shadow-sm">
+                      <CardContent className="space-y-4 pt-4">
+                        {contact.company && (
+                          <>
+                            <SidebarSection title={t("contact.company")}>
+                              <InfoRow icon={Building2}>{contact.company}</InfoRow>
+                            </SidebarSection>
+                          </>
+                        )}
+
+                        <Separator />
+
+                        <SidebarSection title={t("contact.address_label")}>
+                          {contact.address ? (
+                            <InfoRow icon={MapPin}>{contact.address}</InfoRow>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">{t("contact.no_address")}</p>
+                          )}
+                        </SidebarSection>
+
+                        {contact.tags && contact.tags.length > 0 && (
+                          <>
+                            <Separator />
+                            <SidebarSection title={t("contact.tags")}>
+                              <div className="flex flex-wrap gap-1.5">
+                                {contact.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+                                  >
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </SidebarSection>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Messages card */}
+                    <Card className="border-border/70 shadow-sm">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                            {t("contact.messages")}
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs rounded-md px-2 py-0.5">
+                            {conversations.length}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {conversationsQuery.isLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : conversations.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-2">{t("contact.no_conversations")}</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {conversations
+                              .sort(
+                                (a, b) =>
+                                  parseTime(b.updated_at ?? b.last_message?.timestamp) -
+                                  parseTime(a.updated_at ?? a.last_message?.timestamp),
+                              )
+                              .map((conv) => (
+                                <ConversationMiniCard key={conv.id} conv={conv} />
+                              ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Deals card */}
+                    <Card className="border-border/70 shadow-sm">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-muted-foreground" />
+                            {t("contact.deals")}
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-xs rounded-md px-2 py-0.5">
+                            {deals.length}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {dealsQuery.isLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : deals.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-2">{t("contact.no_deals")}</p>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {deals.map((deal) => (
+                              <DealCard key={deal.id} deal={deal} onOpen={setOpenDealId} />
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Timeline and events */}
+                  <div className="mt-3 md:mt-0 space-y-5 md:order-1">
                   {/* Activity timeline */}
-                  <Card>
+                  <Card className="border-border/70 shadow-sm">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
                         <Zap className="h-4 w-4 text-muted-foreground" />
                         {t("contact.timeline")}
                       </CardTitle>
@@ -535,9 +676,9 @@ export function ContactDetailsModal({
 
                   {/* Notifications */}
                   {notificationItems.length > 0 && (
-                    <Card>
+                    <Card className="border-border/70 shadow-sm">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
                           <Bell className="h-4 w-4 text-muted-foreground" />
                           {t("contact.notifications")}
                         </CardTitle>
@@ -561,141 +702,6 @@ export function ContactDetailsModal({
                     </Card>
                   )}
                 </div>
-              </ScrollArea>
-
-              {/* Right: Sidebar cards */}
-              <ScrollArea className="h-full border-l bg-muted/20">
-                <div className="p-4 space-y-4">
-                  {/* Contact info card */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold">{t("contact.contact_info")}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <SidebarSection title={t("contact.contact_information")}>
-                        <div className="space-y-2">
-                          {contact.email ? (
-                            <InfoRow icon={Mail}>{contact.email}</InfoRow>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">{t("contact.no_email")}</p>
-                          )}
-                          {contact.phone ? (
-                            <InfoRow icon={Phone}>{contact.phone}</InfoRow>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">{t("contact.no_phone")}</p>
-                          )}
-                        </div>
-                      </SidebarSection>
-
-                      {contact.company && (
-                        <>
-                          <Separator />
-                          <SidebarSection title={t("contact.company")}>
-                            <InfoRow icon={Building2}>{contact.company}</InfoRow>
-                          </SidebarSection>
-                        </>
-                      )}
-
-                      <Separator />
-
-                      <SidebarSection title={t("contact.address_label")}>
-                        {contact.address ? (
-                          <InfoRow icon={MapPin}>{contact.address}</InfoRow>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">{t("contact.no_address")}</p>
-                        )}
-                      </SidebarSection>
-
-                      {contact.tags && contact.tags.length > 0 && (
-                        <>
-                          <Separator />
-                          <SidebarSection title={t("contact.tags")}>
-                            <div className="flex flex-wrap gap-1.5">
-                              {contact.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
-                                >
-                                  <User className="h-3 w-3 text-muted-foreground" />
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </SidebarSection>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Messages card */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                          {t("contact.messages")}
-                        </CardTitle>
-                        {conversations.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {conversations.length}
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {conversationsQuery.isLoading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : conversations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-2">{t("contact.no_conversations")}</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {conversations
-                            .sort(
-                              (a, b) =>
-                                parseTime(b.updated_at ?? b.last_message?.timestamp) -
-                                parseTime(a.updated_at ?? a.last_message?.timestamp),
-                            )
-                            .map((conv) => (
-                              <ConversationMiniCard key={conv.id} conv={conv} />
-                            ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Deals card */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                          <Briefcase className="h-4 w-4 text-muted-foreground" />
-                          {t("contact.deals")}
-                        </CardTitle>
-                        {deals.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {deals.length}
-                          </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {dealsQuery.isLoading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : deals.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-2">{t("contact.no_deals")}</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {deals.map((deal) => (
-                            <DealCard key={deal.id} deal={deal} />
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
                 </div>
               </ScrollArea>
             </div>
@@ -709,24 +715,78 @@ export function ContactDetailsModal({
         activity={selectedActivity?.type === "activity" ? (selectedActivity as ActivityDetailData) : null}
       />
 
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent data-testid="dialog-delete-contact-confirm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("contact.delete_contact_title")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("contact.delete_contact_description")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-contact">{t("contact.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => contactId && deleteMutation.mutate(contactId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-contact"
-            >
-              {deleteMutation.isPending ? t("contact.deleting") : t("contact.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={Boolean(openDealId)} onOpenChange={(next) => { if (!next) setOpenDealId(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{dealDetailQuery.data?.title ?? "Deal"}</DialogTitle>
+            <DialogDescription>
+              {dealDetailQuery.data?.stage_name ?? dealDetailQuery.data?.stage ?? "No stage"}
+            </DialogDescription>
+          </DialogHeader>
+          {dealDetailQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-3 text-sm">
+              {dealDetailQuery.data?.description && (
+                <p className="whitespace-pre-wrap">{dealDetailQuery.data.description}</p>
+              )}
+              {typeof dealDetailQuery.data?.value === "number" && (
+                <p>
+                  Value:{" "}
+                  {new Intl.NumberFormat(undefined, {
+                    style: "currency",
+                    currency: dealDetailQuery.data.currency ?? "USD",
+                  }).format(dealDetailQuery.data.value)}
+                </p>
+              )}
+              {dealDetailQuery.data?.status && <p>Status: {dealDetailQuery.data.status}</p>}
+              {dealDetailQuery.data?.expected_close_date && (
+                <p>Expected close: {formatTimelineDateShort(dealDetailQuery.data.expected_close_date)}</p>
+              )}
+              {stageOptionsQuery.data && stageOptionsQuery.data.length > 0 && (
+                <div className="pt-2 space-y-2 border-t">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Move stage</p>
+                  <Textarea
+                    value={moveComment}
+                    onChange={(e) => setMoveComment(e.target.value)}
+                    placeholder="Add a comment for this movement..."
+                    className="min-h-[84px]"
+                  />
+                  <div className="flex gap-2">
+                    <Select value={targetStageId} onValueChange={setTargetStageId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stageOptionsQuery.data.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>
+                            {stage.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      onClick={() => moveStageMutation.mutate(targetStageId)}
+                      disabled={
+                        !moveComment.trim() ||
+                        !targetStageId ||
+                        targetStageId === String(dealDetailQuery.data?.stage ?? "") ||
+                        moveStageMutation.isPending
+                      }
+                    >
+                      {moveStageMutation.isPending ? "Moving..." : "Move"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </Dialog>
   );
 }

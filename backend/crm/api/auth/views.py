@@ -66,15 +66,9 @@ class AuthViewSet(viewsets.ViewSet):
                 or UserModel.objects.filter(username__iexact=username).first()
             )
 
-        # With django_tenants, ensure we query the public schema (users live there)
-        if getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            try:
-                from django_tenants.utils import schema_context
-                with schema_context("public"):
-                    user = _find_user()
-            except Exception:
-                user = _find_user()
-        else:
+        # Single schema: all tables in public; schema_context is no-op
+        from tenancy.tenant_support import schema_context
+        with schema_context("public"):
             user = _find_user()
 
         if not user:

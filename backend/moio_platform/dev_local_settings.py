@@ -18,7 +18,10 @@ os.environ["DB_NAME"] = "moio_greenfield"
 os.environ["DB_USER"] = "moio"
 os.environ["DB_PASSWORD"] = "moio_local"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
-os.environ["DJANGO_TENANTS_ENABLED"] = "1"
+# Use RLS (single public schema + tenant_uuid) for async + PgBouncer. Set USE_RLS_TENANCY=1 to enable.
+os.environ.setdefault("USE_RLS_TENANCY", "0")
+# Temporary: skip tenant resolution for all requests (tenant=None). Set DISABLE_TENANT_RESOLUTION=1 to turn off.
+DISABLE_TENANT_RESOLUTION = os.environ.get("DISABLE_TENANT_RESOLUTION", "0").lower() in ("1", "true", "yes")
 os.environ["USE_LOCAL_DEV_DEFAULTS"] = "0"
 os.environ["DEBUG"] = "true"
 os.environ["SECRET_KEY"] = "dev-local-unsafe-secret-key"
@@ -29,7 +32,7 @@ from .settings import *  # noqa: E402,F401,F403
 
 # Fuerza la config local por si .env/DATABASE_URL cargó valores remotos
 DATABASES["default"] = {
-    "ENGINE": "django_tenants.postgresql_backend",
+    "ENGINE": "django.db.backends.postgresql",
     "HOST": "localhost",
     "PORT": 6432,
     "NAME": "moio_greenfield",

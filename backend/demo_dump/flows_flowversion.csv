@@ -1,0 +1,3 @@
+id,version,status,label,notes,graph,config_schema,config_values,created_at,updated_at,published_at,testing_started_at,created_by_id,flow_id,tenant_id
+78e201a8-fce1-4edc-8e4d-064ca965f691,1,draft,,,"{""meta"": {""draft"": true}, ""edges"": [], ""nodes"": []}",{},{},2026-03-11 22:47:11.566722+00:00,2026-03-11 22:47:11.566750+00:00,,,,e9c80dc4-e1d2-4570-b22a-acb9f5c8aafb,1
+198a8a3b-269b-49e3-913f-a499c1ff8ec2,1,draft,,,"{""meta"": {""draft"": true}, ""edges"": [], ""nodes"": []}",{},{},2026-03-13 02:12:56.986162+00:00,2026-03-13 02:12:56.986185+00:00,,,,de3ddd2b-6a74-4b4d-b048-19634cc16cc7,1

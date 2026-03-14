@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from chatbot.models.chatbot_configuration import ChatbotConfiguration
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 from chatbot.models.openai_configuration import OpenaiConfiguration
 # from chatbot.models.assessment_data import PainPoint, Campaign, AssessmentInstance, AssessmentQuestion,    AssessmentQuestionOption, AssessmentInstanceResponseVector
 
@@ -13,14 +13,14 @@ from chatbot.models.agent_configuration import AgentConfiguration
 from chatbot.models.tenant_chatbot_settings import TenantChatbotSettings
 
 
-class ChatbotMemoryAdmin(admin.ModelAdmin):
-    list_display = ('session', 'role', 'content', 'created')
+class SessionThreadAdmin(admin.ModelAdmin):
+    list_display = ('id', 'session', 'role', 'content', 'created')
 
 
-class ChatbotSessionAdmin(admin.ModelAdmin):
-    list_display = ('session', 'contact', 'last_interaction', 'active', 'final_summary', 'end')
+class AgentSessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'contact', 'last_interaction', 'active', 'final_summary', 'end')
     list_filter = ['active', 'tenant']
-    search_fields = ['contact', 'session']
+    search_fields = ['contact__fullname', 'id']
 
 
 class WaMessageLogAdmin(admin.ModelAdmin):
@@ -32,8 +32,8 @@ class WaMessageLogAdmin(admin.ModelAdmin):
 
 
 admin.site.register(ChatbotConfiguration)
-admin.site.register(ChatbotSession, ChatbotSessionAdmin)
-admin.site.register(ChatbotMemory, ChatbotMemoryAdmin)
+admin.site.register(AgentSession, AgentSessionAdmin)
+admin.site.register(SessionThread, SessionThreadAdmin)
 
 
 admin.site.register(WaPayloads)

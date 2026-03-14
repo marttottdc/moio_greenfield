@@ -19,9 +19,12 @@ from crm.services.activity_capture_service import (
     apply_capture_entry_to_activities,
 )
 from crm.tasks import classify_capture_entry, apply_capture_entry
+from tenancy.resolution import activate_tenant
 
 
 def _serialize_capture_entry(entry: ActivityCaptureEntry, isoformat) -> Dict[str, Any]:
+    # Ensure status is serialized as string value for API/polling (TextChoices can serialize as enum name otherwise)
+    status_str = getattr(entry.status, "value", None) or getattr(entry.status, "name", None) or str(entry.status)
     return {
         "id": str(entry.id),
         "anchor_model": entry.anchor_model,
@@ -31,7 +34,7 @@ def _serialize_capture_entry(entry: ActivityCaptureEntry, isoformat) -> Dict[str
         "raw_source": entry.raw_source,
         "channel_hint": entry.channel_hint,
         "visibility": entry.visibility,
-        "status": entry.status,
+        "status": status_str,
         "llm_model": entry.llm_model,
         "prompt_version": entry.prompt_version,
         "classification": entry.classification,
@@ -346,9 +349,7 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
         # OpenAI call can take 10–30s; DB connection may go stale. Close to force a fresh one.
         connection.close()
         # Re-set tenant on the new connection (django-tenants: fresh conn may default to public).
-        from django.conf import settings
-        if getattr(settings, "DJANGO_TENANTS_ENABLED", False) and getattr(tenant, "schema_name", None):
-            connection.set_tenant(tenant)
+        activate_tenant(tenant)
 
         classification_payload = output.model_dump()
         suggested = classification_payload.get("suggested_activities")

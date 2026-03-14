@@ -1,0 +1,1 @@
+id,model_path,signal_type,only_on_create,only_on_update,watch_fields,field_conditions,is_active,name,description,execution_count,last_triggered_at,created_at,updated_at,flow_id,tenant_id

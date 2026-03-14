@@ -604,10 +604,25 @@ class IntegrationConfigListView(IntegrationAPIView):
         ).first()
         
         if existing:
-            return Response(
-                {"error": f"Config already exists for {slug}:{instance_id}"},
-                status=status.HTTP_409_CONFLICT,
+            # Upsert: update existing config so "save" from frontend always works
+            update_data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+            if slug == "shopify":
+                shopify_config = dict(update_data.get("config") or {})
+                for key in ("access_token", "webhook_secret", "store_url"):
+                    shopify_config.pop(key, None)
+                update_data["config"] = shopify_config
+            serializer = IntegrationConfigUpdateSerializer(
+                existing,
+                data=update_data,
+                partial=True,
+                context={"request": request},
             )
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            logger.info("Integration config updated (upsert): slug=%s instance_id=%s", slug, instance_id)
+            out_serializer = IntegrationConfigSerializer(existing, context={"request": request})
+            return Response(out_serializer.data)
         
         serializer = IntegrationConfigCreateSerializer(
             data=data,
@@ -621,8 +636,13 @@ class IntegrationConfigListView(IntegrationAPIView):
             instance = serializer.save(tenant=tenant)
             logger.info("Integration config created: slug=%s instance_id=%s", slug, instance_id)
         except IntegrityError:
+            # Row exists but is not visible (e.g. tenant_uuid NULL). We do not disable RLS here.
+            # Run: python manage.py backfill_tenant_uuid
             return Response(
-                {"error": f"Config already exists for {slug}:{instance_id}"},
+                {
+                    "error": f"Config already exists for {slug}:{instance_id}",
+                    "hint": "Run: python manage.py backfill_tenant_uuid (then save again).",
+                },
                 status=status.HTTP_409_CONFLICT,
             )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -929,7 +949,7 @@ class OpenAIModelsView(IntegrationAPIView):
             stored = IntegrationConfig.get_for_tenant(tenant, "openai", "default")
             if not stored:
                 try:
-                    from django_tenants.utils import schema_context
+                    from tenancy.tenant_support import schema_context
                     with schema_context("public"):
                         stored = IntegrationConfig._base_manager.filter(
                             tenant_id=tenant.pk, slug="openai", instance_id="default"

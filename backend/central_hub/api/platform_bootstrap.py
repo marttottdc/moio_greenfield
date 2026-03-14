@@ -12,13 +12,51 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from central_hub.authentication import TenantJWTAAuthentication
-from central_hub.models import PlatformConfiguration, PlatformNotificationSettings
+from central_hub.models import Plan, PlatformConfiguration, PlatformNotificationSettings
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantIntegration
 from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
 
 UserModel = get_user_model()
+
+MODULE_ENABLEMENT_DEFAULTS = {
+    "crm": True,
+    "flowsDatalab": False,
+    "chatbot": False,
+    "agentConsole": False,
+}
+
+
+def _tenant_module_enablements(tenant: Tenant) -> dict:
+    """
+    Normalize module enablements for Platform Admin.
+
+    Source of truth is tenant.features with optional tenant.ui override:
+      - crm -> features.crm (defaults true)
+      - flowsDatalab -> features.flows or features.datalab
+      - chatbot -> features.chatbot
+      - agentConsole -> features.agent_console
+    """
+    features = getattr(tenant, "features", None) or {}
+    ui = getattr(tenant, "ui", None) or {}
+    ui_enablements = ui.get("module_enablements") if isinstance(ui, dict) else None
+
+    normalized = dict(MODULE_ENABLEMENT_DEFAULTS)
+    normalized["crm"] = bool(features.get("crm", True))
+    normalized["flowsDatalab"] = bool(features.get("flows", False) or features.get("datalab", False))
+    normalized["chatbot"] = bool(features.get("chatbot", False))
+    normalized["agentConsole"] = bool(features.get("agent_console", False))
+
+    if isinstance(ui_enablements, dict):
+        for key in MODULE_ENABLEMENT_DEFAULTS:
+            if key in ui_enablements:
+                normalized[key] = bool(ui_enablements[key])
+
+    # CRM is always base.
+    normalized["crm"] = True
+    return normalized
 
 
 def _platform_configuration_payload(cfg: PlatformConfiguration | None, request=None) -> dict | None:
@@ -68,6 +106,18 @@ def _current_user_payload(user) -> dict | None:
     }
 
 
+def _plan_payload(p: Plan) -> dict:
+    return {
+        "id": str(p.pk),
+        "key": getattr(p, "key", "") or "",
+        "name": getattr(p, "name", "") or "",
+        "displayOrder": getattr(p, "display_order", 0),
+        "isActive": bool(getattr(p, "is_active", True)),
+        "pricingPolicy": getattr(p, "pricing_policy", None) or {},
+        "entitlementPolicy": getattr(p, "entitlement_policy", None) or {},
+    }
+
+
 def _tenant_payload(t: Tenant) -> dict:
     return {
         "id": str(t.pk),
@@ -77,6 +127,8 @@ def _tenant_payload(t: Tenant) -> dict:
         "schemaName": getattr(t, "schema_name", "") or "",
         "isActive": bool(getattr(t, "enabled", True)),
         "primaryDomain": getattr(t, "primary_domain", "") or "",
+        "plan": str(getattr(t, "plan", "free") or "free"),
+        "moduleEnablements": _tenant_module_enablements(t),
     }
 
 
@@ -86,11 +138,17 @@ def _platform_user_payload(u) -> dict:
         display = f"{display} {(u.last_name or '').strip()}".strip()
     display = display or getattr(u, "username", "") or u.email or ""
     tenant = getattr(u, "tenant", None)
+    # Role: admin if in tenant_admin group or superuser, else member
+    try:
+        group_names = [g.name for g in (u.groups.all() if hasattr(u, "groups") else [])]
+    except Exception:
+        group_names = []
+    is_tenant_admin = getattr(u, "is_superuser", False) or "tenant_admin" in group_names
     tenant_memberships = []
     if tenant:
         tenant_memberships.append({
             "tenantSlug": getattr(tenant, "schema_name", "") or "",
-            "role": "admin" if getattr(u, "is_superuser", False) else "member",
+            "role": "admin" if is_tenant_admin else "member",
             "isActive": bool(getattr(u, "is_active", True)),
         })
     return {
@@ -203,7 +261,9 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
     integrations_list = []
     tenant_integrations_list = []
     platform_config = None
+    plugin_state = {"sync": {"syncedCount": 0, "invalid": []}, "plugins": [], "tenantPlugins": [], "tenantPluginAssignments": []}
 
+    plans_list = []
     if tenants_enabled():
         with tenant_schema_context(public_schema_name()):
             tenants_list = [_tenant_payload(t) for t in Tenant.objects.all().order_by("schema_name")]
@@ -214,6 +274,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
                 tenant_integrations_list.append(_tenant_integration_payload(ti))
             platform_config = _platform_configuration_payload(PlatformConfiguration.objects.first(), request)
             notif = get_platform_notification_settings()
+            plugin_state = platform_plugin_admin_state()
+            plans_list = [_plan_payload(p) for p in Plan.objects.filter(is_active=True).order_by("display_order", "key")]
     else:
         tenants_list = [_tenant_payload(t) for t in Tenant.objects.all().order_by("schema_name")]
         for u in UserModel.objects.all().select_related("tenant").order_by("id"):
@@ -223,6 +285,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
             tenant_integrations_list.append(_tenant_integration_payload(ti))
         platform_config = _platform_configuration_payload(PlatformConfiguration.objects.first(), request)
         notif = get_platform_notification_settings()
+        plugin_state = platform_plugin_admin_state()
+        plans_list = [_plan_payload(p) for p in Plan.objects.filter(is_active=True).order_by("display_order", "key")]
     notification_settings = _notification_settings_payload(notif)
 
     # Integrations Hub contract: catalog from central_hub registry (single source for hub UX)
@@ -233,15 +297,16 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
         "publicSchema": public_schema_name(),
         "currentUser": current_user,
         "tenants": tenants_list,
+        "plans": plans_list,
         "users": users_list,
         "integrations": integrations_list,
         "hubIntegrations": hub_integrations_list,
         "globalSkills": [],
         "tenantIntegrations": tenant_integrations_list,
-        "pluginSync": {"syncedCount": 0, "invalid": []},
-        "plugins": [],
-        "tenantPlugins": [],
-        "tenantPluginAssignments": [],
+        "pluginSync": plugin_state.get("sync", {"syncedCount": 0, "invalid": []}),
+        "plugins": plugin_state.get("plugins", []),
+        "tenantPlugins": plugin_state.get("tenantPlugins", []),
+        "tenantPluginAssignments": plugin_state.get("tenantPluginAssignments", []),
         "platformConfiguration": platform_config,
         "notificationSettings": notification_settings,
     }

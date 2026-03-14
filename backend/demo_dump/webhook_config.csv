@@ -1,0 +1,1 @@
+id,name,description,expected_schema,expected_content_type,expected_origin,store_payloads,auth_type,auth_config,handler_path,url,locked,created_at,updated_at,tenant_id

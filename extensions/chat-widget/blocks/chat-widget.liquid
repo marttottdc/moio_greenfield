@@ -1,18 +1,32 @@
 {% comment %}
   Moio Chat Widget - App embed block (target: body).
-  Injects data attributes for the storefront script; config is fetched from backend via chat-widget.js.
-  Pass customer.id when logged in so the backend can associate the session.
+  Configuration is done in the Theme Editor (Customize > App embeds > Moio Chat).
+  Backend is only used for ws_url and enabled (app installed); display settings come from theme.
 {% endcomment %}
 <div
   id="moio-chat-widget-root"
   class="moio-chat-widget-embed"
   data-shop="{{ shop.permanent_domain }}"
-  data-allowed-templates="{{ block.settings.allowed_templates | default: '' }}"
   data-locale="{{ request.locale.iso_code | default: shop.locale }}"
   {% if customer %}data-customer-id="{{ customer.id }}"{% endif %}
   style="display: none;"
   aria-hidden="true"
 ></div>
+<script type="application/json" id="mc-tc">
+{
+  "title": {{ block.settings.title | json }},
+  "bubble_icon": {{ block.settings.bubble_icon | json }},
+  "greeting": {{ block.settings.greeting | json }},
+  "primary_color": {{ block.settings.primary_color | json }},
+  "position": {{ block.settings.position | json }},
+  "offset_x": {{ block.settings.offset_x | default: 20 }},
+  "offset_y": {{ block.settings.offset_y | default: 20 }},
+  "bubble_size": {{ block.settings.bubble_size | default: 56 }},
+  "window_width": {{ block.settings.window_width | default: 360 }},
+  "window_height": {{ block.settings.window_height | default: 480 }},
+  "allowed_templates": {{ block.settings.allowed_templates | json }}
+}
+</script>
 
 {% schema %}
 {
@@ -21,6 +35,105 @@
   "stylesheet": "chat-widget.css",
   "javascript": "chat-widget.js",
   "settings": [
+    {
+      "type": "header",
+      "content": "Appearance"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Chat title",
+      "default": "Chat"
+    },
+    {
+      "type": "text",
+      "id": "bubble_icon",
+      "label": "Bubble icon",
+      "default": "💬",
+      "info": "Emoji or image URL"
+    },
+    {
+      "type": "textarea",
+      "id": "greeting",
+      "label": "Greeting message",
+      "default": "Hello! How can we help?"
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "position",
+      "label": "Position",
+      "options": [
+        { "value": "bottom-right", "label": "Bottom right" },
+        { "value": "bottom-left", "label": "Bottom left" },
+        { "value": "top-right", "label": "Top right" },
+        { "value": "top-left", "label": "Top left" }
+      ],
+      "default": "bottom-right"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "offset_x",
+      "label": "Horizontal offset",
+      "min": 0,
+      "max": 64,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "offset_y",
+      "label": "Vertical offset",
+      "min": 0,
+      "max": 96,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "bubble_size",
+      "label": "Bubble size",
+      "min": 44,
+      "max": 72,
+      "step": 2,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "window_width",
+      "label": "Chat window width",
+      "min": 280,
+      "max": 520,
+      "step": 20,
+      "unit": "px",
+      "default": 360
+    },
+    {
+      "type": "range",
+      "id": "window_height",
+      "label": "Chat window height",
+      "min": 320,
+      "max": 760,
+      "step": 20,
+      "unit": "px",
+      "default": 480
+    },
+    {
+      "type": "header",
+      "content": "Visibility"
+    },
     {
       "type": "text",
       "id": "allowed_templates",

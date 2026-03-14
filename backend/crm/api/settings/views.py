@@ -5,8 +5,7 @@ import logging
 from typing import Any, Dict, Optional, Type
 
 
-from django.conf import settings
-from django.db import IntegrityError, connection
+from django.db import IntegrityError
 from django.http import Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -17,6 +16,7 @@ from rest_framework.exceptions import ValidationError
 from crm.models import WebhookConfig
 from crm.services.agent_service import AgentService
 from central_hub.tenant_config import get_tenant_config
+from tenancy.resolution import activate_tenant
 
 from .config_persistence import (
     persist_integration_config,
@@ -38,17 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 def _set_connection_tenant(tenant) -> None:
-    """
-    Ensure tenant-scoped queries run against the tenant schema.
-    This avoids `relation does not exist` when middleware/auth timing leaves the
-    DB connection on the public schema.
-    """
-    if not tenant or not getattr(tenant, "schema_name", None):
-        return
-    if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-        return
     try:
-        connection.set_tenant(tenant)
+        activate_tenant(tenant)
     except Exception as exc:
         logger.warning("Unable to switch DB tenant schema to %s: %s", tenant.schema_name, exc)
 

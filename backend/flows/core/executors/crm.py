@@ -259,8 +259,8 @@ def create_ticket_task(
             origin_session = None
             if origin_session_id:
                 try:
-                    from chatbot.models import ChatbotSession
-                    origin_session = ChatbotSession.objects.get(id=origin_session_id)
+                    from chatbot.models import AgentSession
+                    origin_session = AgentSession.objects.get(pk=origin_session_id)
                     result.info(f"Using origin session: {origin_session_id}")
                 except Exception as e:
                     result.warning(f"Origin session not found: {origin_session_id}")

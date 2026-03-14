@@ -3,7 +3,7 @@ from django.dispatch import Signal
 
 from chatbot.core.messenger import Messenger
 from agents import Agent, WebSearchTool, FileSearchTool, function_tool, Runner, RunHooks, AgentOutputSchema, set_default_openai_key, FunctionTool,  RunContextWrapper
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 import asyncio
 from asgiref.sync import sync_to_async
 from moio_platform.lib.moio_assistant_functions import MoioAssistantTools
@@ -21,7 +21,7 @@ async def search_product(context_wrapper: RunContextWrapper, search_term: str):
     :param search_term: search term to look for will be converted to embedding for semantic search
     """
 
-    session = await sync_to_async(ChatbotSession.objects.get)(session=context_wrapper.context)
+    session = await sync_to_async(AgentSession.objects.get)(pk=context_wrapper.context)
     mt = MoioAssistantTools(session=session)
     return await sync_to_async(mt.search_product)(search_term)
 
@@ -33,7 +33,7 @@ async def create_ticket(context_wrapper: RunContextWrapper, description: str, se
     In the same language of the conversation.
     :param service: one of "Customer Service", "Sales", "Tech Support"
     """
-    session = await sync_to_async(ChatbotSession.objects.get)(session=context_wrapper.context)
+    session = await sync_to_async(AgentSession.objects.get)(pk=context_wrapper.context)
     mt = MoioAssistantTools(session=session)
     return await sync_to_async(mt.create_ticket)(description, service)
 
@@ -48,7 +48,7 @@ async def end_conversation(context_wrapper: RunContextWrapper, conversation_summ
     """
     print("running end_conversation")
 
-    session = await sync_to_async(ChatbotSession.objects.get)(session=context_wrapper.context)
+    session = await sync_to_async(AgentSession.objects.get)(pk=context_wrapper.context)
     mt = MoioAssistantTools(session=session)
 
     return await sync_to_async(mt.end_conversation)(conversation_summary)

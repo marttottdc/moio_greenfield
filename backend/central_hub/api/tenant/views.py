@@ -1,14 +1,14 @@
 """
 Tenant Admin API: GET bootstrap, POST users, POST users/delete.
 
-Workspaces, skills, automations, integrations, plugins are handled by the
-agent console runtime (moio_runtime / config), not by this API.
+Workspaces, skills, automations, integrations, and tenant plugin bindings are
+handled by this API + agent console runtime.
 """
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.db.utils import OperationalError, ProgrammingError
-import os
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -26,11 +26,11 @@ from central_hub.api.platform_bootstrap import (
     _notification_settings_payload,
     get_platform_notification_settings,
 )
-from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
+from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
+from tenancy.models import Tenant
+from tenancy.tenant_support import public_schema_name, schema_context, tenant_schema_context, tenants_enabled
 from agent_console.models import AgentConsoleWorkspace, AgentConsoleWorkspaceSkill, AgentConsolePluginAssignment
-from agent_console.runtime.config import load_config
-from agent_console.runtime.plugins import discover_plugin_manifest_paths, load_plugin_manifest
-from agent_console.services.runtime_service import _runtime_config_path
+from agent_console.services.runtime_service import invalidate_runtime_backend_cache
 
 UserModel = get_user_model()
 
@@ -93,6 +93,18 @@ def _workspace_payload_for_tenant_schema(tenant_schema: str) -> list[dict]:
                     if isinstance(tool_allowlist, list)
                     else []
                 )
+                plugin_allowlist_raw = settings_payload.get("pluginAllowlist")
+                plugin_allowlist = (
+                    [str(item).strip().lower() for item in plugin_allowlist_raw if str(item).strip()]
+                    if isinstance(plugin_allowlist_raw, list)
+                    else []
+                )
+                integration_allowlist_raw = settings_payload.get("integrationAllowlist")
+                integration_allowlist = (
+                    [str(item).strip().lower() for item in integration_allowlist_raw if str(item).strip()]
+                    if isinstance(integration_allowlist_raw, list)
+                    else []
+                )
                 display_name = (ws.name or ws.slug or "").strip() or "Main"
                 rows.append(
                     {
@@ -107,6 +119,8 @@ def _workspace_payload_for_tenant_schema(tenant_schema: str) -> list[dict]:
                         "defaultThinking": (ws.default_thinking or "").strip().lower(),
                         "defaultVerbosity": (ws.default_verbosity or "").strip().lower(),
                         "toolAllowlist": tool_allowlist,
+                        "pluginAllowlist": plugin_allowlist,
+                        "integrationAllowlist": integration_allowlist,
                         "isActive": True,
                     }
                 )
@@ -126,6 +140,8 @@ def _workspace_payload_for_tenant_schema(tenant_schema: str) -> list[dict]:
                 "defaultThinking": "",
                 "defaultVerbosity": "",
                 "toolAllowlist": [],
+                "pluginAllowlist": [],
+                "integrationAllowlist": [],
                 "isActive": True,
             }
         ]
@@ -136,8 +152,7 @@ class TenantBootstrapView(APIView):
     """
     GET /api/tenant/bootstrap/
     Query: workspace (optional), workspaceId (optional)
-    Returns tenant-admin payload: tenant, workspace, role, currentUser, users, and empty
-    workspaces/skills/automations/integrations/plugins (those live in agent console runtime).
+    Returns tenant-admin payload with tenant/workspace context plus plugin state.
     """
     authentication_classes = [
         CsrfExemptSessionAuthentication,
@@ -193,6 +208,12 @@ class TenantBootstrapView(APIView):
         else:
             notif = get_platform_notification_settings()
         notification_settings = _notification_settings_payload(notif)
+        plugin_state = _tenant_plugin_state_payload(
+            user=user,
+            tenant_schema=tenant_schema,
+            workspace_slug=workspace,
+            workspace_id=workspace_uuid,
+        )
 
         payload = {
             "tenant": slug,
@@ -226,10 +247,10 @@ class TenantBootstrapView(APIView):
             },
             "integrations": [],
             "tenantIntegrations": [],
-            "pluginSync": {"syncedCount": 0, "invalid": []},
-            "plugins": [],
-            "tenantPlugins": [],
-            "tenantPluginAssignments": [],
+            "pluginSync": plugin_state.get("sync", {"syncedCount": 0, "invalid": []}),
+            "plugins": plugin_state.get("plugins", []),
+            "tenantPlugins": plugin_state.get("tenantPlugins", []),
+            "tenantPluginAssignments": plugin_state.get("tenantPluginAssignments", []),
             "workspaceUuid": workspace_uuid,
             "notificationSettings": notification_settings,
         }
@@ -415,6 +436,18 @@ def _workspace_payload(ws: AgentConsoleWorkspace) -> dict:
         else []
     )
     display_name = (ws.name or ws.slug or "").strip() or "Main"
+    plugin_allowlist_raw = settings_payload.get("pluginAllowlist")
+    plugin_allowlist = (
+        [str(item).strip().lower() for item in plugin_allowlist_raw if str(item).strip()]
+        if isinstance(plugin_allowlist_raw, list)
+        else []
+    )
+    integration_allowlist_raw = settings_payload.get("integrationAllowlist")
+    integration_allowlist = (
+        [str(item).strip().lower() for item in integration_allowlist_raw if str(item).strip()]
+        if isinstance(integration_allowlist_raw, list)
+        else []
+    )
     return {
         "id": str(ws.pk),
         "slug": (ws.slug or "main").strip().lower() or "main",
@@ -427,6 +460,8 @@ def _workspace_payload(ws: AgentConsoleWorkspace) -> dict:
         "defaultThinking": (ws.default_thinking or "").strip().lower(),
         "defaultVerbosity": (ws.default_verbosity or "").strip().lower(),
         "toolAllowlist": tool_allowlist,
+        "pluginAllowlist": plugin_allowlist,
+        "integrationAllowlist": integration_allowlist,
         "isActive": True,
     }
 
@@ -435,7 +470,8 @@ class TenantWorkspacesSaveView(APIView):
     """
     POST /api/tenant/workspaces/
     Body: id?, slug, name?, displayName?, specialtyPrompt?, defaultVendor?,
-          defaultModel?, defaultThinking?, defaultVerbosity?, toolAllowlist?, enabledSkillKeys?, isActive?
+          defaultModel?, defaultThinking?, defaultVerbosity?, toolAllowlist?,
+          pluginAllowlist?, integrationAllowlist?, enabledSkillKeys?, isActive?
     """
     authentication_classes = [
         CsrfExemptSessionAuthentication,
@@ -504,6 +540,16 @@ class TenantWorkspacesSaveView(APIView):
                 settings_payload["toolAllowlist"] = [
                     str(item).strip() for item in raw_tool_allowlist if str(item).strip()
                 ]
+            raw_plugin_allowlist = data.get("pluginAllowlist")
+            if isinstance(raw_plugin_allowlist, list):
+                settings_payload["pluginAllowlist"] = [
+                    str(item).strip().lower() for item in raw_plugin_allowlist if str(item).strip()
+                ]
+            raw_integration_allowlist = data.get("integrationAllowlist")
+            if isinstance(raw_integration_allowlist, list):
+                settings_payload["integrationAllowlist"] = [
+                    str(item).strip().lower() for item in raw_integration_allowlist if str(item).strip()
+                ]
             workspace.settings = settings_payload
             workspace.save()
 
@@ -517,6 +563,7 @@ class TenantWorkspacesSaveView(APIView):
                 )
 
             payload = _workspace_payload(workspace)
+        invalidate_runtime_backend_cache(tenant_schema=tenant_schema, workspace_slug=(workspace.slug or "").strip() or None)
         return Response({"ok": True, "payload": payload})
 
 
@@ -572,63 +619,46 @@ class TenantWorkspacesDeleteView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             workspace.delete()
+        invalidate_runtime_backend_cache(tenant_schema=tenant_schema, workspace_slug=(slug or None))
         return Response({"ok": True, "payload": {"deleted": True}})
 
 
-def _load_runtime_config_for_plugins():
-    config_path = _runtime_config_path()
-    previous_model_api_key = os.environ.get("REPLICA_MODEL_API_KEY")
-    try:
-        if not previous_model_api_key:
-            os.environ["REPLICA_MODEL_API_KEY"] = "plugin-scan-placeholder"
-        return load_config(config_path)
-    finally:
-        if previous_model_api_key is None:
-            os.environ.pop("REPLICA_MODEL_API_KEY", None)
-        else:
-            os.environ["REPLICA_MODEL_API_KEY"] = previous_model_api_key
+def _plugin_registry_entries_for_tenant(*, tenant_schema: str) -> list[dict]:
+    # Platform plugin registry lives in public schema.
+    with schema_context(public_schema_name()):
+        state = platform_plugin_admin_state()
+        platform_plugins = state.get("plugins", []) if isinstance(state, dict) else []
+        if not isinstance(platform_plugins, list):
+            platform_plugins = []
 
+        # Tenant-local plugin installs are optional overrides/additions.
+        tenant_plugins: list[dict] = []
+        if tenant_schema and tenant_schema != public_schema_name():
+            tenant = Tenant.objects.filter(Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)).first()
+            if tenant and getattr(tenant, "schema_name", None):
+                try:
+                    with tenant_schema_context(str(tenant.schema_name)):
+                        tenant_state = platform_plugin_admin_state()
+                        maybe_plugins = tenant_state.get("plugins", []) if isinstance(tenant_state, dict) else []
+                        if isinstance(maybe_plugins, list):
+                            tenant_plugins = maybe_plugins
+                except Exception:
+                    tenant_plugins = []
 
-def _plugin_registry_entries(config) -> list[dict]:
-    manifests_dir = getattr(config.plugins, "manifests_dir", None)
-    extra_dirs = list(getattr(config.plugins, "additional_manifests_dirs", []) or [])
-    scan_roots = [manifests_dir, *extra_dirs]
-    seen: set[str] = set()
-    entries: list[dict] = []
-    approved = {str(item or "").strip().lower() for item in getattr(config.plugins, "platform_approved", []) if str(item or "").strip()}
-    for root in scan_roots:
-        if not root:
+    merged: dict[str, dict] = {}
+    for row in platform_plugins:
+        if not isinstance(row, dict):
             continue
-        for manifest_path in discover_plugin_manifest_paths(root):
-            try:
-                manifest = load_plugin_manifest(manifest_path)
-            except Exception:
-                continue
-            plugin_id = str(manifest.plugin_id or "").strip().lower()
-            if not plugin_id or plugin_id in seen:
-                continue
-            seen.add(plugin_id)
-            entries.append(
-                {
-                    "pluginId": plugin_id,
-                    "name": str(manifest.name or plugin_id),
-                    "version": str(manifest.version or ""),
-                    "description": str(manifest.description or ""),
-                    "bundleSha256": "",
-                    "hasBundleBlob": False,
-                    "iconDataUrl": "",
-                    "iconFallback": "",
-                    "helpMarkdown": "",
-                    "manifest": manifest.to_dict(),
-                    "capabilities": list(manifest.capabilities),
-                    "permissions": list(manifest.permissions),
-                    "isValidated": True,
-                    "isPlatformApproved": plugin_id in approved,
-                    "validationError": "",
-                    "updatedAt": "",
-                }
-            )
-    return sorted(entries, key=lambda row: str(row.get("pluginId", "")))
+        plugin_id = str(row.get("pluginId") or "").strip().lower()
+        if plugin_id:
+            merged[plugin_id] = row
+    for row in tenant_plugins:
+        if not isinstance(row, dict):
+            continue
+        plugin_id = str(row.get("pluginId") or "").strip().lower()
+        if plugin_id:
+            merged[plugin_id] = row
+    return sorted(merged.values(), key=lambda row: str(row.get("pluginId", "")))
 
 
 def _resolve_workspace_for_plugin_ops(tenant_schema: str, workspace_slug: str, workspace_id: str) -> AgentConsoleWorkspace:
@@ -646,27 +676,30 @@ def _resolve_workspace_for_plugin_ops(tenant_schema: str, workspace_slug: str, w
 
 
 def _tenant_plugin_state_payload(*, user, tenant_schema: str, workspace_slug: str = "main", workspace_id: str = "") -> dict:
-    config = _load_runtime_config_for_plugins()
     role = _role_for_frontend(user)
     tenant_slug = _tenant_slug(user)
     tenant_bindings: list[dict] = []
     assignment_rows: list[dict] = []
+    registry_entries = _plugin_registry_entries_for_tenant(tenant_schema=tenant_schema)
     workspace = _resolve_workspace_for_plugin_ops(tenant_schema, workspace_slug, workspace_id)
     with tenant_schema_context(tenant_schema):
         assignments = list(AgentConsolePluginAssignment.objects.filter(workspace=workspace).order_by("plugin_id"))
         for row in assignments:
             plugin_id = str(row.plugin_id or "").strip().lower()
             allowlist = list(row.user_allowlist) if isinstance(row.user_allowlist, list) else []
+            plugin_config = row.plugin_config if isinstance(row.plugin_config, dict) else {}
             tenant_bindings.append(
                 {
                     "tenantSlug": tenant_slug,
                     "pluginId": plugin_id,
-                    "isEnabled": True,
-                    "pluginConfig": {},
-                    "notes": "",
+                    "isEnabled": bool(row.is_enabled),
+                    "pluginConfig": dict(plugin_config),
+                    "notes": str(row.notes or ""),
                     "updatedAt": "",
                 }
             )
+            if not row.is_enabled:
+                continue
             for item in allowlist:
                 token = str(item or "").strip().lower()
                 if not token:
@@ -703,8 +736,8 @@ def _tenant_plugin_state_payload(*, user, tenant_schema: str, workspace_slug: st
         "tenant": tenant_slug,
         "role": role,
         "isTenantAdmin": role == "admin",
-        "sync": {"syncedCount": 0, "invalid": []},
-        "plugins": _plugin_registry_entries(config),
+        "sync": {"syncedCount": len(registry_entries), "invalid": []},
+        "plugins": registry_entries,
         "tenantPlugins": tenant_bindings,
         "tenantPluginAssignments": assignment_rows,
     }
@@ -739,6 +772,7 @@ class TenantPluginsView(APIView):
             workspace_slug=workspace_slug,
             workspace_id=workspace_id,
         )
+        invalidate_runtime_backend_cache(tenant_schema=tenant_schema, workspace_slug=workspace_slug)
         return Response({"ok": True, "payload": payload})
 
     def post(self, request):
@@ -762,44 +796,71 @@ class TenantPluginsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         is_enabled = bool(data.get("isEnabled", True))
+        plugin_config = data.get("pluginConfig")
+        plugin_config = dict(plugin_config) if isinstance(plugin_config, dict) else {}
+        notes = str(data.get("notes") or "").strip()
         workspace_slug = (request.query_params.get("workspace") or request.headers.get("X-Workspace") or "main").strip().lower() or "main"
         workspace_id = (request.query_params.get("workspaceId") or request.headers.get("X-Workspace-Id") or "").strip()
         tenant_schema = str(getattr(tenant, "schema_name", "") or "").strip().lower()
         workspace = _resolve_workspace_for_plugin_ops(tenant_schema, workspace_slug, workspace_id)
+        registry_by_id = {
+            str(item.get("pluginId") or "").strip().lower(): item
+            for item in _plugin_registry_entries_for_tenant(tenant_schema=tenant_schema)
+            if isinstance(item, dict)
+        }
+        plugin_entry = registry_by_id.get(plugin_id)
+        if plugin_entry is None:
+            return Response(
+                {"ok": False, "error": {"code": "not_found", "message": f"Plugin '{plugin_id}' is not installed."}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if is_enabled and (not bool(plugin_entry.get("isValidated")) or not bool(plugin_entry.get("isPlatformApproved"))):
+            return Response(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "validation_error",
+                        "message": "Plugin must be validated and platform-approved before tenant enablement.",
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         with tenant_schema_context(tenant_schema):
-            if not is_enabled:
-                AgentConsolePluginAssignment.objects.filter(workspace=workspace, plugin_id=plugin_id).delete()
-            else:
-                assignment_tokens: list[str] = []
-                raw_assignments = data.get("assignments")
-                rows = raw_assignments if isinstance(raw_assignments, list) else []
-                for row in rows:
-                    if not isinstance(row, dict):
-                        continue
-                    if row.get("isActive") is False:
-                        continue
-                    assignment_type = str(row.get("assignmentType") or "role").strip().lower()
-                    if assignment_type == "user":
-                        email = str(row.get("userEmail") or "").strip().lower()
-                        if email:
-                            assignment_tokens.append(email)
-                    else:
-                        role = str(row.get("role") or "member").strip().lower()
-                        if role in {"admin", "member", "viewer"}:
-                            assignment_tokens.append(role)
-                deduped = []
-                seen = set()
-                for token in assignment_tokens:
-                    if token in seen:
-                        continue
-                    seen.add(token)
-                    deduped.append(token)
-                AgentConsolePluginAssignment.objects.update_or_create(
-                    workspace=workspace,
-                    plugin_id=plugin_id,
-                    defaults={"user_allowlist": deduped},
-                )
+            assignment_tokens: list[str] = []
+            raw_assignments = data.get("assignments")
+            rows = raw_assignments if isinstance(raw_assignments, list) else []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("isActive") is False:
+                    continue
+                assignment_type = str(row.get("assignmentType") or "role").strip().lower()
+                if assignment_type == "user":
+                    email = str(row.get("userEmail") or "").strip().lower()
+                    if email:
+                        assignment_tokens.append(email)
+                else:
+                    role = str(row.get("role") or "member").strip().lower()
+                    if role in {"admin", "member", "viewer"}:
+                        assignment_tokens.append(role)
+            deduped = []
+            seen = set()
+            for token in assignment_tokens:
+                if token in seen:
+                    continue
+                seen.add(token)
+                deduped.append(token)
+            AgentConsolePluginAssignment.objects.update_or_create(
+                workspace=workspace,
+                plugin_id=plugin_id,
+                defaults={
+                    "is_enabled": is_enabled,
+                    "plugin_config": plugin_config,
+                    "notes": notes,
+                    "user_allowlist": deduped,
+                },
+            )
 
         payload = _tenant_plugin_state_payload(
             user=user,

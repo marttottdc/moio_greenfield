@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moio-greenfield-config
+  namespace: {{ .Release.Namespace }}
+data:
+  DATABASE_URL: {{ .Values.config.database_url | quote }}
+  REDIS_URL: {{ .Values.config.redis_url | quote }}
+  APP_NAME: {{ .Values.config.app_name | default "moio_greenfield" | quote }}

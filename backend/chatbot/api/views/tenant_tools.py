@@ -1,7 +1,5 @@
 """API endpoints for tenant tool configuration."""
 import logging
-from django.conf import settings
-from django.db import connection
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,17 +8,14 @@ from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
 from chatbot.api.serializers.tenant_tool_config import TenantToolConfigurationSerializer
 from central_hub.context_utils import current_tenant
 from resources.api.views import BUILTIN_TOOLS
+from tenancy.resolution import activate_tenant
 
 logger = logging.getLogger(__name__)
 
 
 def _set_connection_tenant(tenant) -> None:
-    if not tenant or not getattr(tenant, "schema_name", None):
-        return
-    if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-        return
     try:
-        connection.set_tenant(tenant)
+        activate_tenant(tenant)
     except Exception as exc:
         logger.warning("Unable to switch DB tenant schema to %s: %s", tenant.schema_name, exc)
 

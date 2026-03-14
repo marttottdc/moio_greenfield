@@ -1,17 +1,16 @@
 """Host rewrite middleware for tenant resolution from JWT.
 
 When requests hit the backend with a generic Host (localhost, 127.0.0.1), e.g. when
-the frontend proxies to the same backend URL, django-tenants cannot resolve the
-tenant. This middleware rewrites HTTP_HOST to {tenant_schema}.127.0.0.1 when:
-- Host is localhost or 127.0.0.1 (with optional port)
-- Authorization Bearer JWT contains tenant_schema claim (from TenantTokenObtainPairSerializer)
-
-The JWT is validated (signature, expiry) before use. No frontend changes needed.
+the frontend proxies to the same backend URL, tenant resolution by host loses the
+original tenant domain. This middleware rewrites HTTP_HOST to the tenant's primary
+domain when a valid JWT tenant_schema claim is present. No frontend changes needed.
 """
 import re
 
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import AccessToken
+
+from tenancy.tenant_support import public_schema_name
 
 # RFC 1034/1035: schema names use same rules as subdomain (letters, digits, hyphens)
 _SCHEMA_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,61}[a-z0-9]?$", re.IGNORECASE)
@@ -51,6 +50,28 @@ def _get_tenant_schema_from_jwt(request) -> str | None:
         return None
 
 
+def _tenant_host_from_schema(schema_name: str | None) -> str | None:
+    schema = _valid_schema(str(schema_name or ""))
+    if not schema:
+        return None
+    try:
+        from tenancy.models import Tenant
+        from tenancy.tenant_support import schema_context
+
+        with schema_context(public_schema_name()):
+            tenant = Tenant.objects.filter(schema_name=schema).first()
+    except Exception:
+        try:
+            from tenancy.models import Tenant
+            tenant = Tenant.objects.filter(schema_name=schema).first()
+        except Exception:
+            tenant = None
+    if tenant is None:
+        return None
+    host = str(getattr(tenant, "primary_domain", "") or "").strip().lower()
+    return host or None
+
+
 class HostRewriteFromJWTMiddleware:
     """Rewrite HTTP_HOST from JWT tenant_schema when Host is generic (localhost/127.0.0.1)."""
 
@@ -63,10 +84,12 @@ class HostRewriteFromJWTMiddleware:
         if _is_generic_host(host_header):
             tenant_schema = _get_tenant_schema_from_jwt(request)
             if tenant_schema:
-                port_part = ""
-                if ":" in host_header:
-                    port_part = ":" + host_header.split(":")[-1]
-                new_host = f"{tenant_schema}.127.0.0.1{port_part}"
+                new_host = _tenant_host_from_schema(tenant_schema)
+                if not new_host:
+                    port_part = ""
+                    if ":" in host_header:
+                        port_part = ":" + host_header.split(":")[-1]
+                    new_host = f"{tenant_schema}.127.0.0.1{port_part}"
                 request.META["HTTP_HOST"] = new_host
 
         return self.get_response(request)

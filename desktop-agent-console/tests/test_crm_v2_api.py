@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 
-TEST_MIDDLEWARE = [entry for entry in settings.MIDDLEWARE if entry != "django_tenants.middleware.main.TenantMainMiddleware"]
+TEST_MIDDLEWARE = list(settings.MIDDLEWARE)
 
 
 @override_settings(MIDDLEWARE=TEST_MIDDLEWARE)

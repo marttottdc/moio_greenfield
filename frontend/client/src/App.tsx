@@ -1,7 +1,9 @@
 import "./i18n";
 import { Switch, Route, Redirect, useLocation, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { fetchJson } from "@/lib/queryClient";
+import { apiV1 } from "@/lib/api";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,7 @@ import DataLabHome from "@/pages/datalab/index";
 import CreateImportDataset from "@/pages/datalab/create/import";
 import CreateDatasetFromCRM from "@/pages/datalab/create/query";
 import ShopifyLandingPage from "@/pages/shopify-landing";
+import LandingPage from "@/pages/landing";
 import ShopifyAppErrorPage from "@/pages/shopify-app-error";
 import ShopifyAppInstallPage from "@/pages/shopify-app-install";
 import { SHOPIFY_APP_PATH, isShopifyAppRoute } from "@/constants/shopify";
@@ -63,8 +66,88 @@ import DocsEndpointPage from "@/pages/docs/endpoint";
 import DocsSearchPage from "@/pages/docs/search";
 import { normalizeAppRole } from "@/lib/rbac";
 import { lazy, Suspense } from "react";
+import {
+  type ModuleEnablements,
+  type ModuleKey,
+  inferModuleForRoute,
+  isAddonRouteBlocked,
+  isRouteBlockedByDevicePolicy,
+  resolveModuleEnablements,
+} from "@/lib/module-entitlements";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { AlertTriangle, Home, MonitorSmartphone } from "lucide-react";
 
 const ShopifyEmbed = lazy(() => import("@/pages/shopify-embed"));
+
+function moduleLabel(moduleKey: ModuleKey): string {
+  switch (moduleKey) {
+    case "crm":
+      return "CRM";
+    case "flowsDatalab":
+      return "Flows & Data Lab";
+    case "chatbot":
+      return "Chatbot";
+    case "agentConsole":
+      return "Agent Console";
+    default:
+      return "Module";
+  }
+}
+
+function ModuleAccessBlocked({
+  moduleKey,
+  reason,
+}: {
+  moduleKey: ModuleKey;
+  reason: "disabled" | "desktop-required";
+}) {
+  const title =
+    reason === "disabled"
+      ? `${moduleLabel(moduleKey)} is not enabled for this tenant`
+      : `${moduleLabel(moduleKey)} is desktop-first`;
+  const description =
+    reason === "disabled"
+      ? "Ask a platform administrator to enable this addon in tenant module settings."
+      : "This section is optimized for desktop. Use a larger screen to access this functionality.";
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
+            {reason === "disabled" ? (
+              <AlertTriangle className="h-5 w-5" />
+            ) : (
+              <MonitorSmartphone className="h-5 w-5" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <p className="mt-1 text-sm text-slate-600">{description}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"
+          >
+            <Home className="h-3.5 w-3.5" />
+            Go to dashboard
+          </Link>
+          {moduleKey === "flowsDatalab" && reason === "desktop-required" ? (
+            <Link
+              href="/analytics"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Open reports view
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function RootRedirect() {
   const { isAuthenticated, isLoading, hasTenantAccess } = useAuth();
@@ -86,11 +169,17 @@ function RootRedirect() {
 function ProtectedRoute({
   component: Component,
   requiredRole,
+  requiredModule,
+  moduleEnablements,
 }: {
   component: () => JSX.Element;
   requiredRole?: "tenant_admin";
+  requiredModule?: ModuleKey;
+  moduleEnablements?: ModuleEnablements;
 }) {
   const { isAuthenticated, isLoading, user, hasTenantAccess } = useAuth();
+  const [location] = useLocation();
+  const isMobile = useIsMobile();
 
   if (isLoading) {
     return (
@@ -109,6 +198,22 @@ function ProtectedRoute({
 
   if (requiredRole && normalizeAppRole(user?.role) !== requiredRole) {
     return <Redirect to={hasTenantAccess ? "/dashboard" : "/platform-router"} />;
+  }
+
+  if (requiredModule && moduleEnablements && !moduleEnablements[requiredModule]) {
+    return <ModuleAccessBlocked moduleKey={requiredModule} reason="disabled" />;
+  }
+
+  if (requiredModule && isRouteBlockedByDevicePolicy(location, requiredModule, isMobile)) {
+    return <ModuleAccessBlocked moduleKey={requiredModule} reason="desktop-required" />;
+  }
+
+  if (moduleEnablements && isAddonRouteBlocked(location, moduleEnablements)) {
+    const inferred = inferModuleForRoute(location);
+    if (inferred) {
+      return <ModuleAccessBlocked moduleKey={inferred} reason="disabled" />;
+    }
+    return <Redirect to="/dashboard" />;
   }
 
   return <Component />;
@@ -142,8 +247,26 @@ function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { data: bootstrapData, isLoading: isBootstrapLoading } = useQuery<{
+    entitlements?: {
+      features?: Record<string, unknown>;
+      ui?: Record<string, unknown>;
+    };
+    capabilities?: {
+      effective_features?: Record<string, unknown>;
+    };
+  } | null>({
+    queryKey: [apiV1("/bootstrap/")],
+    queryFn: async () => fetchJson(apiV1("/bootstrap/")),
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+  const moduleEnablements = resolveModuleEnablements(bootstrapData);
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && isBootstrapLoading)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -220,135 +343,143 @@ function AppRoutes() {
       </Route>
       
       <Route path="/dashboard">
-        <ProtectedRoute component={Dashboard} />
+        <ProtectedRoute component={Dashboard} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/crm">
-        <ProtectedRoute component={CRM} />
+        <ProtectedRoute component={CRM} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/contacts">
         <Redirect to="/crm?tab=contacts" />
       </Route>
       <Route path="/deals">
-        <ProtectedRoute component={Deals} />
+        <ProtectedRoute component={Deals} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/deals/analytics">
-        <ProtectedRoute component={DealsAnalytics} />
+        <ProtectedRoute component={DealsAnalytics} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/deals/manager">
-        <ProtectedRoute component={DealManager} />
+        <ProtectedRoute component={DealManager} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/communications">
-        <ProtectedRoute component={Communications} />
+        <ProtectedRoute component={Communications} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/tickets">
-        <ProtectedRoute component={Tickets} />
+        <ProtectedRoute component={Tickets} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/campaigns/:id">
-        <ProtectedRoute component={CampaignDetail} />
+        <ProtectedRoute component={CampaignDetail} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/campaigns">
         <Redirect to="/workflows?tab=campaigns" />
       </Route>
       <Route path="/workflows">
-        <ProtectedRoute component={Workflows} />
+        <ProtectedRoute component={Workflows} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/flows/new">
-        <ProtectedRoute component={FlowBuilder} />
+        <ProtectedRoute component={FlowBuilder} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/flows/:id/edit">
-        <ProtectedRoute component={FlowBuilder} />
+        <ProtectedRoute component={FlowBuilder} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/scripts/new">
-        <ProtectedRoute component={ScriptBuilder} />
+        <ProtectedRoute component={ScriptBuilder} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/scripts/:id/edit">
-        <ProtectedRoute component={ScriptBuilder} />
+        <ProtectedRoute component={ScriptBuilder} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/scripts">
-        <ProtectedRoute component={ScriptsManager} />
+        <ProtectedRoute component={ScriptsManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/whatsapp-templates">
-        <ProtectedRoute component={WhatsAppTemplatesManager} />
+        <ProtectedRoute component={WhatsAppTemplatesManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/webhooks">
-        <ProtectedRoute component={WebhooksManager} />
+        <ProtectedRoute component={WebhooksManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/agent-tools">
-        <ProtectedRoute component={AgentToolsManager} />
+        <ProtectedRoute component={AgentToolsManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/events">
-        <ProtectedRoute component={EventsBrowser} />
+        <ProtectedRoute component={EventsBrowser} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/mcp-connections">
-        <ProtectedRoute component={MCPConnectionsManager} />
+        <ProtectedRoute component={MCPConnectionsManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/json-schemas">
-        <ProtectedRoute component={JsonSchemasManager} />
+        <ProtectedRoute component={JsonSchemasManager} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/workflows/robots">
         <Redirect to="/agent-console" />
       </Route>
       <Route path="/agent-console">
-        <ProtectedRoute component={AgentConsole} />
+        <ProtectedRoute component={AgentConsole} requiredModule="agentConsole" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/settings">
-        <ProtectedRoute component={Settings} requiredRole="tenant_admin" />
+        <ProtectedRoute component={Settings} requiredRole="tenant_admin" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/tenant-admin/legacy">
         <Redirect to="/tenant-admin" />
       </Route>
       <Route path="/tenant-admin/">
-        <ProtectedRoute component={TenantAdminLegacyPage} />
+        <ProtectedRoute component={TenantAdminLegacyPage} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/tenant-admin">
-        <ProtectedRoute component={TenantAdminLegacyPage} />
+        <ProtectedRoute component={TenantAdminLegacyPage} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/admin">
         <Redirect to={PLATFORM_ADMIN_NAMESPACE} />
       </Route>
       <Route path="/api-tester">
-        <ProtectedRoute component={ApiTester} />
+        <ProtectedRoute component={ApiTester} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/activities">
-        <ProtectedRoute component={Activities} />
+        <ProtectedRoute component={Activities} moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/analytics">
-        <Redirect to="/workflows?tab=reports" />
+        {moduleEnablements.flowsDatalab ? (
+          <Redirect to="/workflows?tab=reports" />
+        ) : (
+          <Redirect to="/dashboard?module=disabled" />
+        )}
       </Route>
       <Route path="/datalab/create/import">
-        <ProtectedRoute component={CreateImportDataset} />
+        <ProtectedRoute component={CreateImportDataset} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/create/query">
-        <ProtectedRoute component={CreateDatasetFromCRM} />
+        <ProtectedRoute component={CreateDatasetFromCRM} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/dataset/:id">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/resultset/:id">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/generator/new">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/generator/:id">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/script/new">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/script/:id">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/import-process/new">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab/import-process/:id">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       <Route path="/datalab">
-        <ProtectedRoute component={DataLabHome} />
+        <ProtectedRoute component={DataLabHome} requiredModule="flowsDatalab" moduleEnablements={moduleEnablements} />
       </Route>
       
+      <Route path="/landing">
+        <LandingPage />
+      </Route>
+
       {/* Shopify embedded app – no auth wrapper (App Bridge handles identity), lazy loaded */}
       <Route path={SHOPIFY_APP_PATH}>
         <Suspense fallback={
@@ -386,6 +517,7 @@ function AppLayout() {
   const [location] = useLocation();
   const isDocsPage = /^\/docs(\/|$)/.test(location);
   const isShopifyEmbed = isShopifyAppRoute(location);
+  const isAgentConsoleSurface = /^\/agent-console(\/|$)/.test(location);
   const isEntrySurface =
     location === "/" || /^\/desktop-agent-console(\/|$)/.test(location);
 
@@ -394,8 +526,18 @@ function AppLayout() {
     return <AppRoutes />;
   }
 
+  // Public landing page – no app shell
+  if (location === "/landing") {
+    return <AppRoutes />;
+  }
+
   // Platform admin – no CRM shell, single entry at /platform-admin
   if (isPlatformAdminRoute(location)) {
+    return <AppRoutes />;
+  }
+
+  // Agent Console has its own workspace shell; avoid double sidebars/bars.
+  if (isAgentConsoleSurface) {
     return <AppRoutes />;
   }
 

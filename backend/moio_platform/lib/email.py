@@ -89,7 +89,12 @@ def send_email(self, html_content, subject, to, tenant_id):
     config = get_tenant_config_by_id(tenant_id)
 
     if not config.smtp_integration_enabled:
-        raise Exception("SMTP integration disabled")
+        logger.info(
+            "SMTP integration disabled for tenant_id=%s, skipping email task=%s",
+            tenant_id,
+            task_id,
+        )
+        return {"msg": f"SMTP integration disabled: task {task_id}"}
 
     connection = get_connection(
         host=config.smtp_host,

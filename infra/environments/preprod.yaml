@@ -1,0 +1,37 @@
+# Preprod: external Postgres, Redis, PgBouncer (no DB/Redis in cluster)
+image:
+  pullSecret: registry-4
+  tag: build-${{ github.run_number }}
+
+backend:
+  replicas: 1
+  servicePort: 80
+  containerPort: 8010
+
+workers:
+  high:
+    replicas: 1
+    concurrency: 10
+  medium:
+    replicas: 1
+    concurrency: 2
+  low:
+    replicas: 1
+    concurrency: 2
+  flows:
+    replicas: 1
+    concurrency: 2
+
+scheduler:
+  replicas: 1
+
+ingress:
+  enabled: true
+  host: api-preprod.moio-greenfield.example.com
+  tlsSecret: api-preprod-moio-greenfield-tls
+
+# External: PgBouncer → Postgres, Redis
+config:
+  database_url: postgres://user:password@preprod-pgbouncer:6432/moio_greenfield
+  redis_url: redis://preprod-redis:6379/0
+  app_name: moio_greenfield

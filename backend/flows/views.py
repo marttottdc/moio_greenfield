@@ -45,6 +45,7 @@ from rest_framework.response import Response
 
 from central_hub.context_utils import current_tenant
 from tenancy.capabilities import get_effective_capabilities
+from tenancy.resolution import ensure_request_tenant_context
 from .core.compiler import (
     FlowCompilationError,
     compile_flow_graph,
@@ -326,6 +327,11 @@ def _flow_queryset_for_request(request: HttpRequest):
 
 
 def _get_flow_for_request(request: HttpRequest, flow_id: str) -> Flow:
+    from tenancy.resolution import TenantResolutionError
+    try:
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=True)
+    except TenantResolutionError:
+        raise Http404("Flow not found")
     queryset = _flow_queryset_for_request(request)
     return get_object_or_404(queryset, id=flow_id)
 
@@ -1607,6 +1613,11 @@ def api_flow_crm_model_detail(request: Request, slug: str):
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def api_flow_list(request: Request):
+    from tenancy.resolution import TenantResolutionError
+    try:
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=True)
+    except TenantResolutionError:
+        return Response({"ok": False, "error": "Tenant context is required."}, status=403)
     if request.method == "POST":
         tenant = current_tenant.get() or getattr(request.user, "tenant", None)
         if tenant:

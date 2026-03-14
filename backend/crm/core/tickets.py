@@ -11,7 +11,7 @@ def create_ticket(contact, service, description, tenant_id, origin_session=None)
         service: Service category for the ticket
         description: Ticket description
         tenant_id: Tenant ID
-        origin_session: Optional ChatbotSession - if provided, automatically sets
+        origin_session: Optional AgentSession - if provided, automatically sets
                        origin_type='chatbot', origin_session FK, and origin_ref
     
     Returns:
@@ -28,7 +28,7 @@ def create_ticket(contact, service, description, tenant_id, origin_session=None)
     if origin_session:
         ticket_data['origin_type'] = 'chatbot'
         ticket_data['origin_session'] = origin_session
-        ticket_data['origin_ref'] = str(origin_session.session)
+        ticket_data['origin_ref'] = str(origin_session.pk)
     
     ticket = Ticket.objects.create(**ticket_data)
     ticket.save()

@@ -797,9 +797,27 @@ export default function AgentConsoleApp() {
     if (workspaceFromQuery) wsQuery.set("workspace", workspaceFromQuery);
     if (workspaceIdFromQuery) wsQuery.set("workspaceId", workspaceIdFromQuery);
     if (accessToken) wsQuery.set("accessToken", accessToken);
-    const wsBase = (WS_BASE || "").replace(/\/+$/, "");
+    // Always build absolute WS URL so proxy /ws is used (never relative /agent-console)
+    let wsBase = (WS_BASE || "").replace(/\/+$/, "").trim();
+    if (!wsBase || (!wsBase.startsWith("ws://") && !wsBase.startsWith("wss://"))) {
+      const proto = typeof window !== "undefined" && window.location?.protocol === "https:" ? "wss" : "ws";
+      const host = typeof window !== "undefined" ? window.location.host : "localhost:5177";
+      wsBase = `${proto}://${host}/ws`;
+    }
     const wsUrl = `${wsBase}/agent-console${wsQuery.toString() ? `?${wsQuery.toString()}` : ""}`;
-    const ws = new WebSocket(wsUrl);
+    if (import.meta.env?.DEV && typeof console !== "undefined") {
+      console.log("[Agent Console] Opening WebSocket:", wsUrl.replace(/accessToken=[^&]+/, "accessToken=***"));
+    }
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (err) {
+      if (import.meta.env?.DEV && typeof console !== "undefined") {
+        console.error("[Agent Console] WebSocket constructor failed:", err);
+      }
+      setGatewayConnected(false);
+      return;
+    }
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -821,6 +839,9 @@ export default function AgentConsoleApp() {
     };
     ws.onclose = (event) => {
       if (wsRef.current !== ws) return;
+      if (import.meta.env?.DEV && typeof console !== "undefined") {
+        console.log("[Agent Console] WebSocket closed", event.code, event.reason || "");
+      }
       if (sessionLoadingTimeoutRef.current !== null) {
         window.clearTimeout(sessionLoadingTimeoutRef.current);
         sessionLoadingTimeoutRef.current = null;
@@ -870,6 +891,9 @@ export default function AgentConsoleApp() {
 
     return () => {
       disposed = true;
+      if (import.meta.env?.DEV && typeof console !== "undefined") {
+        console.log("[Agent Console] WebSocket effect cleanup (close)");
+      }
       if (sessionLoadingTimeoutRef.current !== null) {
         window.clearTimeout(sessionLoadingTimeoutRef.current);
         sessionLoadingTimeoutRef.current = null;

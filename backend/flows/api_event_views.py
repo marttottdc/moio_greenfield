@@ -89,7 +89,7 @@ class EventDefinitionViewSet(ViewSet):
             entity_type = name.split(".", 1)[0] if "." in name else "event"
             category = "crm" if entity_type in {"deal", "ticket", "contact"} else (
                 "campaigns" if entity_type == "campaign" else (
-                    "chatbot" if entity_type in {"message", "chatbot_session"} else "other"
+                    "chatbot" if entity_type in {"message", "agent_session"} else "other"
                 )
             )
             now = timezone.now().isoformat()

@@ -29,9 +29,9 @@ DEAL_EVENTS = {"deal.created", "deal.updated", "deal.stage_changed", "deal.won",
 TICKET_EVENTS = {"ticket.created", "ticket.updated", "ticket.closed"}
 CONTACT_EVENTS = {"contact.created", "contact.updated"}
 ORDER_EVENTS = {"order.created", "order.paid"}
-CHATBOT_SESSION_EVENTS = {"chatbot_session.created", "chatbot_session.inactivated"}
+AGENT_SESSION_EVENTS = {"agent_session.created", "agent_session.inactivated"}
 
-INGESTED_EVENTS = DEAL_EVENTS | TICKET_EVENTS | CONTACT_EVENTS | ORDER_EVENTS | CHATBOT_SESSION_EVENTS
+INGESTED_EVENTS = DEAL_EVENTS | TICKET_EVENTS | CONTACT_EVENTS | ORDER_EVENTS | AGENT_SESSION_EVENTS
 
 
 def extract_contact_ids_from_payload(payload: dict) -> Set[str]:
@@ -112,10 +112,10 @@ def _title_for_event(event_name: str, payload: dict, **extra) -> str:
         return f"Order created: {payload.get('order_id', 'order')}"
     if event_name == "order.paid":
         return f"Order paid: {payload.get('order_id', 'order')}"
-    if event_name == "chatbot_session.created":
-        return "Chatbot session started"
-    if event_name == "chatbot_session.inactivated":
-        return "Chatbot session ended"
+    if event_name == "agent_session.created":
+        return "Agent session started"
+    if event_name == "agent_session.inactivated":
+        return "Agent session ended"
     return f"Event: {event_name}"
 
 
@@ -288,15 +288,15 @@ def create_activities_from_event(event_id: UUID) -> int:
             logger.exception("Failed to create activity for order event %s: %s", event_id, e)
         return created_count
 
-    if event.name in CHATBOT_SESSION_EVENTS:
+    if event.name in AGENT_SESSION_EVENTS:
         contact_id = payload.get("contact_id")
         if not contact_id:
             session_id = payload.get("session_id")
             if session_id:
                 try:
-                    from chatbot.models import ChatbotSession
-                    session = ChatbotSession.objects.filter(tenant=tenant).filter(
-                        Q(session=session_id) | Q(id=session_id)
+                    from chatbot.models import AgentSession
+                    session = AgentSession.objects.filter(tenant=tenant).filter(
+                        pk=session_id
                     ).select_related("contact").first()
                     if session and session.contact_id:
                         contact_id = str(session.contact_id)
@@ -324,7 +324,7 @@ def create_activities_from_event(event_id: UUID) -> int:
             activity.save(update_fields=["occurred_at"])
             created_count += 1
         except Exception as e:
-            logger.exception("Failed to create activity for chatbot_session event %s: %s", event_id, e)
+            logger.exception("Failed to create activity for agent_session event %s: %s", event_id, e)
         return created_count
 
     return created_count

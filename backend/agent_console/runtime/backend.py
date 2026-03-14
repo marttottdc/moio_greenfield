@@ -74,6 +74,8 @@ class AgentConsoleBackend:
         workspace_profile_resolver: Callable[[], dict[str, Any]] | None = None,
         workspace_skills_resolver: Callable[[], list[dict[str, Any]]] | None = None,
         plugin_user_allowlist_resolver: Callable[[dict[str, Any] | None], list[str]] | None = None,
+        plugin_runtime_config_resolver: Callable[[], dict[str, dict[str, Any]]] | None = None,
+        installed_plugins_resolver: Callable[[], list[dict[str, Any]]] | None = None,
     ):
         self.config = config
         self.log = logger or logging.getLogger("agent_console.runtime.backend")
@@ -82,7 +84,31 @@ class AgentConsoleBackend:
         self.vendors.seed_defaults(self._default_vendor_entries())
         self.tenant_schema = str(tenant_schema or "public").strip() or "public"
         self.workspace_slug = str(workspace_slug or "main").strip() or "main"
-        self.active_plugins, self.plugin_reports = resolve_active_plugins(config.plugins)
+        installed_plugins_payload: list[dict[str, Any]] = []
+        if callable(installed_plugins_resolver):
+            try:
+                resolved_plugins = installed_plugins_resolver()
+                if isinstance(resolved_plugins, list):
+                    installed_plugins_payload = [item for item in resolved_plugins if isinstance(item, dict)]
+            except Exception as exc:
+                self.log.warning("installed plugins resolution failed: %s", exc)
+        runtime_plugin_configs: dict[str, dict[str, Any]] = {}
+        if callable(plugin_runtime_config_resolver):
+            try:
+                resolved_runtime_configs = plugin_runtime_config_resolver()
+                if isinstance(resolved_runtime_configs, dict):
+                    runtime_plugin_configs = {
+                        str(key or "").strip().lower(): dict(value)
+                        for key, value in resolved_runtime_configs.items()
+                        if str(key or "").strip() and isinstance(value, dict)
+                    }
+            except Exception as exc:
+                self.log.warning("plugin runtime config resolution failed: %s", exc)
+        self.active_plugins, self.plugin_reports = resolve_active_plugins(
+            config.plugins,
+            installed_plugins=installed_plugins_payload,
+            runtime_plugin_configs=runtime_plugin_configs,
+        )
         use_django_storage = getattr(session_store, "_database_store", False)
         self.media_store = MediaStore(
             workspace_root=config.tools.workspace_root,
@@ -706,6 +732,7 @@ class AgentConsoleBackend:
 
     async def _resolved_user_allowed_plugins(self, initiator: dict[str, Any] | None = None) -> set[str]:
         if callable(self.plugin_user_allowlist_resolver):
+            resolver_failed = False
             try:
                 resolved = await asyncio.to_thread(
                     self.plugin_user_allowlist_resolver,
@@ -716,6 +743,10 @@ class AgentConsoleBackend:
             except Exception as exc:
                 self.log.warning("plugin user allowlist resolution failed: %s", exc)
                 resolved = []
+                resolver_failed = True
+            if not resolver_failed:
+                # Resolver output is authoritative (including empty set) for tenant plugin enablement.
+                return {str(item or "").strip().lower() for item in resolved if str(item or "").strip()}
         else:
             resolved = list(self.config.plugins.user_allowed)
         resolved_set = {str(item or "").strip().lower() for item in resolved if str(item or "").strip()}

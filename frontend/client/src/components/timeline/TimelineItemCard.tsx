@@ -106,6 +106,84 @@ function shortId(id: string, keep = 6): string {
   return v.length <= keep * 2 + 3 ? v : `${v.slice(0, keep)}…${v.slice(-keep)}`;
 }
 
+function activityPreview(activity: ActivityDetailData): string | null {
+  const content = (activity.content ?? {}) as Record<string, unknown>;
+  const kind = String(activity.kind ?? "").toLowerCase();
+
+  if (kind === "task") {
+    const description = typeof content.description === "string" ? content.description.trim() : "";
+    if (description) return description;
+  }
+  if (kind === "note" || kind === "idea") {
+    const body = typeof content.body === "string" ? content.body.trim() : "";
+    if (body) return body;
+  }
+
+  const eventPayload =
+    content && typeof content.event === "object" && content.event && typeof (content.event as any).payload === "object"
+      ? ((content.event as any).payload as Record<string, unknown>)
+      : null;
+  const moveComment = eventPayload && typeof eventPayload.move_comment === "string"
+    ? eventPayload.move_comment.trim()
+    : "";
+  if (moveComment) return `Movement comment: ${moveComment}`;
+
+  return null;
+}
+
+function humanizeFieldName(key: string): string {
+  return String(key || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (ch) => ch.toUpperCase());
+}
+
+function isIdField(key: string): boolean {
+  const normalized = String(key || "").trim().toLowerCase();
+  return normalized === "id" || normalized.endsWith("_id") || normalized === "event_id";
+}
+
+function summarizeValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "string") return value.trim() || "—";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "—";
+    const printable = value.filter((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean");
+    if (printable.length === value.length) return printable.map((v) => String(v)).join(", ");
+    return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return "—";
+    const flat = entries
+      .filter(([, v]) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+      .slice(0, 3)
+      .map(([k, v]) => `${humanizeFieldName(k)}: ${String(v)}`);
+    if (flat.length > 0) {
+      return flat.join(" · ");
+    }
+    return `${entries.length} field${entries.length === 1 ? "" : "s"}`;
+  }
+  return String(value);
+}
+
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border/70 bg-card/70 p-3 space-y-2.5">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">{title}</p>
+      {children}
+    </section>
+  );
+}
+
 export function resolveActivityAuthor(
   activity: { author?: string | null; user_id?: string | null } | null,
   currentUserId?: string | null
@@ -175,6 +253,24 @@ export function ActivityDetailSheet({
   const Icon = activityIcon(kind);
   const created = activity.created_at ? formatTimelineDateShort(activity.created_at) : "—";
   const author = resolveActivityAuthor(activity, user?.id);
+  const eventPayload =
+    content && typeof (content as any).event === "object" && (content as any).event
+      ? ((content as any).event?.payload as Record<string, unknown> | undefined)
+      : undefined;
+  const moveComment =
+    eventPayload && typeof eventPayload.move_comment === "string"
+      ? eventPayload.move_comment.trim()
+      : "";
+  const rawEvent =
+    content && typeof (content as any).event === "object" && (content as any).event
+      ? ((content as any).event as Record<string, unknown>)
+      : null;
+  const eventName = rawEvent && typeof rawEvent.name === "string" ? rawEvent.name : "";
+  const eventOccurredAt = rawEvent && typeof rawEvent.occurred_at === "string" ? rawEvent.occurred_at : "";
+  const eventPayloadForDisplay =
+    rawEvent && typeof rawEvent.payload === "object" && rawEvent.payload
+      ? (rawEvent.payload as Record<string, unknown>)
+      : null;
 
   const handleEditClick = () => {
     if (canEditInDrawer) {
@@ -189,16 +285,16 @@ export function ActivityDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => { if (!next) setIsEditing(false); onOpenChange(next); }}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto" side="right">
+      <SheetContent className="sm:max-w-xl overflow-y-auto" side="right">
         {showEditForm ? (
           renderActivityEditForm!({ activity, onSaved: handleSavedEdit, onCancel: handleCancelEdit })
         ) : (
         <>
-        <SheetHeader>
+        <SheetHeader className="text-left pr-10">
           <div className="flex items-center justify-between gap-2">
-            <SheetTitle className="flex items-center gap-2">
+            <SheetTitle className="flex items-center gap-2 min-w-0 text-left">
               <Icon className="h-5 w-5 text-muted-foreground" />
-              {activity.title || "Activity"}
+              <span className="truncate">{activity.title || "Activity"}</span>
             </SheetTitle>
             {hasEditAction && (
               <Button
@@ -214,20 +310,26 @@ export function ActivityDetailSheet({
           </div>
         </SheetHeader>
         <div className="mt-6 space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <DetailSection title="Overview">
+            <div className="flex flex-wrap gap-2">
             {kind && <Badge variant="secondary">{kind}</Badge>}
             {activity.visibility && <Badge variant="outline">{activity.visibility}</Badge>}
             {activity.status && <Badge variant="outline">{activity.status}</Badge>}
-          </div>
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>
-              By <span className="text-foreground">{author}</span>
-            </p>
-            <p>{created}</p>
-          </div>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1.5">
+              <p>
+                By <span className="text-foreground">{author}</span>
+              </p>
+              <p>{created}</p>
+            </div>
+          </DetailSection>
+          {moveComment && (
+            <DetailSection title="Movement comment">
+              <p className="text-sm whitespace-pre-wrap">{moveComment}</p>
+            </DetailSection>
+          )}
           {(activity.contact_id || activity.customer_id || activity.deal_id) && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase">Related</p>
+            <DetailSection title="Related">
               <div className="flex flex-wrap gap-2">
                 {activity.contact_id && (
                   <RelatedEntityLabel
@@ -258,32 +360,34 @@ export function ActivityDetailSheet({
                   </Link>
                 )}
               </div>
-            </div>
+            </DetailSection>
           )}
           {kind === "task" && (
-            <div className="space-y-2">
+            <DetailSection title="Task details">
               {(content as { description?: string }).description && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Description</p>
                   <p className="text-sm whitespace-pre-wrap">{(content as { description?: string }).description}</p>
                 </div>
               )}
-              {(content as { status?: string }).status && (
-                <p className="text-sm">Status: {(content as { status?: string }).status}</p>
-              )}
-              {(content as { due_date?: string }).due_date && (
-                <p className="text-sm flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  Due {formatTimelineDateShort((content as { due_date?: string }).due_date)}
-                </p>
-              )}
-              {(content as { priority?: number }).priority != null && (
-                <p className="text-sm">Priority: {(content as { priority?: number }).priority}</p>
-              )}
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {(content as { status?: string }).status && (
+                  <p>Status: {(content as { status?: string }).status}</p>
+                )}
+                {(content as { due_date?: string }).due_date && (
+                  <p className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    Due {formatTimelineDateShort((content as { due_date?: string }).due_date)}
+                  </p>
+                )}
+                {(content as { priority?: number }).priority != null && (
+                  <p>Priority: {(content as { priority?: number }).priority}</p>
+                )}
+              </div>
+            </DetailSection>
           )}
           {(kind === "note" || kind === "idea") && (
-            <div className="space-y-2">
+            <DetailSection title={kind === "idea" ? "Idea details" : "Note details"}>
               {(content as { body?: string }).body && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Content</p>
@@ -306,10 +410,10 @@ export function ActivityDetailSheet({
                   ))}
                 </div>
               ) : null}
-            </div>
+            </DetailSection>
           )}
           {kind === "event" && (
-            <div className="space-y-2">
+            <DetailSection title="Event details">
               {(content as { start?: string }).start && (
                 <p className="text-sm flex items-center gap-2">
                   <Clock className="h-4 w-4" />
@@ -325,12 +429,42 @@ export function ActivityDetailSheet({
                   {(content as { location?: string }).location}
                 </p>
               )}
-            </div>
+            </DetailSection>
           )}
           {(kind === "other" || !["task", "note", "idea", "event"].includes(kind)) &&
             content &&
             Object.keys(content).length > 0 && (
-              <div className="space-y-2">
+              <DetailSection title="Details">
+                {rawEvent && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Event</p>
+                    {eventName && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">Name:</span> {eventName}
+                      </p>
+                    )}
+                    {eventOccurredAt && (
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">Occurred:</span> {formatTimelineDateShort(eventOccurredAt)}
+                      </p>
+                    )}
+                    {eventPayloadForDisplay && Object.keys(eventPayloadForDisplay).length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Payload</p>
+                        <dl className="text-sm space-y-1.5">
+                          {Object.entries(eventPayloadForDisplay)
+                            .filter(([key]) => !isIdField(key))
+                            .map(([key, val]) => (
+                            <div key={key} className="flex gap-2">
+                              <dt className="text-muted-foreground shrink-0">{humanizeFieldName(key)}:</dt>
+                              <dd className="break-words">{summarizeValue(val)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {((content as { body?: string }).body || (content as { description?: string }).description) && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Details</p>
@@ -341,8 +475,10 @@ export function ActivityDetailSheet({
                 )}
                 {(() => {
                   const c = content as Record<string, unknown>;
-                  const skip = new Set(["body", "description"]);
-                  const rest = Object.entries(c).filter(([k]) => !skip.has(k) && c[k] != null && c[k] !== "");
+                  const skip = new Set(["body", "description", "event"]);
+                  const rest = Object.entries(c).filter(
+                    ([k]) => !skip.has(k) && !isIdField(k) && c[k] != null && c[k] !== ""
+                  );
                   if (rest.length === 0) return null;
                   return (
                     <div>
@@ -350,15 +486,15 @@ export function ActivityDetailSheet({
                       <dl className="text-sm space-y-1">
                         {rest.map(([key, val]) => (
                           <div key={key} className="flex gap-2">
-                            <dt className="text-muted-foreground capitalize shrink-0">{key.replace(/_/g, " ")}:</dt>
-                            <dd className="break-words">{typeof val === "object" ? JSON.stringify(val) : String(val)}</dd>
+                            <dt className="text-muted-foreground shrink-0">{humanizeFieldName(key)}:</dt>
+                            <dd className="break-words">{summarizeValue(val)}</dd>
                           </div>
                         ))}
                       </dl>
                     </div>
                   );
                 })()}
-              </div>
+              </DetailSection>
             )}
         </div>
         </>
@@ -398,6 +534,7 @@ export function TimelineItemCard({ item, onActivityClick }: TimelineItemCardProp
     const kind = (item as any).kind ?? (item as any)?.activity?.kind;
     const Icon = activityIcon(kind);
     const activity: any = (item as any).activity ?? item;
+    const preview = activityPreview(activity as ActivityDetailData);
     const author = (() => {
       if (activity?.author && String(activity.author).trim()) return String(activity.author).trim();
       const actorId = activity?.user_id ? String(activity.user_id) : "";
@@ -465,6 +602,9 @@ export function TimelineItemCard({ item, onActivityClick }: TimelineItemCardProp
               </Link>
             )}
           </p>
+        )}
+        {preview && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{preview}</p>
         )}
       </div>
     );

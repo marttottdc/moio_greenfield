@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, Loader2, Pencil, CalendarDays, CheckSquare, Briefcase, Send, Building2, User } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Pencil, CalendarDays, CheckSquare, Briefcase, Send, Building2, User, Mic, Square } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,17 +21,36 @@ import { apiV1 } from "@/lib/api";
 import { captureApi } from "@/lib/capture/captureApi";
 import type {
   CaptureEntry,
-  CaptureVisibility,
   ClassifySyncResponse,
   ConfirmedActivityItem,
   ProposedActivity,
 } from "@/lib/capture/types";
 
-type AnchorType = "contact" | "account";
+type AnchorType = "contact" | "account" | "administrative";
+const ADMIN_ANCHOR_ID = "__administrative__";
 
 type DealLite = { id: string; title?: string; contact_name?: string | null; value?: number | string | null; currency?: string | null };
 type ContactLite = { id: string; name?: string; email?: string | null; phone?: string | null; company?: string | null };
 type AccountLite = { id: string; name?: string; legal_name?: string | null; email?: string | null };
+type ContactBasics = { name: string; email: string; phone: string; company: string };
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+    SpeechRecognition?: new () => BrowserSpeechRecognition;
+  }
+}
 
 function normalizeArray<T>(data: any, keys: string[] = []): T[] {
   if (!data) return [];
@@ -321,16 +340,23 @@ export function ReportActivityModal(props: {
   }, [anchorSearch]);
 
   const [rawText, setRawText] = useState("");
-  const [phase, setPhase] = useState<"input" | "link" | "classified">("input");
+  const [phase, setPhase] = useState<"anchor" | "activity" | "links" | "analyzing" | "review">("anchor");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [keyboardInsetBottom, setKeyboardInsetBottom] = useState(0);
-  const [visibility, setVisibility] = useState<CaptureVisibility>("internal");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [classifyResult, setClassifyResult] = useState<ClassifySyncResponse | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [editableItems, setEditableItems] = useState<ConfirmedActivityItem[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [cardStates, setCardStates] = useState<Record<number, "pending" | "created" | "rejected">>({});
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [isDictationSupported, setIsDictationSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [dictationInterim, setDictationInterim] = useState("");
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const [contactBasics, setContactBasics] = useState<ContactBasics>({ name: "", email: "", phone: "", company: "" });
+  const [loadedContactId, setLoadedContactId] = useState<string | null>(null);
+  const [isSavingContactBasics, setIsSavingContactBasics] = useState(false);
   /** Usamos la ubicación pasada por la app; no llamamos a navigator.geolocation aquí para evitar conflictos con extensiones (ej. location-spoofing → resolve is not defined). */
   const userGeoAddress = props.userGeoAddress ?? null;
 
@@ -366,6 +392,14 @@ export function ReportActivityModal(props: {
     return () => clearTimeout(t);
   }, [dealSearch]);
 
+  const [contactCompanySearch, setContactCompanySearch] = useState("");
+  const [debouncedContactCompanySearch, setDebouncedContactCompanySearch] = useState("");
+  const [contactCompanyPopoverOpen, setContactCompanyPopoverOpen] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedContactCompanySearch(contactCompanySearch), 200);
+    return () => clearTimeout(t);
+  }, [contactCompanySearch]);
+
   const [secondaryAnchorSearch, setSecondaryAnchorSearch] = useState("");
   const [debouncedSecondaryAnchorSearch, setDebouncedSecondaryAnchorSearch] = useState("");
   const [secondaryAnchorPopoverOpen, setSecondaryAnchorPopoverOpen] = useState(false);
@@ -399,6 +433,18 @@ export function ReportActivityModal(props: {
     retry: false,
   });
 
+  const contactBasicsCompaniesQuery = useQuery({
+    queryKey: [apiV1("/crm/customers/"), "report-activity-contact-basics-company", debouncedContactCompanySearch],
+    queryFn: () =>
+      fetchJson<any>(apiV1("/crm/customers/"), {
+        page: 1,
+        limit: 50,
+        ...(debouncedContactCompanySearch.trim() ? { search: debouncedContactCompanySearch.trim() } : {}),
+      }),
+    enabled: props.open && anchorType === "contact" && !!anchorId,
+    retry: false,
+  });
+
   const dealsQuery = useQuery({
     queryKey: [apiV1("/crm/deals/"), "report-activity-deals", debouncedDealSearch, anchorType, anchorId],
     queryFn: () =>
@@ -406,7 +452,7 @@ export function ReportActivityModal(props: {
         page: 1,
         limit: 50,
         ...(debouncedDealSearch.trim() ? { search: debouncedDealSearch.trim() } : {}),
-        ...(anchorType === "contact" && anchorId ? { contact_id: anchorId } : {}),
+        ...(anchorType === "contact" && anchorId && anchorId !== ADMIN_ANCHOR_ID ? { contact_id: anchorId } : {}),
         ...(anchorType === "account" && anchorId ? { customer_id: anchorId } : {}),
       }),
     enabled: props.open && !!anchorId,
@@ -427,6 +473,10 @@ export function ReportActivityModal(props: {
   const accountsForSecondary = useMemo(
     () => normalizeArray<AccountLite>(accountsForSecondaryQuery.data, ["customers"]),
     [accountsForSecondaryQuery.data]
+  );
+  const contactBasicsCompanies = useMemo(
+    () => normalizeArray<AccountLite>(contactBasicsCompaniesQuery.data, ["customers"]),
+    [contactBasicsCompaniesQuery.data]
   );
   const selectedSecondaryAnchorLabel = useMemo(() => {
     if (!secondaryAnchorId) return "";
@@ -454,6 +504,10 @@ export function ReportActivityModal(props: {
     const contact = contacts.find((c) => c.id === anchorId);
     return contact?.name ? `${contact.name}` : anchorId;
   }, [anchorId, anchorType, contacts, accounts, createdAnchorLabel]);
+  const selectedContact = useMemo(
+    () => (anchorType === "contact" ? contacts.find((c) => c.id === anchorId) : undefined),
+    [anchorType, contacts, anchorId]
+  );
 
   const suggestedItems = useMemo(() => {
     if (!classifyResult) return [];
@@ -471,19 +525,29 @@ export function ReportActivityModal(props: {
   }, [classifyResult?.entry?.id, suggestedItems]);
 
   const displayItems = editableItems.length > 0 ? editableItems : suggestedItems;
+  const pendingIndexes = useMemo(
+    () => displayItems.map((_, idx) => idx).filter((idx) => (cardStates[idx] ?? "pending") === "pending"),
+    [displayItems, cardStates]
+  );
+  const currentReviewIndex = pendingIndexes[reviewIndex] ?? null;
+  const reviewedCount = displayItems.filter((_, idx) => (cardStates[idx] ?? "pending") !== "pending").length;
 
   const resetIfClosed = (open: boolean) => {
     if (!open) {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
       setAnchorId("");
       setDealId("");
       setDealSearch("");
       setDealPopoverOpen(false);
+      setContactCompanySearch("");
+      setDebouncedContactCompanySearch("");
+      setContactCompanyPopoverOpen(false);
       setAnchorPopoverOpen(false);
       setAnchorSearch("");
       setCreatedAnchorLabel(null);
       setRawText("");
-      setPhase("input");
-      setVisibility("internal");
+      setPhase("anchor");
       setAnchorType("contact");
       setIsSubmitting(false);
       setClassifyResult(null);
@@ -491,21 +555,53 @@ export function ReportActivityModal(props: {
       setEditableItems([]);
       setEditingIndex(null);
       setCardStates({});
+      setReviewIndex(0);
+      setIsListening(false);
+      setDictationInterim("");
+      setContactBasics({ name: "", email: "", phone: "", company: "" });
+      setLoadedContactId(null);
+      setIsSavingContactBasics(false);
     }
   };
 
-  // On mobile: focus input when modal opens in input phase
   useEffect(() => {
-    if (!props.open || phase !== "input") return;
-    const input = inputRef.current;
-    if (!input) return;
-    const focusTimer = window.setTimeout(() => input.focus(), 100);
-    return () => window.clearTimeout(focusTimer);
-  }, [props.open, phase]);
+    if (typeof window === "undefined") return;
+    setIsDictationSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "activity" || !props.open) {
+      recognitionRef.current?.stop();
+    }
+  }, [phase, props.open]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (anchorType !== "contact" || !anchorId) {
+      setContactBasics({ name: "", email: "", phone: "", company: "" });
+      setLoadedContactId(null);
+      return;
+    }
+    if (loadedContactId === anchorId) return;
+    const fallbackName = (createdAnchorLabel || selectedAnchorLabel || "").trim();
+    setContactBasics({
+      name: (selectedContact?.name ?? fallbackName).toString(),
+      email: (selectedContact?.email ?? "").toString(),
+      phone: (selectedContact?.phone ?? "").toString(),
+      company: (selectedContact?.company ?? "").toString(),
+    });
+    setLoadedContactId(anchorId);
+  }, [anchorType, anchorId, loadedContactId, selectedContact, selectedAnchorLabel, createdAnchorLabel]);
 
   // Stick input bar to top of keyboard on mobile using Visual Viewport API
   useEffect(() => {
-    if (!props.open || phase !== "input" || typeof window === "undefined" || !window.visualViewport) return;
+    if (!props.open || phase !== "activity" || typeof window === "undefined" || !window.visualViewport) return;
     const updateInset = () => {
       const vv = window.visualViewport;
       const bottom = window.innerHeight - (vv.offsetTop + vv.height);
@@ -521,17 +617,151 @@ export function ReportActivityModal(props: {
   }, [props.open, phase]);
 
   const anchorModelFor = (type: AnchorType): "crm.contact" | "crm.customer" => {
+    if (type === "administrative") return "crm.contact";
     if (type === "account") return "crm.customer";
     return "crm.contact";
   };
 
-  const handleSendMessage = () => {
+  const saveLinkedContactBasics = async (): Promise<boolean> => {
+    if (anchorType !== "contact" || !anchorId) return true;
+    const payload: Record<string, string> = {};
+    const name = contactBasics.name.trim();
+    const email = contactBasics.email.trim();
+    const phone = contactBasics.phone.trim();
+    const company = contactBasics.company.trim();
+    if (name) payload.name = name;
+    if (email) payload.email = email;
+    if (phone) payload.phone = phone;
+    if (company) payload.company = company;
+    if (Object.keys(payload).length === 0) return true;
+    setIsSavingContactBasics(true);
+    try {
+      await apiRequest("PATCH", apiV1(`/crm/contacts/${anchorId}/`), { data: payload });
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
+      if (name) setCreatedAnchorLabel(name);
+      return true;
+    } catch (err: any) {
+      toast({
+        title: "No se pudo guardar el contacto",
+        description: err?.message || "Revisa los datos básicos e intenta de nuevo.",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsSavingContactBasics(false);
+    }
+  };
+
+  const goToLinksStep = () => {
     const text = rawText.trim();
     if (!text) {
       toast({ title: "Add some text", description: "Write a note to capture.", variant: "destructive" });
       return;
     }
-    setPhase("link");
+    setPhase("links");
+  };
+
+  const goToActivityStep = () => {
+    if (anchorType === "administrative") {
+      setAnchorId(ADMIN_ANCHOR_ID);
+      setCreatedAnchorLabel("Actividad administrativa");
+      setPhase("activity");
+      return;
+    }
+    if (!anchorId) {
+      toast({ title: "Selecciona con quién fue la actividad", description: "Elige un contacto o tipo administrativa antes de continuar.", variant: "destructive" });
+      return;
+    }
+    if (anchorType === "contact") {
+      void (async () => {
+        const saved = await saveLinkedContactBasics();
+        if (saved) setPhase("activity");
+      })();
+      return;
+    }
+    setPhase("activity");
+  };
+
+  const clearActivityDraft = () => {
+    stopDictation();
+    setRawText("");
+    setDictationInterim("");
+    inputRef.current?.focus();
+  };
+
+  const stopDictation = () => {
+    recognitionRef.current?.stop();
+  };
+
+  const startDictation = () => {
+    if (typeof window === "undefined") return;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) {
+      toast({
+        title: "Dictado no disponible",
+        description: "Tu navegador no soporta reconocimiento de voz.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isListening) {
+      stopDictation();
+      return;
+    }
+    try {
+      const recognition = new Ctor();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "es-ES";
+      recognition.onresult = (event: any) => {
+        let finalChunk = "";
+        let interimChunk = "";
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const res = event.results[i];
+          const transcript = String(res?.[0]?.transcript ?? "").trim();
+          if (!transcript) continue;
+          if (res.isFinal) {
+            finalChunk += `${transcript} `;
+          } else {
+            interimChunk += `${transcript} `;
+          }
+        }
+        if (finalChunk.trim()) {
+          setRawText((prev) => `${prev.trimEnd()}${prev.trim() ? " " : ""}${finalChunk.trim()}`);
+        }
+        setDictationInterim(interimChunk.trim());
+      };
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        setDictationInterim("");
+        recognitionRef.current = null;
+        const errorCode = String(event?.error ?? "");
+        const description =
+          errorCode === "not-allowed"
+            ? "Permite el acceso al micrófono para usar dictado."
+            : "No se pudo capturar audio. Intenta de nuevo.";
+        toast({
+          title: "Error de dictado",
+          description,
+          variant: "destructive",
+        });
+      };
+      recognition.onend = () => {
+        setIsListening(false);
+        setDictationInterim("");
+        recognitionRef.current = null;
+      };
+      recognitionRef.current = recognition;
+      setIsListening(true);
+      setDictationInterim("");
+      recognition.start();
+    } catch {
+      toast({
+        title: "Error de dictado",
+        description: "No fue posible iniciar el dictado.",
+        variant: "destructive",
+      });
+    }
   };
 
   const submitClassify = async () => {
@@ -545,14 +775,20 @@ export function ReportActivityModal(props: {
     }
 
     setIsSubmitting(true);
+    setPhase("analyzing");
     setClassifyResult(null);
     try {
-      const result = await captureApi.classifySync({
-        raw_text: rawText.trim(),
-        anchor_model: anchorModelFor(anchorType),
-        anchor_id: anchorId,
-      });
+      const result = await captureApi.classifyAsync(
+        {
+          raw_text: rawText.trim(),
+          anchor_model: anchorModelFor(anchorType),
+          anchor_id: anchorId,
+        },
+        { pollIntervalMs: 1500, timeoutMs: 90000 }
+      );
       setClassifyResult(result);
+      setReviewIndex(0);
+      setPhase("review");
     } catch (err: any) {
       const allowed = (() => {
         if (!(err instanceof ApiError)) return undefined;
@@ -574,6 +810,7 @@ export function ReportActivityModal(props: {
         description: allowed ? `${err?.message || "Could not classify."} Allowed: ${allowed}` : (err?.message || "Could not classify."),
         variant: "destructive",
       });
+      setPhase("links");
     } finally {
       setIsSubmitting(false);
     }
@@ -597,7 +834,6 @@ export function ReportActivityModal(props: {
         confirmed_activities: [item],
         ...(dealId ? { deal_id: dealId } : {}),
         ...(anchorType === "account" && secondaryAnchorId ? { contact_id: secondaryAnchorId } : {}),
-        ...(anchorType === "contact" && secondaryAnchorId ? { customer_id: secondaryAnchorId } : {}),
       });
       if ((result.applied_refs?.length ?? 0) > 0) {
         setCardStates((prev) => ({ ...prev, [idx]: "created" }));
@@ -631,6 +867,22 @@ export function ReportActivityModal(props: {
     setCardStates((prev) => ({ ...prev, [idx]: "rejected" }));
   };
 
+  const moveToNextPending = () => {
+    setReviewIndex(0);
+  };
+
+  const confirmCurrentActivity = async () => {
+    if (currentReviewIndex === null) return;
+    await applySingleActivity(currentReviewIndex);
+    moveToNextPending();
+  };
+
+  const rejectCurrentActivity = () => {
+    if (currentReviewIndex === null) return;
+    rejectActivity(currentReviewIndex);
+    moveToNextPending();
+  };
+
   const anchorItems = anchorType === "account" ? accounts : contacts;
   const isAnchorLoading = anchorType === "account" ? accountsQuery.isLoading : contactsQuery.isLoading;
   const anchorEmptyLabel = anchorType === "account" ? "No accounts found." : "No contacts found.";
@@ -654,6 +906,13 @@ export function ReportActivityModal(props: {
         });
         const created = await res.json();
         setAnchorId(created.id);
+        setLoadedContactId(null);
+        setContactBasics({
+          name: trimmed,
+          email: "",
+          phone: "",
+          company: "",
+        });
         queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
       }
       setAnchorSearch("");
@@ -713,6 +972,32 @@ export function ReportActivityModal(props: {
     }
   };
 
+  const handleCreateCompanyForContactBasics = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || isCreatingAnchor) return;
+    setIsCreatingAnchor(true);
+    try {
+      const res = await apiRequest("POST", apiV1("/crm/customers/"), {
+        data: { name: trimmed, legal_name: trimmed, type: "Business" },
+      });
+      const created = await res.json();
+      const companyName = String(created?.name || trimmed);
+      setContactBasics((prev) => ({ ...prev, company: companyName }));
+      setContactCompanyPopoverOpen(false);
+      setContactCompanySearch("");
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
+      toast({ title: t("crm.account_created"), description: t("crm.account_created_description") });
+    } catch (err: any) {
+      toast({
+        title: "No se pudo crear la empresa",
+        description: err?.message || "Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingAnchor(false);
+    }
+  };
+
   return (
     <Dialog
       open={props.open}
@@ -721,156 +1006,686 @@ export function ReportActivityModal(props: {
         resetIfClosed(open);
       }}
     >
-      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh] md:max-h-[90vh] p-0 gap-0 max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none max-md:overflow-auto">
-        {phase !== "input" ? (
-        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 max-md:px-4 max-md:pt-4 max-md:pb-2">
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh] md:max-h-[90vh] p-0 gap-0 max-md:inset-0 max-md:w-screen max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none max-md:overflow-auto max-md:pb-[env(safe-area-inset-bottom)]">
+        <DialogHeader className="px-6 pt-6 pb-3 shrink-0 max-md:px-4 max-md:pt-4 max-md:pb-2">
           <DialogTitle className="max-md:text-lg">{t("crm.log_activity_title")}</DialogTitle>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <DialogDescription className="m-0 flex-1 min-w-0 max-md:text-sm">
-              {t("crm.log_activity_description")}
-            </DialogDescription>
-            {classifyResult && (
-            <div className="flex gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-amber-500 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-600"
-                onClick={() => { setClassifyResult(null); setPhase("input"); }}
-                disabled={isApplying}
-                data-testid="button-capture-back"
-              >
-                {t("crm.edit_report")}
+          <DialogDescription className="m-0 text-xs text-muted-foreground">
+            {phase === "anchor" && "Paso 1 de 5 · ¿Con quién fue la actividad?"}
+            {phase === "activity" && "Paso 2 de 5 · ¿Cuál fue la actividad?"}
+            {phase === "links" && "Paso 3 de 5 · Vinculaciones opcionales"}
+            {phase === "analyzing" && "Paso 4 de 5 · Analizando y generando sugerencias"}
+            {phase === "review" && "Paso 5 de 5 · Revisión de sugerencias una por una"}
+          </DialogDescription>
+        </DialogHeader>
+
+        {phase === "anchor" && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <ScrollArea className="flex-1 px-6">
+              <div className="py-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t("crm.link_to_label")}</Label>
+                    <Select
+                      value={anchorType}
+                      onValueChange={(v) => {
+                        const nextType = v as AnchorType;
+                        setAnchorType(nextType);
+                        setAnchorId(nextType === "administrative" ? ADMIN_ANCHOR_ID : "");
+                        setLoadedContactId(null);
+                        setSecondaryAnchorId("");
+                        setCreatedSecondaryAnchorLabel(null);
+                        setDealId("");
+                        setAnchorSearch("");
+                        setCreatedAnchorLabel(nextType === "administrative" ? "Actividad administrativa" : null);
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-anchor-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contact">Contacto</SelectItem>
+                        <SelectItem value="administrative">Administrativa (sin contacto)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {anchorType === "contact" ? (
+                  <div className="space-y-2">
+                    <Label>Contacto</Label>
+                    <Popover
+                      open={anchorPopoverOpen}
+                      onOpenChange={(open) => {
+                        setAnchorPopoverOpen(open);
+                        if (!open) setAnchorSearch("");
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={anchorPopoverOpen}
+                          className="w-full justify-between font-normal"
+                          data-testid="button-anchor-combobox"
+                        >
+                          {anchorId ? (
+                            <span className="truncate">{selectedAnchorLabel}</span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {t("crm.select_contact")}
+                            </span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[360px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder={"Buscar o escribir contacto..."}
+                            value={anchorSearch}
+                            onValueChange={setAnchorSearch}
+                          />
+                          <CommandList>
+                            {isAnchorLoading && (
+                              <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Buscando...
+                              </div>
+                            )}
+                            <CommandGroup>
+                              {anchorSearch.trim() && !isAnchorLoading && (
+                                <CommandItem
+                                  key="create-new"
+                                  value={`__create__${anchorSearch.trim()}`}
+                                  onSelect={() => {
+                                    const name = anchorSearch.trim();
+                                    if (name) handleCreateAnchor(name);
+                                  }}
+                                  disabled={isCreatingAnchor}
+                                  className="font-medium"
+                                >
+                                  <User className="mr-2 h-4 w-4" />
+                                  {isCreatingAnchor ? t("crm.creating") : t("crm.create_contact_account", { type: t("crm.contact_singular"), name: anchorSearch.trim() })}
+                                </CommandItem>
+                              )}
+                              {anchorItems.map((item: any) => {
+                                const id = String(item.id);
+                                const label = String((item as ContactLite).name ?? id);
+                                const sub = ((item as ContactLite).email ?? (item as ContactLite).phone ?? (item as ContactLite).company ?? "");
+
+                                return (
+                                  <CommandItem
+                                    key={id}
+                                    value={id}
+                                    onSelect={() => {
+                                      setAnchorId(id);
+                                      setLoadedContactId(null);
+                                      setSecondaryAnchorId("");
+                                      setCreatedSecondaryAnchorLabel(null);
+                                      setAnchorPopoverOpen(false);
+                                      setAnchorSearch("");
+                                      setCreatedAnchorLabel(null);
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-4 w-4 ${anchorId === id ? "opacity-100" : "opacity-0"}`} />
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="truncate">{label}</span>
+                                      {(sub || "").trim() && (
+                                        <span className="text-xs text-muted-foreground truncate">{sub}</span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                            {!anchorSearch.trim() && anchorItems.length === 0 && !isAnchorLoading && (
+                              <CommandEmpty>Escribe para buscar o crear</CommandEmpty>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Tipo</Label>
+                      <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                        Actividad administrativa (sin contacto vinculado)
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {anchorType === "contact" && !!anchorId && (
+                  <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          value={contactBasics.email}
+                          onChange={(e) => setContactBasics((prev) => ({ ...prev, email: e.target.value }))}
+                          placeholder="correo@empresa.com"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Telefono</Label>
+                        <Input
+                          value={contactBasics.phone}
+                          onChange={(e) => setContactBasics((prev) => ({ ...prev, phone: e.target.value }))}
+                          placeholder="+52..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Empresa</Label>
+                        <Popover
+                          open={contactCompanyPopoverOpen}
+                          onOpenChange={(open) => {
+                            setContactCompanyPopoverOpen(open);
+                            if (!open) setContactCompanySearch("");
+                          }}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" role="combobox" className="w-full justify-between font-normal mt-2">
+                              <span className="truncate">
+                                {contactBasics.company?.trim() ? contactBasics.company : "Buscar empresa en CRM"}
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[360px] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder="Buscar o crear empresa..."
+                                value={contactCompanySearch}
+                                onValueChange={setContactCompanySearch}
+                              />
+                              <CommandList>
+                                {contactBasicsCompaniesQuery.isLoading && (
+                                  <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Buscando...
+                                  </div>
+                                )}
+                                <CommandGroup>
+                                  {contactCompanySearch.trim() && !contactBasicsCompaniesQuery.isLoading && (
+                                    <CommandItem
+                                      value={`__create__${contactCompanySearch.trim()}`}
+                                      onSelect={() => handleCreateCompanyForContactBasics(contactCompanySearch.trim())}
+                                      disabled={isCreatingAnchor}
+                                      className="font-medium"
+                                    >
+                                      <Building2 className="mr-2 h-4 w-4" />
+                                      {isCreatingAnchor
+                                        ? t("crm.creating")
+                                        : t("crm.create_account_name", { name: contactCompanySearch.trim() })}
+                                    </CommandItem>
+                                  )}
+                                  {contactBasicsCompanies.map((acc) => {
+                                    const id = String(acc.id);
+                                    const label = String(acc.name ?? id);
+                                    return (
+                                      <CommandItem
+                                        key={id}
+                                        value={id}
+                                        onSelect={() => {
+                                          setContactBasics((prev) => ({ ...prev, company: label }));
+                                          setContactCompanyPopoverOpen(false);
+                                          setContactCompanySearch("");
+                                        }}
+                                      >
+                                        <Check className={`mr-2 h-4 w-4 ${contactBasics.company === label ? "opacity-100" : "opacity-0"}`} />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">{label}</span>
+                                          {(acc.legal_name ?? acc.email ?? "").trim() && (
+                                            <span className="text-xs text-muted-foreground truncate">
+                                              {acc.legal_name ?? acc.email}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                                {!contactCompanySearch.trim() && contactBasicsCompanies.length === 0 && !contactBasicsCompaniesQuery.isLoading && (
+                                  <CommandEmpty>Escribe para buscar empresa</CommandEmpty>
+                                )}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+            <div className="px-6 py-4 border-t shrink-0 flex gap-2">
+              <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
+                {t("common.close")}
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => { setRawText(""); setClassifyResult(null); setPhase("input"); }}
-                disabled={isApplying}
-                data-testid="button-capture-new"
-              >
-                {t("crm.new_report")}
+              <Button onClick={goToActivityStep} disabled={!anchorId || isSavingContactBasics} className="ml-auto">
+                {isSavingContactBasics && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Siguiente
               </Button>
             </div>
-            )}
           </div>
-        </DialogHeader>
-        ) : null}
+        )}
 
-        {classifyResult ? (
-          <ScrollArea className="flex-1 min-h-0 px-6">
-          <div className="space-y-4 py-4 pb-6">
-            <p className="text-sm font-medium text-muted-foreground">
-              {t("crm.suggested_activities_help")}
-            </p>
-            <div className="grid gap-3">
-              {displayItems.map((item, idx) => {
-                const state = cardStates[idx] ?? "pending";
-                const kind = (item.kind ?? "event") as string;
-                const Icon =
-                  kind === "task" ? CheckSquare : kind === "deal" ? Briefcase : CalendarDays;
-                const ownerUser =
-                  item.owner_id && usersQuery.data
-                    ? usersQuery.data.find((u) => String(u.id) === String(item.owner_id))
-                    : null;
-                const ownerLabel = ownerUser
-                  ? (ownerUser.full_name || `${ownerUser.first_name || ""} ${ownerUser.last_name || ""}`.trim() || ownerUser.email)
-                  : null;
-                const statusLabel = item.status === "completed" ? "Completado" : "Planificado";
-                return (
-                  <Card
-                    key={idx}
-                    className={
-                      state === "rejected"
-                        ? "opacity-60 bg-muted/30"
-                        : "cursor-pointer hover:bg-muted/50 transition-colors"
-                    }
-                    onClick={() => state === "pending" && setEditingIndex(idx)}
+        {phase === "activity" && (
+          <div className="flex flex-col flex-1 min-h-0 max-md:flex-none max-md:min-h-0">
+            <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6 pt-4 md:pt-6 pb-2">
+              <div className="mb-3">
+                <p className="text-sm text-muted-foreground">Escribe o dicta la actividad.</p>
+              </div>
+              <Textarea
+                ref={inputRef}
+                placeholder={t("crm.log_activity_description")}
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), goToLinksStep())}
+                className="min-h-[120px] resize-y scroll-mb-32 max-md:scroll-mb-40"
+                rows={5}
+                data-testid="textarea-capture-raw"
+                inputMode="text"
+                enterKeyHint="done"
+              />
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <div className="relative h-20 w-20 flex items-center justify-center">
+                  {isListening && (
+                    <>
+                      <span className="absolute h-20 w-20 rounded-full bg-primary/15 animate-ping" />
+                      <span
+                        className="absolute h-16 w-16 rounded-full bg-primary/20 animate-ping"
+                        style={{ animationDelay: "180ms" }}
+                      />
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={startDictation}
+                    disabled={!isDictationSupported}
+                    className="relative h-14 w-14 rounded-full p-0"
+                    variant={isListening ? "default" : "outline"}
+                    data-testid="button-dictation-toggle"
+                    aria-label={isListening ? "Detener dictado" : "Iniciar dictado"}
                   >
-                    <CardHeader className="pb-2 pt-3 px-4">
-                      <div className="flex items-start gap-3">
-                        <Icon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium truncate">{item.title}</p>
-                            {state === "created" && (
-                              <span className="text-xs font-medium text-green-600 dark:text-green-400">Creado</span>
-                            )}
-                            {state === "rejected" && (
-                              <span className="text-xs font-medium text-muted-foreground">Rechazado</span>
-                            )}
-                            {kind === "event" && state === "pending" && (
-                              <span className="text-xs text-muted-foreground">· {statusLabel}</span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span className="capitalize">{kind}</span>
-                            {item.due_at && (
-                              <>
-                                <span>·</span>
-                                <span>Due {formatActivityDate(item.due_at)}</span>
-                              </>
-                            )}
-                            {item.start_at && item.end_at && (
-                              <>
-                                <span>·</span>
-                                <span>
-                                  {formatActivityDate(item.start_at)} – {formatActivityDate(item.end_at)}
-                                </span>
-                              </>
-                            )}
-                            {!item.start_at && !item.end_at && kind === "event" && item.status === "planned" && (
-                              <span className="text-muted-foreground">· Sin fecha definida</span>
-                            )}
-                            {ownerLabel && kind !== "event" && (
-                              <>
-                                <span>·</span>
-                                <span>Responsable: {ownerLabel}</span>
-                              </>
-                            )}
-                          </div>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+                    {isListening ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {isListening ? "Grabando... toca el micrófono para detener." : "Toca el micrófono para dictar."}
+                </p>
+              </div>
+              {!isDictationSupported && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  El dictado no está disponible en este navegador.
+                </p>
+              )}
+              {isListening && dictationInterim && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Escuchando: {dictationInterim}
+                </p>
+              )}
+            </div>
+            <div
+              className="border-t p-4 shrink-0 max-md:pt-3 max-md:fixed max-md:left-0 max-md:right-0 max-md:z-50 max-md:bg-background"
+              style={{ bottom: keyboardInsetBottom }}
+            >
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setPhase("anchor")}>
+                  {t("crm.back")}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={clearActivityDraft}
+                  disabled={!rawText.trim()}
+                >
+                  Borrar
+                </Button>
+                <Button
+                  onClick={goToLinksStep}
+                  disabled={!rawText.trim()}
+                  className="flex-1 min-w-0 sm:flex-initial ml-auto"
+                  data-testid="button-send-capture"
+                >
+                  <Check className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Confirmar</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {phase === "links" && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <ScrollArea className="flex-1 px-6">
+              <div className="py-4 space-y-4">
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary/80">
+                    Actividad reportada
+                  </p>
+                  <div className="mt-2 max-h-44 overflow-y-auto rounded-md border bg-background/80 p-3">
+                    <p className="whitespace-pre-wrap break-words leading-relaxed">{rawText}</p>
+                  </div>
+                </div>
+
+                {anchorId && anchorType === "account" && (
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Vincular contacto de esta empresa</Label>
+                    <Popover
+                      open={secondaryAnchorPopoverOpen}
+                      onOpenChange={(open) => {
+                        setSecondaryAnchorPopoverOpen(open);
+                        if (!open) setSecondaryAnchorSearch("");
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal"
+                          data-testid="button-secondary-anchor-combobox"
+                        >
+                          {secondaryAnchorId ? (
+                            <span className="truncate">{selectedSecondaryAnchorLabel}</span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              Seleccionar contacto
+                            </span>
                           )}
-                        </div>
-                        {state === "pending" && (
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-600"
-                              onClick={() => rejectActivity(idx)}
-                              title="Descartar"
-                            >
-                              Descartar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="h-8"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingIndex(idx);
-                              }}
-                              title="Revisar actividad"
-                            >
-                              Revisar
-                            </Button>
-                          </div>
-                        )}
-                        {state !== "pending" && <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-50" />}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[360px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder={"Buscar contactos de esta empresa..."}
+                            value={secondaryAnchorSearch}
+                            onValueChange={setSecondaryAnchorSearch}
+                          />
+                          <CommandList>
+                            {contactsByAccountQuery.isLoading && (
+                              <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Buscando...
+                              </div>
+                            )}
+                            <CommandGroup>
+                              <CommandItem
+                                value="__none__"
+                                onSelect={() => {
+                                  setSecondaryAnchorId("");
+                                  setCreatedSecondaryAnchorLabel(null);
+                                  setSecondaryAnchorPopoverOpen(false);
+                                  setSecondaryAnchorSearch("");
+                                }}
+                              >
+                                <Check className={`mr-2 h-4 w-4 ${!secondaryAnchorId ? "opacity-100" : "opacity-0"}`} />
+                                Ninguno
+                              </CommandItem>
+                              {contactsByAccount.map((c) => {
+                                const id = String(c.id);
+                                return (
+                                  <CommandItem
+                                    key={id}
+                                    value={id}
+                                    onSelect={() => {
+                                      setSecondaryAnchorId(id);
+                                      setCreatedSecondaryAnchorLabel(null);
+                                      setSecondaryAnchorPopoverOpen(false);
+                                      setSecondaryAnchorSearch("");
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-4 w-4 ${secondaryAnchorId === id ? "opacity-100" : "opacity-0"}`} />
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="truncate">{c.name ?? id}</span>
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {anchorId && (
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Vincular opcionalmente a un negocio</Label>
+                    <div className="flex gap-2">
+                      <Popover open={dealPopoverOpen} onOpenChange={setDealPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="flex-1 justify-between font-normal"
+                            data-testid="button-deal-combobox"
+                          >
+                            {dealId ? (deals.find((d) => d.id === dealId)?.title ?? dealId) : t("crm.select_deal_optional")}
+                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[360px] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Buscar o escribir negocio..."
+                              value={dealSearch}
+                              onValueChange={setDealSearch}
+                            />
+                            <CommandList>
+                              {dealsQuery.isLoading && (
+                                <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Buscando...
+                                </div>
+                              )}
+                              <CommandGroup>
+                                <CommandItem
+                                  value="__none__"
+                                  onSelect={() => {
+                                    setDealId("");
+                                    setDealPopoverOpen(false);
+                                    setDealSearch("");
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${!dealId ? "opacity-100" : "opacity-0"}`} />
+                                  <span className="text-muted-foreground">Ninguno</span>
+                                </CommandItem>
+                                {dealSearch.trim() && !dealsQuery.isLoading && (
+                                  <CommandItem
+                                    key="create-deal"
+                                    value={`__create__${dealSearch.trim()}`}
+                                    onSelect={() => {
+                                      const name = dealSearch.trim();
+                                      if (name) handleCreateDeal(name);
+                                    }}
+                                    disabled={isCreatingAnchor}
+                                    className="font-medium"
+                                  >
+                                    <Briefcase className="mr-2 h-4 w-4" />
+                                    {isCreatingAnchor ? t("crm.creating") : t("crm.create_deal_name", { name: dealSearch.trim() })}
+                                  </CommandItem>
+                                )}
+                                {deals.map((d) => (
+                                  <CommandItem
+                                    key={d.id}
+                                    value={d.id}
+                                    onSelect={() => {
+                                      setDealId(d.id);
+                                      setDealPopoverOpen(false);
+                                      setDealSearch("");
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-4 w-4 ${dealId === d.id ? "opacity-100" : "opacity-0"}`} />
+                                    {d.title ?? d.id}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {dealId && (
+                        <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setDealId("")}>
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+            <div className="px-6 py-4 border-t shrink-0 flex gap-2">
+              <Button variant="outline" onClick={() => setPhase("activity")}>
+                {t("crm.back")}
+              </Button>
+              <Button onClick={submitClassify} disabled={isSubmitting || !anchorId} className="ml-auto" data-testid="button-save-capture">
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Generar sugerencias
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {phase === "analyzing" && (
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="text-center space-y-4">
+              <div className="mx-auto h-14 w-14 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+              <p className="text-sm text-muted-foreground">Estamos analizando la actividad y preparando sugerencias...</p>
+            </div>
+          </div>
+        )}
+
+        {phase === "review" && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-6 pt-3 pb-2 shrink-0 border-b bg-muted/30">
+              <p className="text-sm font-medium text-foreground">
+                Se generaron {displayItems.length} {displayItems.length === 1 ? "sugerencia" : "sugerencias"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Revisadas: {reviewedCount} de {displayItems.length}
+              </p>
+            </div>
+            <ScrollArea className="flex-1 min-h-0 px-6">
+              <div className="space-y-4 py-4 pb-6">
+                {currentReviewIndex === null ? (
+                  <Card>
+                    <CardHeader className="space-y-2">
+                      <p className="font-medium">No hay más sugerencias pendientes.</p>
+                      <p className="text-sm text-muted-foreground">Puedes cerrar o empezar un nuevo registro.</p>
+                      <div className="flex gap-2 pt-2">
+                        <Button variant="outline" onClick={() => props.onOpenChange(false)}>
+                          Cerrar
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setRawText("");
+                            setClassifyResult(null);
+                            setEditableItems([]);
+                            setCardStates({});
+                            setPhase("anchor");
+                          }}
+                        >
+                          Nuevo registro
+                        </Button>
                       </div>
                     </CardHeader>
                   </Card>
-                );
-              })}
-            </div>
+                ) : (
+                  <>
+                    {(() => {
+                      const idx = currentReviewIndex;
+                      const item = displayItems[idx];
+                      const state = cardStates[idx] ?? "pending";
+                      const kind = (item.kind ?? "event") as string;
+                      const Icon = kind === "task" ? CheckSquare : kind === "deal" ? Briefcase : CalendarDays;
+                      const ownerUser =
+                        item.owner_id && usersQuery.data
+                          ? usersQuery.data.find((u) => String(u.id) === String(item.owner_id))
+                          : null;
+                      const ownerLabel = ownerUser
+                        ? (ownerUser.full_name || `${ownerUser.first_name || ""} ${ownerUser.last_name || ""}`.trim() || ownerUser.email)
+                        : null;
+                      return (
+                        <Card>
+                          <CardHeader className="pb-2 pt-4 px-4">
+                            <div className="flex items-start gap-3">
+                              <Icon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium">{item.title}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                  <span className="capitalize">{kind}</span>
+                                  {item.due_at && <span>· Vence {formatActivityDate(item.due_at)}</span>}
+                                  {item.start_at && item.end_at && (
+                                    <span>· {formatActivityDate(item.start_at)} - {formatActivityDate(item.end_at)}</span>
+                                  )}
+                                  {ownerLabel && kind !== "event" && <span>· Responsable: {ownerLabel}</span>}
+                                </div>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">{item.description}</p>
+                                )}
+                              </div>
+                              {state !== "pending" && (
+                                <span className="text-xs text-muted-foreground">
+                                  {state === "created" ? "Confirmada" : "Rechazada"}
+                                </span>
+                              )}
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      );
+                    })()}
+                    <div className="flex flex-wrap gap-2 pt-4 hidden md:flex">
+                      <Button variant="outline" onClick={() => setEditingIndex(currentReviewIndex)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-600"
+                        onClick={rejectCurrentActivity}
+                        disabled={isApplying}
+                      >
+                        Rechazar
+                      </Button>
+                      <Button onClick={confirmCurrentActivity} disabled={isApplying} className="ml-auto">
+                        {isApplying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Confirmar
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+            {currentReviewIndex !== null && (
+              <div className="shrink-0 border-t bg-background px-6 py-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => setEditingIndex(currentReviewIndex)} className="touch-manipulation min-h-[44px] flex-1 min-w-0">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-red-500 text-red-600 hover:bg-red-50 touch-manipulation min-h-[44px]"
+                    onClick={rejectCurrentActivity}
+                    disabled={isApplying}
+                  >
+                    Rechazar
+                  </Button>
+                  <Button onClick={confirmCurrentActivity} disabled={isApplying} className="touch-manipulation min-h-[44px] flex-1 min-w-0">
+                    {isApplying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Confirmar
+                  </Button>
+                </div>
+              </div>
+            )}
             <SuggestedActivityEditSheet
               open={editingIndex !== null}
               onOpenChange={(open) => !open && setEditingIndex(null)}
               item={editingIndex !== null ? displayItems[editingIndex] : null}
               users={usersQuery.data ?? []}
               userGeoAddress={userGeoAddress}
-              onSave={async (edited) => {
+              onSave={(edited) => {
                 if (editingIndex !== null) {
                   const idx = editingIndex;
                   setEditableItems((prev) => {
@@ -879,488 +1694,11 @@ export function ReportActivityModal(props: {
                     return next;
                   });
                   setEditingIndex(null);
-                  await applySingleActivity(idx, edited);
                 }
               }}
             />
           </div>
-          </ScrollArea>
-        ) : phase === "link" ? (
-        <div className="flex flex-col flex-1 min-h-0">
-          <ScrollArea className="flex-1 px-6">
-            <div className="py-4 space-y-4">
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm">
-                  {rawText}
-                </div>
-              </div>
-              <p className="text-sm font-medium">{t("crm.link_to_contact_or_account")}</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t("crm.link_to_label")}</Label>
-                  <Select
-                    value={anchorType}
-                    onValueChange={(v) => {
-                      setAnchorType(v as AnchorType);
-                      setAnchorId("");
-                      setSecondaryAnchorId("");
-                      setCreatedSecondaryAnchorLabel(null);
-                      setDealId("");
-                      setAnchorSearch("");
-                      setCreatedAnchorLabel(null);
-                    }}
-                  >
-                    <SelectTrigger data-testid="select-anchor-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="contact">Contact</SelectItem>
-                      <SelectItem value="account">Account</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{anchorType === "account" ? "Account" : "Contact"}</Label>
-              <Popover
-                open={anchorPopoverOpen}
-                onOpenChange={(open) => {
-                  setAnchorPopoverOpen(open);
-                  if (!open) setAnchorSearch("");
-                }}
-              >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={anchorPopoverOpen}
-                  className="w-full justify-between font-normal"
-                  data-testid="button-anchor-combobox"
-                >
-                  {anchorId ? (
-                    <span className="truncate">{selectedAnchorLabel}</span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {anchorType === "account" ? t("crm.select_account") : t("crm.select_contact")}
-                    </span>
-                  )}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[360px] p-0" align="start">
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder={anchorType === "account" ? "Search or type account name…" : "Search or type contact name…"}
-                    value={anchorSearch}
-                    onValueChange={setAnchorSearch}
-                  />
-                  <CommandList>
-                    {isAnchorLoading && (
-                      <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Searching…
-                      </div>
-                    )}
-                    <CommandGroup>
-                      {anchorSearch.trim() && !isAnchorLoading && (
-                        <CommandItem
-                          key="create-new"
-                          value={`__create__${anchorSearch.trim()}`}
-                          onSelect={() => {
-                            const name = anchorSearch.trim();
-                            if (name) handleCreateAnchor(name);
-                          }}
-                          disabled={isCreatingAnchor}
-                          className="font-medium"
-                        >
-                          {anchorType === "account" ? <Building2 className="mr-2 h-4 w-4" /> : <User className="mr-2 h-4 w-4" />}
-                          {isCreatingAnchor ? t("crm.creating") : t("crm.create_contact_account", { type: anchorType === "account" ? t("crm.account_singular") : t("crm.contact_singular"), name: anchorSearch.trim() })}
-                        </CommandItem>
-                      )}
-                      {anchorItems.map((item: any) => {
-                        const id = String(item.id);
-                        const label =
-                          anchorType === "account"
-                            ? String((item as AccountLite).name ?? id)
-                            : String((item as ContactLite).name ?? id);
-                        const sub =
-                          anchorType === "account"
-                            ? ((item as AccountLite).email ?? (item as AccountLite).legal_name ?? "")
-                            : ((item as ContactLite).email ?? (item as ContactLite).phone ?? (item as ContactLite).company ?? "");
-
-                        return (
-                          <CommandItem
-                            key={id}
-                            value={id}
-                            onSelect={() => {
-                              setAnchorId(id);
-                              setSecondaryAnchorId("");
-                              setCreatedSecondaryAnchorLabel(null);
-                              setAnchorPopoverOpen(false);
-                              setAnchorSearch("");
-                              setCreatedAnchorLabel(null);
-                            }}
-                          >
-                            <Check className={`mr-2 h-4 w-4 ${anchorId === id ? "opacity-100" : "opacity-0"}`} />
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate">{label}</span>
-                              {(sub || "").trim() && (
-                                <span className="text-xs text-muted-foreground truncate">{sub}</span>
-                              )}
-                            </div>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                    {!anchorSearch.trim() && anchorItems.length === 0 && !isAnchorLoading && (
-                      <CommandEmpty>Type to search or create</CommandEmpty>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            </div>
-          </div>
-
-          {anchorId && (
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">
-                {anchorType === "account"
-                  ? "Optionally link to a contact at this account"
-                  : "Optionally link to an account"}
-              </Label>
-              <Popover
-                open={secondaryAnchorPopoverOpen}
-                onOpenChange={(open) => {
-                  setSecondaryAnchorPopoverOpen(open);
-                  if (!open) setSecondaryAnchorSearch("");
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between font-normal"
-                    data-testid="button-secondary-anchor-combobox"
-                  >
-                    {secondaryAnchorId ? (
-                      <span className="truncate">{selectedSecondaryAnchorLabel}</span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        {anchorType === "account"
-                          ? t("crm.select_contact_optional")
-                          : t("crm.select_account_optional")}
-                      </span>
-                    )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[360px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      placeholder={
-                        anchorType === "account"
-                          ? "Search contacts at this account…"
-                          : "Search or type account name…"
-                      }
-                      value={secondaryAnchorSearch}
-                      onValueChange={setSecondaryAnchorSearch}
-                    />
-                    <CommandList>
-                      {anchorType === "account" && contactsByAccountQuery.isLoading && (
-                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Searching…
-                        </div>
-                      )}
-                      {anchorType === "contact" && accountsForSecondaryQuery.isLoading && (
-                        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Searching…
-                        </div>
-                      )}
-                      <CommandGroup>
-                        <CommandItem
-                          value="__none__"
-                          onSelect={() => {
-                            setSecondaryAnchorId("");
-                            setCreatedSecondaryAnchorLabel(null);
-                            setSecondaryAnchorPopoverOpen(false);
-                            setSecondaryAnchorSearch("");
-                          }}
-                        >
-                          <Check className={`mr-2 h-4 w-4 ${!secondaryAnchorId ? "opacity-100" : "opacity-0"}`} />
-                          None
-                        </CommandItem>
-                        {anchorType === "contact" &&
-                          secondaryAnchorSearch.trim() &&
-                          !accountsForSecondaryQuery.isLoading && (
-                            <CommandItem
-                              value={`__create__${secondaryAnchorSearch.trim()}`}
-                              onSelect={async () => {
-                                const name = secondaryAnchorSearch.trim();
-                                if (!name || isCreatingAnchor) return;
-                                setIsCreatingAnchor(true);
-                                try {
-                                  const res = await apiRequest("POST", apiV1("/crm/customers/"), {
-                                    data: { name, legal_name: name, type: "Business" },
-                                  });
-                                  const created = await res.json();
-                                  setSecondaryAnchorId(created.id);
-                                  setCreatedSecondaryAnchorLabel(created.name ?? name);
-                                  setSecondaryAnchorPopoverOpen(false);
-                                  setSecondaryAnchorSearch("");
-                                  queryClient.invalidateQueries({ queryKey: [apiV1("/crm/customers/")] });
-                                  toast({ title: t("crm.account_created"), description: t("crm.account_created_linked") });
-                                } catch (err: any) {
-                                  toast({
-                                    title: "Could not create",
-                                    description: err?.message || "Failed to create account.",
-                                    variant: "destructive",
-                                  });
-                                } finally {
-                                  setIsCreatingAnchor(false);
-                                }
-                              }}
-                              disabled={isCreatingAnchor}
-                              className="font-medium"
-                            >
-                              <Building2 className="mr-2 h-4 w-4" />
-                              {isCreatingAnchor ? t("crm.creating") : t("crm.create_account_name", { name: secondaryAnchorSearch.trim() })}
-                            </CommandItem>
-                          )}
-                        {anchorType === "account" &&
-                          contactsByAccount.map((c) => {
-                            const id = String(c.id);
-                            return (
-                              <CommandItem
-                                key={id}
-                                value={id}
-                                onSelect={() => {
-                                  setSecondaryAnchorId(id);
-                                  setCreatedSecondaryAnchorLabel(null);
-                                  setSecondaryAnchorPopoverOpen(false);
-                                  setSecondaryAnchorSearch("");
-                                }}
-                              >
-                                <Check className={`mr-2 h-4 w-4 ${secondaryAnchorId === id ? "opacity-100" : "opacity-0"}`} />
-                                <div className="flex flex-col min-w-0">
-                                  <span className="truncate">{c.name ?? id}</span>
-                                  {(c.email ?? c.phone ?? c.company ?? "").trim() && (
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {c.email ?? c.phone ?? c.company}
-                                    </span>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        {anchorType === "contact" &&
-                          accountsForSecondary.map((a) => {
-                            const id = String(a.id);
-                            return (
-                              <CommandItem
-                                key={id}
-                                value={id}
-                                onSelect={() => {
-                                  setSecondaryAnchorId(id);
-                                  setCreatedSecondaryAnchorLabel(null);
-                                  setSecondaryAnchorPopoverOpen(false);
-                                  setSecondaryAnchorSearch("");
-                                }}
-                              >
-                                <Check className={`mr-2 h-4 w-4 ${secondaryAnchorId === id ? "opacity-100" : "opacity-0"}`} />
-                                <div className="flex flex-col min-w-0">
-                                  <span className="truncate">{a.name ?? id}</span>
-                                  {(a.legal_name ?? a.email ?? "").trim() && (
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {a.legal_name ?? a.email}
-                                    </span>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                      </CommandGroup>
-                      {anchorType === "account" &&
-                        !secondaryAnchorSearch.trim() &&
-                        contactsByAccount.length === 0 &&
-                        !contactsByAccountQuery.isLoading && (
-                          <CommandEmpty>No contacts linked to this account yet</CommandEmpty>
-                        )}
-                      {anchorType === "contact" &&
-                        !secondaryAnchorSearch.trim() &&
-                        accountsForSecondary.length === 0 &&
-                        !accountsForSecondaryQuery.isLoading && (
-                          <CommandEmpty>Type to search accounts</CommandEmpty>
-                        )}
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
-          {anchorId && (
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Optionally link to a deal</Label>
-              <div className="flex gap-2">
-                <Popover open={dealPopoverOpen} onOpenChange={setDealPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="flex-1 justify-between font-normal"
-                      data-testid="button-deal-combobox"
-                    >
-                      {dealId ? (deals.find((d) => d.id === dealId)?.title ?? dealId) : t("crm.select_deal_optional")}
-                      <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[360px] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput
-                        placeholder="Search or type deal name…"
-                        value={dealSearch}
-                        onValueChange={setDealSearch}
-                      />
-                      <CommandList>
-                        {dealsQuery.isLoading && (
-                          <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Searching…
-                          </div>
-                        )}
-                        <CommandGroup>
-                          <CommandItem
-                            value="__none__"
-                            onSelect={() => {
-                              setDealId("");
-                              setDealPopoverOpen(false);
-                              setDealSearch("");
-                            }}
-                          >
-                            <Check className={`mr-2 h-4 w-4 ${!dealId ? "opacity-100" : "opacity-0"}`} />
-                            <span className="text-muted-foreground">None</span>
-                          </CommandItem>
-                          {dealSearch.trim() && !dealsQuery.isLoading && (
-                            <CommandItem
-                              key="create-deal"
-                              value={`__create__${dealSearch.trim()}`}
-                              onSelect={() => {
-                                const name = dealSearch.trim();
-                                if (name) handleCreateDeal(name);
-                              }}
-                              disabled={isCreatingAnchor}
-                              className="font-medium"
-                            >
-                              <Briefcase className="mr-2 h-4 w-4" />
-                              {isCreatingAnchor ? t("crm.creating") : t("crm.create_deal_name", { name: dealSearch.trim() })}
-                            </CommandItem>
-                          )}
-                          {deals.map((d) => (
-                            <CommandItem
-                              key={d.id}
-                              value={d.id}
-                              onSelect={() => {
-                                setDealId(d.id);
-                                setDealPopoverOpen(false);
-                                setDealSearch("");
-                              }}
-                            >
-                              <Check className={`mr-2 h-4 w-4 ${dealId === d.id ? "opacity-100" : "opacity-0"}`} />
-                              {d.title ?? d.id}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        {!dealSearch.trim() && deals.length === 0 && !dealsQuery.isLoading && (
-                          <CommandEmpty>Type to search or create</CommandEmpty>
-                        )}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {dealId && (
-                  <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setDealId("")}>
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <details className="text-sm">
-            <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Visibility</summary>
-            <div className="mt-2">
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as CaptureVisibility)}>
-                <SelectTrigger data-testid="select-capture-visibility" className="w-full max-w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="internal">internal</SelectItem>
-                  <SelectItem value="confidential">confidential</SelectItem>
-                  <SelectItem value="restricted">restricted</SelectItem>
-                  <SelectItem value="public">public</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </details>
-            </div>
-          </ScrollArea>
-          <div className="px-6 py-4 border-t shrink-0 flex gap-2">
-            <Button variant="outline" onClick={() => setPhase("input")} data-testid="button-capture-back">
-              {t("crm.back")}
-            </Button>
-            <Button onClick={submitClassify} disabled={isSubmitting || !anchorId} data-testid="button-save-capture">
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t("crm.process")}
-            </Button>
-          </div>
-        </div>
-        ) : (
-        <div className="flex flex-col flex-1 min-h-0 max-md:flex-none max-md:min-h-0">
-          <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6 pt-4 md:pt-6 pb-2">
-            <Textarea
-              ref={inputRef}
-              placeholder={t("crm.log_activity_description")}
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-              className="min-h-[120px] resize-y"
-              rows={4}
-              data-testid="textarea-capture-raw"
-              autoFocus
-            />
-          </div>
-          {/* Bar in flow on desktop; on mobile fixed to top of keyboard via Visual Viewport */}
-          <div
-            className="border-t p-4 shrink-0 max-md:pt-3 max-md:fixed max-md:left-0 max-md:right-0 max-md:z-50 max-md:bg-background"
-            style={{ bottom: keyboardInsetBottom }}
-          >
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => props.onOpenChange(false)}
-                data-testid="button-close-capture"
-                className="shrink-0"
-              >
-                {t("common.close")}
-              </Button>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!rawText.trim()}
-                className="flex-1 min-w-0 sm:flex-initial"
-                data-testid="button-send-capture"
-                aria-label="Send"
-              >
-                <Send className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">{t("crm.submit")}</span>
-              </Button>
-            </div>
-          </div>
-        </div>
         )}
-
       </DialogContent>
     </Dialog>
   );

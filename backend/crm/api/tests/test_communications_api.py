@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 from crm.api.tests.utils import ensure_schema
 from crm.models import Contact, ContactType
 from central_hub.models import Tenant
@@ -53,7 +53,7 @@ class CommunicationsApiTests(APITestCase):
             ctype=self.contact_type,
             created_by=self.user,
         )
-        self.session = ChatbotSession.objects.create(
+        self.session = AgentSession.objects.create(
             tenant=self.tenant,
             contact=self.contact,
             channel="whatsapp",
@@ -83,7 +83,7 @@ class CommunicationsApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["error"], "invalid_request")
         self.assertEqual(response.data["message"], "content must be a string in human mode")
-        self.assertFalse(ChatbotMemory.objects.filter(session=self.session).exists())
+        self.assertFalse(SessionThread.objects.filter(session=self.session).exists())
 
     def test_human_mode_send_persists_single_delivered_item(self):
         payload = {"content": "single message"}
@@ -106,7 +106,7 @@ class CommunicationsApiTests(APITestCase):
         self.assertEqual(response.data["message"]["content"], payload["content"])
 
         sent_messages = list(
-            ChatbotMemory.objects.filter(session=self.session)
+            SessionThread.objects.filter(session=self.session)
             .order_by("created")
             .values_list("content", flat=True)
         )

@@ -95,7 +95,8 @@ class CampaignStatsConsumer(TenantAwareConsumer):
             return False
         try:
             from campaigns.models import Campaign
-            campaign = Campaign.objects.get(pk=campaign_id)
+            with self.tenant_db_context():
+                campaign = Campaign.objects.get(pk=campaign_id)
             return str(campaign.tenant_id) == str(self.tenant_id)
         except Exception:
             return False

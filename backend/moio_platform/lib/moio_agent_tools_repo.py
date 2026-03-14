@@ -496,7 +496,7 @@ def create_ticket(ctx: RunContextWrapper,
                                    service=service,
                                    origin_type='chatbot',
                                    origin_session=session,
-                                   origin_ref=str(session.session))
+                                   origin_ref=str(session.pk))
 
     ticket.save()
 
@@ -596,7 +596,7 @@ def create_or_update_ticket(ctx: RunContextWrapper,
             service=service,
             origin_type='chatbot',
             origin_session=session,
-            origin_ref=str(session.session)
+            origin_ref=str(session.pk)
         )
         ticket.save()
 

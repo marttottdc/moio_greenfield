@@ -59,6 +59,67 @@ export const captureApi = {
     return res.json();
   },
 
+  /**
+   * Create entry (triggers Celery classify), then poll until classified or failed.
+   * Returns same shape as classifySync for drop-in use in the review flow.
+   */
+  classifyAsync: async (
+    payload: ClassifySyncRequest,
+    options?: { pollIntervalMs?: number; timeoutMs?: number }
+  ): Promise<ClassifySyncResponse> => {
+    const pollIntervalMs = options?.pollIntervalMs ?? 1500;
+    const timeoutMs = options?.timeoutMs ?? 90000;
+
+    const createRes = await apiRequest("POST", apiV1("/capture/entries/"), {
+      data: {
+        raw_text: payload.raw_text,
+        anchor_model: payload.anchor_model,
+        anchor_id: payload.anchor_id,
+      },
+    });
+    const created = (await createRes.json()) as CaptureEntry;
+    const entryId = created.id;
+    if (!entryId) throw new Error("No entry id returned");
+
+    const deadline = Date.now() + timeoutMs;
+    const pollOnce = async (): Promise<CaptureEntry> =>
+      fetchJson<CaptureEntry>(apiV1(`/capture/entries/${entryId}/`));
+    // First poll immediately; then poll every pollIntervalMs
+    let entry = await pollOnce();
+    while (Date.now() < deadline) {
+      const status = (entry.status ?? "").toString().toLowerCase();
+
+      // Backend may already have chained apply_capture_entry, so we can see applying/applied before classified
+      const classificationDone =
+        status === "needs_review" ||
+        status === "classified" ||
+        status === "applying" ||
+        status === "applied";
+      if (classificationDone) {
+        const suggested = entry.suggested_activities ?? [];
+        return {
+          entry: { id: entryId },
+          classification: entry.classification,
+          suggested_activities: suggested,
+          proposed_activities: suggested,
+          proposed_activity: suggested[0] ?? undefined,
+        };
+      }
+      if (status === "failed") {
+        const msg =
+          entry.error_details && typeof entry.error_details === "object" && "error" in entry.error_details
+            ? String(entry.error_details.error)
+            : "Classification failed.";
+        throw new Error(msg);
+      }
+
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+      entry = await pollOnce();
+    }
+
+    throw new Error("Timeout waiting for suggestions. Try again.");
+  },
+
   /** Apply the classified entry synchronously; creates activity and returns applied_refs. */
   applySync: async (
     entryId: string,

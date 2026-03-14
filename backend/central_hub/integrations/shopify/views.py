@@ -16,6 +16,9 @@ import re
 import secrets
 from urllib.parse import urlencode
 
+import requests
+from bs4 import BeautifulSoup
+
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.http import HttpResponseRedirect
@@ -46,6 +49,7 @@ from central_hub.models import PlatformConfiguration
 from central_hub.rbac import user_has_role
 from security.authentication import ServiceJWTAuthentication
 from tenancy.models import Tenant, UserProfile
+from tenancy.tenant_support import tenant_schema_context
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +67,22 @@ SHOPIFY_APP_PATH = "/apps/shopify/app"
 _SHOP_DOMAIN_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$")
 _CHAT_WIDGET_POSITIONS = {"bottom-right", "bottom-left", "top-right", "top-left"}
 
+# Defaults for chat widget; stored config is a JSON blob that can evolve (extra keys preserved).
+_CHAT_WIDGET_DEFAULTS = {
+    "enabled": False,
+    "title": "Chat",
+    "bubble_icon": "💬",
+    "greeting": "Hello! How can we help?",
+    "primary_color": "#000000",
+    "position": "bottom-right",
+    "offset_x": 20,
+    "offset_y": 20,
+    "bubble_size": 56,
+    "window_width": 360,
+    "window_height": 480,
+    "allowed_templates": None,
+}
+
 
 def _int_in_range(value, default: int, minimum: int, maximum: int) -> int:
     try:
@@ -73,7 +93,9 @@ def _int_in_range(value, default: int, minimum: int, maximum: int) -> int:
 
 
 def _get_portal_config() -> PlatformConfiguration | None:
-    return PlatformConfiguration.objects.first()
+    """Platform config for Shopify. Uses public-request helper so external/unauthenticated requests always see the row."""
+    from central_hub.config import get_platform_configuration_for_public_request
+    return get_platform_configuration_for_public_request()
 
 
 SYNC_INTERVAL_CHOICES = {30, 60, 480, 1440}  # minutes
@@ -142,28 +164,35 @@ def _get_webhook_subscriptions_summary(shop_domain: str) -> list[dict]:
     ]
 
 
+def _resolve_chat_widget_config(blob: dict | None) -> dict:
+    """
+    Merge stored chat_widget JSON blob with defaults; sanitize known fields.
+    Unknown keys in blob are preserved so config can evolve without code changes.
+    """
+    if not isinstance(blob, dict):
+        blob = {}
+    out = dict(_CHAT_WIDGET_DEFAULTS)
+    out.update(blob)
+    # Sanitize known fields
+    position = str(out.get("position", "")).strip() or "bottom-right"
+    out["position"] = position if position in _CHAT_WIDGET_POSITIONS else "bottom-right"
+    out["offset_x"] = _int_in_range(out.get("offset_x"), default=20, minimum=0, maximum=64)
+    out["offset_y"] = _int_in_range(out.get("offset_y"), default=20, minimum=0, maximum=96)
+    out["bubble_size"] = _int_in_range(out.get("bubble_size"), default=56, minimum=44, maximum=72)
+    out["window_width"] = _int_in_range(out.get("window_width"), default=360, minimum=280, maximum=520)
+    out["window_height"] = _int_in_range(out.get("window_height"), default=480, minimum=320, maximum=760)
+    out["enabled"] = bool(out.get("enabled"))
+    out["title"] = str(out.get("title", "")).strip() or "Chat"
+    out["bubble_icon"] = str(out.get("bubble_icon", "")).strip() or "💬"
+    out["greeting"] = str(out.get("greeting", "")).strip() or "Hello! How can we help?"
+    out["primary_color"] = str(out.get("primary_color", "")).strip() or "#000000"
+    out["allowed_templates"] = out.get("allowed_templates") if isinstance(out.get("allowed_templates"), list) else None
+    return out
+
+
 def _get_chat_widget_config_for_embed(cfg: dict) -> dict:
-    """Extract chat_widget settings for the embed config response (no secrets)."""
-    cw = cfg.get("chat_widget") or {}
-    if not isinstance(cw, dict):
-        return {}
-    position = str(cw.get("position", "")).strip() or "bottom-right"
-    if position not in _CHAT_WIDGET_POSITIONS:
-        position = "bottom-right"
-    return {
-        "enabled": bool(cw.get("enabled")),
-        "title": str(cw.get("title", "")).strip() or "Chat",
-        "bubble_icon": str(cw.get("bubble_icon", "")).strip() or "💬",
-        "greeting": str(cw.get("greeting", "")).strip() or "Hello! How can we help?",
-        "primary_color": str(cw.get("primary_color", "")).strip() or "#000000",
-        "position": position,
-        "offset_x": _int_in_range(cw.get("offset_x"), default=20, minimum=0, maximum=64),
-        "offset_y": _int_in_range(cw.get("offset_y"), default=20, minimum=0, maximum=96),
-        "bubble_size": _int_in_range(cw.get("bubble_size"), default=56, minimum=44, maximum=72),
-        "window_width": _int_in_range(cw.get("window_width"), default=360, minimum=280, maximum=520),
-        "window_height": _int_in_range(cw.get("window_height"), default=480, minimum=320, maximum=760),
-        "allowed_templates": cw.get("allowed_templates") if isinstance(cw.get("allowed_templates"), list) else None,
-    }
+    """Extract chat_widget settings for the embed config response (no secrets). Blob can evolve."""
+    return _resolve_chat_widget_config(cfg.get("chat_widget"))
 
 
 def _build_redirect_uri(portal_config: PlatformConfiguration) -> str:
@@ -657,13 +686,17 @@ class ShopifyOAuthCallbackView(APIView):
                 "last_seen_at": now,
             },
         )
-        # update_or_create only applies defaults on create; for existing rows set token fields explicitly
+        # update_or_create only applies defaults on create; for existing rows (reinstall) set token + clear uninstalled_at
         if not created:
             installation.offline_access_token = access_token
             installation.refresh_token = token_data.get("refresh_token", "") or ""
             installation.offline_access_token_expires_at = expires_at
             installation.last_seen_at = now
-            installation.save(update_fields=["offline_access_token", "refresh_token", "offline_access_token_expires_at", "last_seen_at"])
+            installation.uninstalled_at = None
+            installation.save(update_fields=[
+                "offline_access_token", "refresh_token", "offline_access_token_expires_at",
+                "last_seen_at", "uninstalled_at",
+            ])
 
         # Register GDPR/lifecycle webhooks with Shopify
         _register_shopify_compliance_webhooks(shop, access_token, portal_config)
@@ -671,7 +704,10 @@ class ShopifyOAuthCallbackView(APIView):
         link = ShopifyShopLink.objects.filter(shop_domain=shop, status=ShopifyShopLinkStatus.LINKED).first()
         if link:
             tenant = link.tenant
-            _ensure_shopify_integration_config(tenant, shop, installation)
+            # RLS: callback is external (no request.tenant); set slug so IntegrationConfig write is allowed
+            slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
+            with tenant_schema_context(slug):
+                _ensure_shopify_integration_config(tenant, shop, installation)
             logger.info("Shopify OAuth: refreshed Installation and IntegrationConfig for linked shop=%s", shop)
         else:
             tenant = None
@@ -703,7 +739,14 @@ class ShopifyEmbedBootstrapView(APIView):
 
     def get(self, request):
         portal_config = _get_portal_config()
-        if not portal_config or not portal_config.shopify_client_id:
+        if not portal_config:
+            logger.warning("Shopify embed bootstrap: PlatformConfiguration row not found (table empty or not visible)")
+            return Response(
+                {"error": "Shopify app not configured"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not (portal_config.shopify_client_id or "").strip():
+            logger.warning("Shopify embed bootstrap: PlatformConfiguration.shopify_client_id is empty")
             return Response(
                 {"error": "Shopify app not configured"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -757,8 +800,17 @@ class ShopifyEmbedLinkView(APIView):
             uninstalled_at__isnull=True,
         ).first()
         if not installation:
+            portal_config = _get_portal_config()
+            install_path = "/api/v1/integrations/shopify/oauth/install/"
+            base = (getattr(portal_config, "my_url", None) or "").rstrip("/") if portal_config else ""
+            install_url = f"{base}{install_path}?shop={shop}" if base else ""
             return Response(
-                {"error": "Shopify app installation not found for this shop. Open the app from Shopify Admin to install it first."},
+                {
+                    "error": "Shopify app installation not found for this shop. Open the app from Shopify Admin to install it first.",
+                    "code": "installation_required",
+                    "shop": shop,
+                    "install_url": install_url or None,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -835,16 +887,19 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
         instance_id = _resolve_embed_instance_id(request, request.GET.get("instance_id", "default"))
-        config_obj = IntegrationConfig.objects.filter(
-            tenant=tenant, slug="shopify", instance_id=instance_id
-        ).first()
-        # If we have a config but it's missing store_url/access_token, persist from LINKED link when present
-        if config_obj and isinstance(config_obj.config, dict):
-            need_write = not (config_obj.config.get("store_url") or "").strip() or not (config_obj.config.get("access_token") or "").strip()
-            if need_write:
-                updated = ensure_shopify_config_persisted_from_link(tenant, instance_id)
-                if updated:
-                    config_obj = updated
+        # RLS: with Shopify session token, request.tenant may not be set by middleware; set slug so we can read/write integration_config
+        slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
+        with tenant_schema_context(slug):
+            config_obj = IntegrationConfig.objects.filter(
+                tenant=tenant, slug="shopify", instance_id=instance_id
+            ).first()
+            # If we have a config but it's missing store_url/access_token, persist from LINKED link when present
+            if config_obj and isinstance(config_obj.config, dict):
+                need_write = not (config_obj.config.get("store_url") or "").strip() or not (config_obj.config.get("access_token") or "").strip()
+                if need_write:
+                    updated = ensure_shopify_config_persisted_from_link(tenant, instance_id)
+                    if updated:
+                        config_obj = updated
 
         portal_config = _get_portal_config()
         cfg = config_obj.config if config_obj else {}
@@ -1000,28 +1055,9 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
             for key, value in config_patch.items():
                 if key in allowed_keys:
                     config_obj.config[key] = value
-            # Merge chat_widget config (storefront widget)
-            if "chat_widget" in config_patch:
-                cw = config_obj.config.setdefault("chat_widget", {})
-                if isinstance(config_patch["chat_widget"], dict):
-                    patch_cw = config_patch["chat_widget"]
-                    for field in ("enabled", "title", "bubble_icon", "greeting", "primary_color", "allowed_templates"):
-                        if field in patch_cw:
-                            cw[field] = patch_cw[field]
-                    if "position" in patch_cw:
-                        raw_position = str(patch_cw.get("position", "")).strip() or "bottom-right"
-                        cw["position"] = raw_position if raw_position in _CHAT_WIDGET_POSITIONS else "bottom-right"
-                    if "offset_x" in patch_cw:
-                        cw["offset_x"] = _int_in_range(patch_cw.get("offset_x"), default=20, minimum=0, maximum=64)
-                    if "offset_y" in patch_cw:
-                        cw["offset_y"] = _int_in_range(patch_cw.get("offset_y"), default=20, minimum=0, maximum=96)
-                    if "bubble_size" in patch_cw:
-                        cw["bubble_size"] = _int_in_range(patch_cw.get("bubble_size"), default=56, minimum=44, maximum=72)
-                    if "window_width" in patch_cw:
-                        cw["window_width"] = _int_in_range(patch_cw.get("window_width"), default=360, minimum=280, maximum=520)
-                    if "window_height" in patch_cw:
-                        cw["window_height"] = _int_in_range(patch_cw.get("window_height"), default=480, minimum=320, maximum=760)
-                config_obj.config["chat_widget"] = cw
+            # Persist chat_widget as a full JSON blob (config can evolve; no field whitelist)
+            if "chat_widget" in config_patch and isinstance(config_patch["chat_widget"], dict):
+                config_obj.config["chat_widget"] = dict(config_patch["chat_widget"])
 
             if "enabled" in data:
                 config_obj.enabled = bool(data.get("enabled"))
@@ -1299,41 +1335,74 @@ def _chat_widget_config_response_for_shop(shop: str) -> tuple[Response | None, R
     if not installation or not (installation.offline_access_token or "").strip():
         return Response({"enabled": False, "error": "App not installed"}, status=status.HTTP_404_NOT_FOUND), None
     instance_id = _instance_id_for_shop(shop)
-    config_obj = IntegrationConfig.objects.filter(
-        tenant=link.tenant,
-        slug="shopify",
-        instance_id=instance_id,
-    ).first()
+    tenant = link.tenant
+    slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
+    with tenant_schema_context(slug):
+        config_obj = IntegrationConfig.objects.filter(
+            tenant=tenant,
+            slug="shopify",
+            instance_id=instance_id,
+        ).first()
     if not config_obj:
         return Response({"enabled": False}, status=status.HTTP_200_OK), None
-    cfg = config_obj.config or {}
-    cw = cfg.get("chat_widget") or {}
-    if not isinstance(cw, dict):
-        cw = {}
-    position = str(cw.get("position", "")).strip() or "bottom-right"
-    if position not in _CHAT_WIDGET_POSITIONS:
-        position = "bottom-right"
+    # Storefront config (title, position, greeting, etc.) lives in the theme block.
+    # Backend only provides connection: enabled + ws_url.
     portal_config = _get_portal_config()
     base_url = (portal_config.my_url or "").rstrip("/") if portal_config else ""
     ws_url = ""
     if base_url:
         ws_base = base_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
         ws_url = f"{ws_base}/ws/shopify-chat/"
-    return None, Response({
-        "enabled": True,
-        "title": str(cw.get("title", "")).strip() or "Chat",
-        "bubble_icon": str(cw.get("bubble_icon", "")).strip() or "💬",
-        "greeting": str(cw.get("greeting", "")).strip() or "Hello! How can we help?",
-        "primary_color": str(cw.get("primary_color", "")).strip() or "#000000",
-        "position": position,
-        "offset_x": _int_in_range(cw.get("offset_x"), default=20, minimum=0, maximum=64),
-        "offset_y": _int_in_range(cw.get("offset_y"), default=20, minimum=0, maximum=96),
-        "bubble_size": _int_in_range(cw.get("bubble_size"), default=56, minimum=44, maximum=72),
-        "window_width": _int_in_range(cw.get("window_width"), default=360, minimum=280, maximum=520),
-        "window_height": _int_in_range(cw.get("window_height"), default=480, minimum=320, maximum=760),
-        "allowed_templates": cw.get("allowed_templates") if isinstance(cw.get("allowed_templates"), list) else None,
-        "ws_url": ws_url,
-    })
+    return None, Response({"enabled": True, "ws_url": ws_url})
+
+
+# URL preview: max size and timeout for fetching arbitrary links (SSRF mitigation)
+_URL_PREVIEW_TIMEOUT = 3
+_URL_PREVIEW_MAX_BYTES = 200_000
+
+def _fetch_url_og_metadata(url: str) -> dict:
+    """Fetch URL and extract Open Graph title, image, description. Returns dict with title, image, description (may be empty)."""
+    out = {"title": "", "image": "", "description": ""}
+    if not url or not url.strip().lower().startswith(("http://", "https://")):
+        return out
+    url = url.strip()
+    try:
+        resp = requests.get(
+            url,
+            timeout=_URL_PREVIEW_TIMEOUT,
+            stream=True,
+            headers={"User-Agent": "MoioChatWidget/1.0 (url preview)"},
+        )
+        resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "").lower()
+        if "text/html" not in content_type:
+            return out
+        collected = 0
+        chunks = []
+        for chunk in resp.iter_content(chunk_size=16 * 1024):
+            if chunk:
+                collected += len(chunk)
+                if collected > _URL_PREVIEW_MAX_BYTES:
+                    break
+                chunks.append(chunk)
+        html = b"".join(chunks).decode("utf-8", errors="replace")
+        soup = BeautifulSoup(html, "html.parser")
+        for meta in soup.find_all("meta", attrs={"property": True, "content": True}):
+            prop = (meta.get("property") or "").strip().lower()
+            content = (meta.get("content") or "").strip()
+            if prop == "og:title":
+                out["title"] = content[:500]
+            elif prop == "og:image":
+                out["image"] = content[:2048]
+            elif prop == "og:description":
+                out["description"] = content[:500]
+        if not out["title"]:
+            title_tag = soup.find("title")
+            if title_tag and title_tag.string:
+                out["title"] = str(title_tag.string).strip()[:500]
+    except Exception as e:
+        logger.debug("url-preview fetch failed for %s: %s", url[:80], e)
+    return out
 
 
 def _verify_shopify_app_proxy_signature(request, secret: str) -> bool:
@@ -1408,6 +1477,14 @@ class ShopifyAppProxyView(APIView):
             if err is not None:
                 return err
             return resp
+        if path_normalized == "url-preview":
+            url_param = (request.GET.get("url") or "").strip()
+            if not url_param:
+                return Response({"error": "url is required"}, status=status.HTTP_400_BAD_REQUEST)
+            if not url_param.lower().startswith(("http://", "https://")):
+                return Response({"error": "invalid url"}, status=status.HTTP_400_BAD_REQUEST)
+            meta = _fetch_url_og_metadata(url_param)
+            return Response(meta)
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 

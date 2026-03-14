@@ -43,6 +43,36 @@ class PlatformConfiguration(models.Model):
         verbose_name_plural = "Platform Configurations"
 
 
+class Plan(models.Model):
+    """
+    Plan definitions for tenant subscription tiers. Managed in Platform Admin.
+    Tenant.plan stores the plan key; entitlements_defaults use these keys (free, pro, business by default).
+    """
+    key = models.CharField(max_length=40, unique=True, db_index=True)
+    name = models.CharField(max_length=100)
+    display_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    pricing_policy = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Pricing configuration (base fees, per-unit pricing, included units, currency).",
+    )
+    entitlement_policy = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Plan policy (trial/grace durations, assignment limits, module constraints).",
+    )
+
+    class Meta:
+        db_table = "platform_plan"
+        verbose_name = "Plan"
+        verbose_name_plural = "Plans"
+        ordering = ["display_order", "key"]
+
+    def __str__(self):
+        return f"{self.key}: {self.name}"
+
+
 class PlatformNotificationSettings(models.Model):
     """
     Platform-wide notification settings (PWA, in-app, flows, agent console).

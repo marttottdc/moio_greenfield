@@ -346,18 +346,17 @@ cp .env.db.example .env.db
 docker-compose -f docker-compose.db.yml --env-file .env.db up -d
 ```
 
-Use Postgres + django-tenants:
+Use Postgres (single public schema; optional RLS via USE_RLS_TENANCY=1):
 
 ```bash
 source .venv/bin/activate
-export DJANGO_TENANTS_ENABLED=1
 export POSTGRES_HOST=127.0.0.1
 export POSTGRES_PORT=54329
 export POSTGRES_DB=moio
 export POSTGRES_USER=moio
 export POSTGRES_PASSWORD=moio
 export REPLICA_VAULT_PASSPHRASE="<strong-stable-passphrase>"
-python manage.py migrate_schemas --shared
+python manage.py migrate
 ```
 
 Create tenant + domain (example):

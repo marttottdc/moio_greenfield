@@ -25,7 +25,7 @@ def setup_example_flows():
     flow_manager.create_signal_flow(
         flow_id="signal_session_ended",
         name="Process Session End",
-        signal_name="post_save.chatbot.ChatbotSession",
+        signal_name="post_save.chatbot.AgentSession",
         handler_path="chatbot.tasks.session_ended_task",
         handler_type=HandlerType.TASK,
         conditions={"active": False}

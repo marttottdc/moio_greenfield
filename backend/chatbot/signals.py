@@ -9,7 +9,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 from crm.serializers import ContactSerializer
 from central_hub.tenant_config import get_tenant_config
 from tenancy.tenant_support import tenant_schema_context
@@ -21,8 +21,8 @@ from chatbot import events as chatbot_events
 logger = logging.getLogger(__name__)
 
 
-@receiver(pre_save, sender=ChatbotSession)
-def chatbot_session_capture_previous(sender, instance, **kwargs):
+@receiver(pre_save, sender=AgentSession)
+def agent_session_capture_previous(sender, instance, **kwargs):
     """Attach previous DB state so post_save can detect transitions."""
     if not instance.pk:
         instance._previous = None
@@ -33,7 +33,7 @@ def chatbot_session_capture_previous(sender, instance, **kwargs):
         instance._previous = None
 
 
-@receiver(post_save, sender=ChatbotSession)
+@receiver(post_save, sender=AgentSession)
 def session_ended(sender, instance, created, **kwargs):
     old = getattr(instance, "_previous", None)
 

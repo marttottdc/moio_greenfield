@@ -17,7 +17,7 @@ from crm.api.mixins import ProtectedAPIView, TicketAPIMixin, _error
 from crm.models import Contact, Ticket, TicketComment, TicketOriginChoices
 from crm.services.ticket_service import TicketService
 from crm.events.ticket_events import emit_ticket_created, emit_ticket_updated, emit_ticket_closed
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
 
 
@@ -159,7 +159,7 @@ class TicketListCreateView(TicketAPIMixin, ProtectedAPIView):
 
         origin_session_id = payload.get("origin_session_id")
         if origin_session_id:
-            origin_session = ChatbotSession.objects.filter(
+            origin_session = AgentSession.objects.filter(
                 session=origin_session_id,
                 tenant=tenant
             ).first()
@@ -306,7 +306,7 @@ class TicketDetailView(TicketAPIMixin, ProtectedAPIView):
             if origin_session_id is None:
                 ticket.origin_session = None
             else:
-                origin_session = ChatbotSession.objects.filter(
+                origin_session = AgentSession.objects.filter(
                     session=origin_session_id,
                     tenant=tenant
                 ).first()

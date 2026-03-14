@@ -6,9 +6,11 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from django.db.models import Q
 from tenancy.tenant_support import tenant_schema_context
 
 from agent_console.models import (
+    AgentConsoleInstalledPlugin,
     AgentConsoleProfile,
     AgentConsolePluginAssignment,
     AgentConsoleWorkspace,
@@ -44,6 +46,16 @@ def build_resolvers_for_backend(
                 "defaultVerbosity": (ws.default_verbosity or "").strip(),
                 "defaultAgentProfileKey": (ws.default_agent_profile_key or "").strip(),
                 "toolAllowlist": tool_allowlist,
+                "pluginAllowlist": (
+                    [str(item).strip().lower() for item in settings_payload.get("pluginAllowlist", []) if str(item).strip()]
+                    if isinstance(settings_payload.get("pluginAllowlist"), list)
+                    else []
+                ),
+                "integrationAllowlist": (
+                    [str(item).strip().lower() for item in settings_payload.get("integrationAllowlist", []) if str(item).strip()]
+                    if isinstance(settings_payload.get("integrationAllowlist"), list)
+                    else []
+                ),
             }
 
     def workspace_skills_resolver() -> list[dict[str, Any]]:
@@ -163,36 +175,73 @@ def build_resolvers_for_backend(
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if not ws:
                 return []
-            assignments = AgentConsolePluginAssignment.objects.filter(workspace=ws)
+            assignments = AgentConsolePluginAssignment.objects.filter(workspace=ws, is_enabled=True)
+            settings_payload = ws.settings if isinstance(ws.settings, dict) else {}
+            plugin_scope_raw = settings_payload.get("pluginAllowlist")
+            plugin_scope = {
+                str(item).strip().lower()
+                for item in plugin_scope_raw
+                if str(item).strip()
+            } if isinstance(plugin_scope_raw, list) else set()
             allowed_plugins = []
             for a in assignments:
+                plugin_id = (a.plugin_id or "").strip().lower()
+                if plugin_scope and plugin_id not in plugin_scope:
+                    continue
                 allowlist = list(a.user_allowlist) if isinstance(a.user_allowlist, list) else []
                 if not allowlist:
-                    allowed_plugins.append((a.plugin_id or "").strip().lower())
+                    allowed_plugins.append(plugin_id)
                     continue
                 user_email = (initiator or {}).get("email") or ""
                 user_role = (initiator or {}).get("tenantRole") or "member"
                 if "admin" in allowlist and user_role == "admin":
-                    allowed_plugins.append((a.plugin_id or "").strip().lower())
+                    allowed_plugins.append(plugin_id)
                 elif "member" in allowlist:
-                    allowed_plugins.append((a.plugin_id or "").strip().lower())
-                elif user_email and user_email.lower() in [str(x).strip().lower() for x in allowlist if x not in ("admin", "member")]:
-                    allowed_plugins.append((a.plugin_id or "").strip().lower())
+                    allowed_plugins.append(plugin_id)
+                elif "viewer" in allowlist and user_role == "viewer":
+                    allowed_plugins.append(plugin_id)
+                elif user_email and user_email.lower() in [str(x).strip().lower() for x in allowlist if x not in ("admin", "member", "viewer")]:
+                    allowed_plugins.append(plugin_id)
             return [p for p in allowed_plugins if p]
 
+    def plugin_runtime_config_resolver() -> dict[str, dict[str, Any]]:
+        with tenant_schema_context(tenant_schema):
+            ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
+            if not ws:
+                return {}
+            assignments = AgentConsolePluginAssignment.objects.filter(workspace=ws, is_enabled=True)
+            output: dict[str, dict[str, Any]] = {}
+            for a in assignments:
+                plugin_id = str(a.plugin_id or "").strip().lower()
+                if not plugin_id:
+                    continue
+                cfg = a.plugin_config if isinstance(a.plugin_config, dict) else {}
+                output[plugin_id] = dict(cfg)
+            return output
+
     def integration_status_resolver() -> dict[str, Any]:
-        from tenancy.tenant_support import public_schema_name
-        from django_tenants.utils import schema_context
+        from tenancy.tenant_support import public_schema_name, schema_context
         from tenancy.models import Tenant
 
         try:
-            with schema_context(public_schema_name()):
-                tenant = Tenant.objects.filter(schema_name=tenant_schema).first()
-                if not tenant:
-                    return {"enabledCount": 0, "integrations": []}
-                from central_hub.integrations.models import IntegrationConfig
+            with tenant_schema_context(tenant_schema):
+                with schema_context(public_schema_name()):
+                    tenant = Tenant.objects.filter(
+                        Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)
+                    ).first()
+                    if not tenant:
+                        return {"enabledCount": 0, "integrations": []}
+                    from central_hub.integrations.models import IntegrationConfig
 
-                configs = IntegrationConfig.objects.filter(tenant=tenant)
+                    configs = IntegrationConfig.objects.filter(tenant=tenant)
+                    ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
+                    settings_payload = ws.settings if ws and isinstance(ws.settings, dict) else {}
+                    integration_scope_raw = settings_payload.get("integrationAllowlist")
+                    if isinstance(integration_scope_raw, list) and integration_scope_raw:
+                        integration_scope = {
+                            str(item).strip().lower() for item in integration_scope_raw if str(item).strip()
+                        }
+                        configs = [cfg for cfg in configs if str(getattr(cfg, "slug", "") or "").strip().lower() in integration_scope]
                 integrations = []
                 for c in configs:
                     integrations.append({
@@ -210,18 +259,28 @@ def build_resolvers_for_backend(
             return {"enabledCount": 0, "integrations": []}
 
     def integration_guidance_resolver() -> str:
-        from tenancy.tenant_support import public_schema_name
-        from django_tenants.utils import schema_context
+        from tenancy.tenant_support import public_schema_name, schema_context
         from tenancy.models import Tenant
 
         try:
-            with schema_context(public_schema_name()):
-                tenant = Tenant.objects.filter(schema_name=tenant_schema).first()
-                if not tenant:
-                    return ""
-                from central_hub.integrations.models import IntegrationConfig
+            with tenant_schema_context(tenant_schema):
+                with schema_context(public_schema_name()):
+                    tenant = Tenant.objects.filter(
+                        Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)
+                    ).first()
+                    if not tenant:
+                        return ""
+                    from central_hub.integrations.models import IntegrationConfig
 
-                configs = IntegrationConfig.objects.filter(tenant=tenant, enabled=True)
+                    configs = IntegrationConfig.objects.filter(tenant=tenant, enabled=True)
+                    ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
+                    settings_payload = ws.settings if ws and isinstance(ws.settings, dict) else {}
+                    integration_scope_raw = settings_payload.get("integrationAllowlist")
+                    if isinstance(integration_scope_raw, list) and integration_scope_raw:
+                        integration_scope = {
+                            str(item).strip().lower() for item in integration_scope_raw if str(item).strip()
+                        }
+                        configs = [cfg for cfg in configs if str(getattr(cfg, "slug", "") or "").strip().lower() in integration_scope]
                 parts = []
                 for c in configs:
                     if c.is_configured():
@@ -230,6 +289,53 @@ def build_resolvers_for_backend(
         except Exception:
             return ""
 
+    def installed_plugins_resolver() -> list[dict[str, Any]]:
+        from tenancy.tenant_support import public_schema_name, schema_context
+
+        output: list[dict[str, Any]] = []
+        seen_plugin_ids: set[str] = set()
+
+        def _append_rows(rows) -> None:
+            for row in rows:
+                plugin_id = (row.plugin_id or "").strip().lower()
+                if not plugin_id or plugin_id in seen_plugin_ids:
+                    continue
+                bundle_payload = row.bundle_zip
+                if isinstance(bundle_payload, memoryview):
+                    bundle_bytes = bundle_payload.tobytes()
+                else:
+                    bundle_bytes = bytes(bundle_payload or b"")
+                if not bundle_bytes:
+                    continue
+                seen_plugin_ids.add(plugin_id)
+                output.append(
+                    {
+                        "plugin_id": plugin_id,
+                        "name": (row.name or "").strip(),
+                        "version": (row.version or "").strip(),
+                        "bundle_zip": bundle_bytes,
+                    }
+                )
+
+        with tenant_schema_context(tenant_schema):
+            tenant_rows = AgentConsoleInstalledPlugin.objects.filter(
+                enabled=True,
+                is_platform_approved=True,
+            ).order_by("plugin_id")
+            _append_rows(tenant_rows)
+
+        # Global platform plugins live in public schema and are inherited by tenants.
+        try:
+            with schema_context(public_schema_name()):
+                platform_rows = AgentConsoleInstalledPlugin.objects.filter(
+                    enabled=True,
+                    is_platform_approved=True,
+                ).order_by("plugin_id")
+                _append_rows(platform_rows)
+        except Exception:
+            pass
+        return output
+
     return {
         "workspace_profile_resolver": workspace_profile_resolver,
         "workspace_skills_resolver": workspace_skills_resolver,
@@ -237,6 +343,8 @@ def build_resolvers_for_backend(
         "agent_profiles_catalog_resolver": agent_profiles_catalog_resolver,
         "agent_profile_upsert_handler": agent_profile_upsert_handler,
         "plugin_user_allowlist_resolver": plugin_user_allowlist_resolver,
+        "plugin_runtime_config_resolver": plugin_runtime_config_resolver,
         "integration_status_resolver": integration_status_resolver,
         "integration_guidance_resolver": integration_guidance_resolver,
+        "installed_plugins_resolver": installed_plugins_resolver,
     }

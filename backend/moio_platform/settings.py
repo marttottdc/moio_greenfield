@@ -48,7 +48,9 @@ def _build_database_url_from_parts():
 
 DATABASE_URL = get_config_value('DATABASE_URL') or _build_database_url_from_parts()
 USE_LOCAL_DEV_DEFAULTS = _env_bool('USE_LOCAL_DEV_DEFAULTS', default=not DATABASE_URL)
-DJANGO_TENANTS_ENABLED = _env_bool('DJANGO_TENANTS_ENABLED', default=False)
+# Single public schema + PostgreSQL RLS (tenant_uuid). Enforced at DB level when using Postgres.
+# Default True when DATABASE_URL is set (production); set USE_RLS_TENANCY=0 for local SQLite or to disable.
+USE_RLS_TENANCY = _env_bool('USE_RLS_TENANCY', default=bool(DATABASE_URL))
 PUBLIC_SCHEMA_NAME = str(get_config_value('PUBLIC_SCHEMA_NAME', 'public') or 'public').strip() or 'public'
 TENANT_MODEL = "tenancy.Tenant"
 TENANT_DOMAIN_MODEL = "tenancy.TenantDomain"
@@ -73,8 +75,7 @@ ALLOWED_HOSTS = [".moio.ai", "127.0.0.1", "localhost", "*"]
 
 # Application definition
 
-SHARED_APPS = [
-    "django_tenants",
+SHARED_APPS_BASE = [
     "corsheaders",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -99,7 +100,6 @@ SHARED_APPS = [
     "security",
     "docs_api.apps.DocsApiConfig",
 ]
-
 TENANT_APPS = [
     "notifications",
     "assessments",
@@ -140,23 +140,31 @@ API_ONLY_APPS = [
     *TENANT_APPS,
 ]
 
-INSTALLED_APPS = (
-    SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]
-    if DJANGO_TENANTS_ENABLED
-    else API_ONLY_APPS
-)
+def _all_apps():
+    return SHARED_APPS_BASE + [app for app in TENANT_APPS if app not in SHARED_APPS_BASE]
 
-MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'moio_platform.csrf_middleware.DynamicCsrfMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'tenancy.middleware.TenantMiddleware',
-]
+
+INSTALLED_APPS = _all_apps() if USE_RLS_TENANCY else API_ONLY_APPS
+
+def _middleware_list():
+    base = [
+        "corsheaders.middleware.CorsMiddleware",
+        "django.middleware.security.SecurityMiddleware",
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "tenancy.host_rewrite.HostRewriteFromJWTMiddleware",
+        "django.middleware.common.CommonMiddleware",
+        "moio_platform.csrf_middleware.DynamicCsrfMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "tenancy.middleware.TenantMiddleware",
+        "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    ]
+    if USE_RLS_TENANCY:
+        base.append("tenancy.rls_middleware.TenantRLSMiddleware")
+    return base
+
+
+MIDDLEWARE = _middleware_list()
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -300,18 +308,11 @@ else:
         }
     }
 
-if DJANGO_TENANTS_ENABLED:
-    if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
-        raise RuntimeError("DJANGO_TENANTS_ENABLED requires PostgreSQL; SQLite is not supported.")
-    DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
-    DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
-    TENANT_MODEL = "tenancy.Tenant"
-    TENANT_DOMAIN_MODEL = "tenancy.TenantDomain"
-    TENANT_LIMIT_SET_CALLS = True
-    SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
-    PG_EXTRA_SEARCH_PATHS = []
-else:
-    DATABASE_ROUTERS = []
+if USE_RLS_TENANCY and DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+    raise RuntimeError("USE_RLS_TENANCY requires PostgreSQL; SQLite is not supported.")
+if USE_RLS_TENANCY:
+    DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
+DATABASE_ROUTERS = []
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -530,6 +531,11 @@ LOGGING = {
         "celery": {  # Add this
             "handlers": ["console", ], #"logtail"
             "level": "INFO",  # or "DEBUG" to catch more
+            "propagate": False,
+        },
+        "tenancy_trace": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False,
         },
     },

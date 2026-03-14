@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      containers:
+        - name: web
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.containerPort }}
+          env:
+            - name: IMAGE_TAG
+              value: {{ .Values.image.tag | quote }}
+          envFrom:
+            - configMapRef:
+                name: moio-greenfield-config
+            - secretRef:
+                name: moio-greenfield-secrets
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10

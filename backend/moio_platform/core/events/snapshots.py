@@ -109,9 +109,9 @@ def snapshot_ticket(ticket, *, include_contacts: bool = True) -> dict[str, Any]:
     return payload
 
 
-def snapshot_chatbot_session(session, *, messages_limit: int = 50) -> dict[str, Any]:
+def snapshot_agent_session(session, *, messages_limit: int = 50) -> dict[str, Any]:
     """
-    Full-internal session snapshot, bounded by `messages_limit` most recent messages.
+    Full-internal agent session snapshot, bounded by `messages_limit` most recent thread messages.
     """
     contact = getattr(session, "contact", None)
     payload: dict[str, Any] = {
@@ -132,21 +132,25 @@ def snapshot_chatbot_session(session, *, messages_limit: int = 50) -> dict[str, 
     if contact is not None:
         payload["contact"] = snapshot_contact(contact)
 
-    # Messages (bounded)
+    # Messages (bounded) from session.threads
     messages = []
     try:
-        qs = session.memory_thread.order_by("-created")[: max(0, int(messages_limit))]
-        for msg in qs:
-            messages.append(
-                {
-                    "id": str(getattr(msg, "id", None)),
-                    "role": getattr(msg, "role", None),
-                    "author": getattr(msg, "author", None),
-                    "content": getattr(msg, "content", None),
-                    "created_at": getattr(msg, "created", None).isoformat() if getattr(msg, "created", None) else None,
-                }
-            )
-        total_messages = session.memory_thread.count()
+        threads = getattr(session, "threads", None)
+        if threads is not None:
+            qs = threads.order_by("-created")[: max(0, int(messages_limit))]
+            for msg in qs:
+                messages.append(
+                    {
+                        "id": str(getattr(msg, "id", None)),
+                        "role": getattr(msg, "role", None),
+                        "author": getattr(msg, "author", None),
+                        "content": getattr(msg, "content", None),
+                        "created_at": getattr(msg, "created", None).isoformat() if getattr(msg, "created", None) else None,
+                    }
+                )
+            total_messages = threads.count()
+        else:
+            total_messages = None
     except Exception:
         total_messages = None
     else:

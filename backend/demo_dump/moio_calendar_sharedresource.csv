@@ -1,0 +1,1 @@
+id,name,description,resource_type,capacity,location,advance_booking_days,min_booking_duration,max_booking_duration,is_active,created_at,calendar_id,tenant_id

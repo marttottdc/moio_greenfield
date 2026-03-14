@@ -21,7 +21,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { fetchJson, apiRequest } from "@/lib/queryClient";
 import { apiV1 } from "@/lib/api";
-import { ChevronsUpDown, Check, Building2, Loader2 } from "lucide-react";
+import { ChevronsUpDown, Check, Building2, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   createContact,
@@ -173,6 +173,7 @@ export function ContactEditorModal(props: {
   contact?: ContactLike | null;
   onClose: () => void;
   onSaved: (contact: any) => void;
+  onDelete?: (contactId: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -958,6 +959,23 @@ export function ContactEditorModal(props: {
             </div>
 
             <DialogFooter className="pt-4">
+              {isEdit && contact?.id && props.onDelete && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="mr-auto"
+                  onClick={async () => {
+                    const confirmed = window.confirm(t("contact.delete_contact_description"));
+                    if (!confirmed) return;
+                    await props.onDelete?.(contact.id as string);
+                  }}
+                  disabled={isSubmitting}
+                  data-testid="button-delete-contact-in-editor"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t("contact.delete")}
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={props.onClose} disabled={isSubmitting}>
                 {t("crm.cancel")}
               </Button>

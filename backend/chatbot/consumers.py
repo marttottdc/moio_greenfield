@@ -6,7 +6,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
 from django.template.loader import render_to_string, get_template
 
-from chatbot.models.chatbot_session import ChatbotMemory
+from chatbot.models.agent_session import SessionThread
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -55,7 +55,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, room_name, message):
         print(message)
-        ChatbotMemory.objects.create(room=room_name, content=message)
+        # Legacy: SessionThread requires session FK; skip if no session context
+        pass
 
     async def message_handler(self, event):
         context = {

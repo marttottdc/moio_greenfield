@@ -22,7 +22,12 @@ from moio_platform.lib.email import extract_form_from_payload, attach_files, jso
 
 from django.core.mail import EmailMessage, get_connection
 from django.template.loader import render_to_string, select_template
-from transformers import AutoTokenizer
+
+# Only tokenizers are used; suppress "PyTorch/TensorFlow/Flax not found" from transformers
+import os
+os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+logging.getLogger("transformers").setLevel(logging.ERROR)
+from transformers import AutoTokenizer  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

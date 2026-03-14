@@ -1,0 +1,37 @@
+# Prod: external Postgres, Redis, PgBouncer (same as moio_platform prod)
+image:
+  pullSecret: registry-4
+  tag: build-${{ github.run_number }}
+
+backend:
+  replicas: 2
+  servicePort: 80
+  containerPort: 8010
+
+workers:
+  high:
+    replicas: 4
+    concurrency: 10
+  medium:
+    replicas: 2
+    concurrency: 2
+  low:
+    replicas: 1
+    concurrency: 2
+  flows:
+    replicas: 2
+    concurrency: 2
+
+scheduler:
+  replicas: 1
+
+ingress:
+  enabled: true
+  host: api.moio-greenfield.example.com
+  tlsSecret: api-moio-greenfield-tls
+
+# External: PgBouncer (pooler) → Postgres, Redis
+config:
+  database_url: postgres://user:password@prod-pgbouncer:6432/moio_greenfield
+  redis_url: redis://prod-redis:6379/1
+  app_name: moio_greenfield

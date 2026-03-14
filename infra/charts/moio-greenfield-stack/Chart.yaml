@@ -1,0 +1,5 @@
+apiVersion: v2
+name: moio-greenfield-stack
+description: Helm chart for Moio Greenfield (backend, workers, scheduler). PostgreSQL, Redis and PgBouncer are external.
+version: 0.1.0
+appVersion: "1.0"

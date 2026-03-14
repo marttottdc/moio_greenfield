@@ -1,0 +1,70 @@
+# Deploy to Production (on GitHub release published or manual with tag)
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to deploy (must be a published GitHub release)'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" > $HOME/.kube/config
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "image_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate release exists
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Checking if release ${{ github.event.inputs.release_tag }} exists..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.event.inputs.release_tag }}")
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Release tag '${{ github.event.inputs.release_tag }}' does not exist."
+            exit 1
+          fi
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Retag image for release
+        run: |
+          docker pull ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+          docker tag ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest \
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.tag.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.tag.outputs.image_tag }}
+
+      - name: Deploy to Production
+        run: |
+          helm upgrade --install moio-greenfield-stack ./infra/charts/moio-greenfield-stack \
+            -f ./infra/environments/prod.yaml \
+            --namespace moio-greenfield \
+            --create-namespace \
+            --set image.repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} \
+            --set image.tag=${{ steps.tag.outputs.image_tag }}

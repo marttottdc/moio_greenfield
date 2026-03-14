@@ -356,6 +356,8 @@ export function saveTenantWorkspace(input: {
   displayName?: string;
   specialtyPrompt?: string;
   toolAllowlist?: string[];
+  pluginAllowlist?: string[];
+  integrationAllowlist?: string[];
   defaultVendor?: string;
   defaultModel?: string;
   defaultThinking?: string;

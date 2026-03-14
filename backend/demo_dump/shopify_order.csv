@@ -1,0 +1,1 @@
+id,shopify_id,order_number,name,email,phone,subtotal_price,total_tax,total_discounts,total_price,shipping_address,billing_address,shipping_lines,line_items,financial_status,fulfillment_status,created_at_shopify,updated_at_shopify,processed_at,last_synced,tenant_id,ecommerce_order_id

@@ -70,9 +70,10 @@ vault_file = "./.data/vault/secrets.enc.json"
 [plugins]
 # Plugin bundles are discovered by looking for "replica.plugin.json" files under this directory.
 manifests_dir = "./plugins"
-platform_approved = ["crm.contacts"]
-tenant_enabled = ["crm.contacts"]
-user_allowed = ["crm.contacts"]
+# Optional explicit gates. Leave empty to allow any installed plugin.
+platform_approved = []
+tenant_enabled = []
+user_allowed = []
 approved_permissions = ["filesystem_read", "network_outbound"]
 tenant_config_keys = ["base_url"]
 user_config_keys = ["default_audience"]

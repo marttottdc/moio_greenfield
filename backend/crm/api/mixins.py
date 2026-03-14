@@ -15,9 +15,10 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from crm.models import Contact, ContactType, Ticket, TicketComment
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 from moio_platform.authentication import BearerTokenAuthentication
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
+from tenancy.resolution import ensure_request_tenant_context
 
 
 def _error(code: str, message: str, http_status: int) -> Response:
@@ -94,34 +95,16 @@ class PaginationMixin:
         return tenant
 
     def _resolve_tenant_for_request(self, request):
-        """Resolve tenant from user, context, or JWT (fixes 'relation does not exist' when middleware runs before auth)."""
-        tenant = getattr(request.user, "tenant", None)
-        if tenant and getattr(tenant, "schema_name", None):
-            return tenant
         try:
-            from tenancy.context_utils import current_tenant
-
-            tenant = current_tenant.get()
+            return ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
-            tenant = None
-        if tenant and getattr(tenant, "schema_name", None):
-            return tenant
-        try:
-            from tenancy.host_rewrite import _get_tenant_schema_from_jwt
-            from tenancy.models import Tenant
-            from tenancy.tenant_support import public_schema_name
-
-            schema_name = _get_tenant_schema_from_jwt(request)
-            if not schema_name:
-                return None
-            try:
-                from django_tenants.utils import schema_context
-
-                with schema_context(public_schema_name()):
-                    return Tenant.objects.filter(schema_name=schema_name).first()
-            except Exception:
-                return Tenant.objects.filter(schema_name=schema_name).first()
-        except Exception:
+            tenant = getattr(request.user, "tenant", None)
+            if tenant and getattr(tenant, "schema_name", None):
+                return tenant
             return None
 
     def _get_tenant_or_none(self, request):
@@ -129,15 +112,12 @@ class PaginationMixin:
 
     def _ensure_tenant_schema(self, request):
         """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
-        tenant = self._resolve_tenant_for_request(request)
-        if not tenant or not getattr(tenant, "schema_name", None):
-            return
-        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            return
         try:
-            from django.db import connection
-
-            connection.set_tenant(tenant)
+            ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
             pass
 
@@ -207,11 +187,11 @@ class CommunicationsAPIMixin:
     def _tenant_sessions_queryset(self, request):
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
-            return ChatbotSession.objects.none()
-        base_qs = ChatbotSession.objects.filter(tenant=tenant).select_related("contact")
+            return AgentSession.objects.none()
+        base_qs = AgentSession.objects.filter(tenant=tenant).select_related("contact")
         messages_prefetch = Prefetch(
-            "memory_thread",
-            queryset=ChatbotMemory.objects.order_by("-created")[:50],
+            "threads",
+            queryset=SessionThread.objects.order_by("-created")[:50],
             to_attr="prefetched_messages",
         )
         return base_qs.prefetch_related(messages_prefetch)
@@ -268,7 +248,7 @@ class CommunicationsAPIMixin:
             return "agent"
         return "system"
 
-    def _serialize_message(self, message: ChatbotMemory, contact: Contact) -> Dict[str, Any]:
+    def _serialize_message(self, message: SessionThread, contact: Contact) -> Dict[str, Any]:
         sender = self._sender_from_role(message.role)
         sender_name = contact.display_name or contact.fullname or contact.whatsapp_name or contact.phone or contact.mobile
         if sender == "agent":
@@ -276,7 +256,7 @@ class CommunicationsAPIMixin:
         elif sender == "system":
             sender_name = message.author or "System"
         return {
-            "id": str(message.id),
+            "id": str(message.pk),
             "conversation_id": str(message.session_id),
             "content": message.content,
             "sender": sender,
@@ -304,36 +284,36 @@ class CommunicationsAPIMixin:
             return ["text", "image", "video", "audio", "document"]
         return ["text", "image", "video", "audio", "document", "location"]
 
-    def _conversation_status(self, session: ChatbotSession) -> str:
+    def _conversation_status(self, session: AgentSession) -> str:
         if session.active:
             return "active"
         if session.end:
             return "closed"
         return "pending"
 
-    def _get_last_message(self, session: ChatbotSession) -> Optional[ChatbotMemory]:
+    def _get_last_message(self, session: AgentSession) -> Optional[SessionThread]:
         messages = getattr(session, "prefetched_messages", None)
         if messages:
             return messages[0]
-        return session.memory_thread.order_by("-created").first()
+        return session.threads.order_by("-created").first()
 
-    def _get_session_for_request(self, request, session_id: str) -> Optional[ChatbotSession]:
+    def _get_session_for_request(self, request, session_id: str) -> Optional[AgentSession]:
         queryset = self._tenant_sessions_queryset(request)
         try:
             return queryset.get(pk=session_id)
-        except ChatbotSession.DoesNotExist:
+        except AgentSession.DoesNotExist:
             return None
 
-    def _unread_count(self, session: ChatbotSession) -> int:
+    def _unread_count(self, session: AgentSession) -> int:
         context = session.context or {}
         last_read_at_raw = context.get("last_read_at") if isinstance(context, dict) else None
         last_read_at = self._parse_iso_datetime(last_read_at_raw)
-        qs = session.memory_thread.filter(role__iexact="USER")
+        qs = session.threads.filter(role__iexact="USER")
         if last_read_at:
             qs = qs.filter(created__gt=last_read_at)
         return qs.count()
 
-    def _serialize_session_with_metadata(self, request, session: ChatbotSession) -> Dict[str, Any]:
+    def _serialize_session_with_metadata(self, request, session: AgentSession) -> Dict[str, Any]:
         updated_source = session.last_interaction or session.end or session.start
         return {
             "id": str(session.pk),
@@ -353,7 +333,7 @@ class CommunicationsAPIMixin:
             "created_at": self._isoformat(session.start),
             "updated_at": self._isoformat(updated_source),
             "metadata": {
-                "total_messages": session.memory_thread.count(),
+                "total_messages": session.threads.count(),
                 "ai_summary": session.final_summary or "",
             },
             "unread_count": self._unread_count(session),
@@ -531,15 +511,12 @@ class TicketAPIMixin:
 
     def _ensure_tenant_schema(self, request):
         """Ensure DB connection points to tenant schema for ticket queries."""
-        tenant = getattr(request.user, "tenant", None)
-        if not tenant or not getattr(tenant, "schema_name", None):
-            return
-        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            return
         try:
-            from django.db import connection
-
-            connection.set_tenant(tenant)
+            ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
             pass
 

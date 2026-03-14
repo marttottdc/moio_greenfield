@@ -1,0 +1,65 @@
+# Build frontend image and deploy frontend chart to preprod (on push to main)
+name: Build Frontend & Deploy to Preprod
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  build-and-push-frontend:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.save_tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:build-${{ github.run_number }}
+            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Save image tag
+        id: save_tag
+        run: echo "tag=build-${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+  deploy-frontend-preprod:
+    runs-on: ubuntu-latest
+    needs: build-and-push-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" > $HOME/.kube/config
+
+      - name: Deploy frontend to Preprod
+        run: |
+          helm upgrade --install moio-frontend ./frontend/deploy/chart \
+            --namespace moio-greenfield \
+            --create-namespace \
+            --set image.repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}-frontend \
+            --set image.tag=${{ needs.build-and-push-frontend.outputs.image_tag }}

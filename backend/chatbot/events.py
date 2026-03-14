@@ -6,7 +6,7 @@ from chatbot.serializers import (
     build_message_payload,
 )
 from moio_platform.core.events import emit_event
-from moio_platform.core.events.snapshots import snapshot_chatbot_session
+from moio_platform.core.events.snapshots import snapshot_agent_session
 
 
 def session_started(session):
@@ -14,11 +14,11 @@ def session_started(session):
     try:
         tenant_code = session.tenant.tenant_code if getattr(session, "tenant", None) else None
         if tenant_code:
-            session_snapshot = snapshot_chatbot_session(session, messages_limit=50)
+            session_snapshot = snapshot_agent_session(session, messages_limit=50)
             emit_event(
                 name="communications.session_started",
                 tenant_id=tenant_code,
-                entity={"type": "chatbot_session", "id": str(session.pk)},
+                entity={"type": "agent_session", "id": str(session.pk)},
                 payload={
                     "session_id": str(session.pk),
                     "contact_id": session_snapshot.get("contact_id"),
@@ -51,11 +51,11 @@ def session_ended(session):
     try:
         tenant_code = session.tenant.tenant_code if getattr(session, "tenant", None) else None
         if tenant_code:
-            session_snapshot = snapshot_chatbot_session(session, messages_limit=50)
+            session_snapshot = snapshot_agent_session(session, messages_limit=50)
             emit_event(
                 name="communications.session_ended",
                 tenant_id=tenant_code,
-                entity={"type": "chatbot_session", "id": str(session.pk)},
+                entity={"type": "agent_session", "id": str(session.pk)},
                 payload={
                     "session_id": str(session.pk),
                     "contact_id": session_snapshot.get("contact_id"),

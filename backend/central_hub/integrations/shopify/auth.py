@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 def _get_portal_config() -> PlatformConfiguration | None:
-    return PlatformConfiguration.objects.first()
+    """Use public-request helper so OAuth callback (external, no tenant) always sees the row."""
+    from central_hub.config import get_platform_configuration_for_public_request
+    return get_platform_configuration_for_public_request()
 
 
 def decode_shopify_session_token(token: str) -> dict[str, Any]:

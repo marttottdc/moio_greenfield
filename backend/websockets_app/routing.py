@@ -8,12 +8,13 @@ from websockets_app.consumers.flow_preview import FlowPreviewConsumer
 from websockets_app.consumers.desktop_crm_agent import DesktopCrmAgentConsumer
 from websockets_app.consumers.shopify_storefront_chat import ShopifyStorefrontChatConsumer
 
+# scope["path"] may be "ws/..." (Hypercorn) or "/ws/..." (other ASGI); match both
 websocket_urlpatterns = [
-    re_path(r"^ws/agent-console/?$", AgentConsoleConsumer.as_asgi()),
-    re_path(r"^ws/tickets/?$", TicketUpdatesConsumer.as_asgi()),
-    re_path(r"^ws/whatsapp/?$", WhatsAppNotificationsConsumer.as_asgi()),
-    re_path(r"^ws/campaigns/(?P<campaign_id>[^/]+)/?$", CampaignStatsConsumer.as_asgi()),
-    re_path(r"^ws/flows/(?P<flow_id>[^/]+)/preview/stream/?$", FlowPreviewConsumer.as_asgi()),
-    re_path(r"^ws/crm-agent/?$", DesktopCrmAgentConsumer.as_asgi()),
-    re_path(r"^ws/shopify-chat/?$", ShopifyStorefrontChatConsumer.as_asgi()),
+    re_path(r"^/?ws/agent-console/?$", AgentConsoleConsumer.as_asgi()),
+    re_path(r"^/?ws/tickets/?$", TicketUpdatesConsumer.as_asgi()),
+    re_path(r"^/?ws/whatsapp/?$", WhatsAppNotificationsConsumer.as_asgi()),
+    re_path(r"^/?ws/campaigns/(?P<campaign_id>[^/]+)/?$", CampaignStatsConsumer.as_asgi()),
+    re_path(r"^/?ws/flows/(?P<flow_id>[^/]+)/preview/stream/?$", FlowPreviewConsumer.as_asgi()),
+    re_path(r"^/?ws/crm-agent/?$", DesktopCrmAgentConsumer.as_asgi()),
+    re_path(r"^/?ws/shopify-chat/?$", ShopifyStorefrontChatConsumer.as_asgi()),
 ]

@@ -148,12 +148,51 @@ export function saveTenant(input: {
   schemaName: string;
   primaryDomain?: string;
   isActive: boolean;
+  plan?: string;
+  moduleEnablements?: {
+    crm: boolean;
+    flowsDatalab: boolean;
+    chatbot: boolean;
+    agentConsole: boolean;
+  };
 }) {
   return request<BootstrapPayload>("/tenants", { method: "POST", bodyJson: input });
 }
 
+export function updateTenant(input: {
+  id?: string;
+  slug?: string;
+  plan?: string;
+  name?: string;
+  isActive?: boolean;
+  moduleEnablements?: {
+    crm: boolean;
+    flowsDatalab: boolean;
+    chatbot: boolean;
+    agentConsole: boolean;
+  };
+}) {
+  return request<BootstrapPayload>("/tenants/update", { method: "POST", bodyJson: input });
+}
+
 export function deleteTenant(input: { id?: string; slug?: string }) {
   return request<BootstrapPayload>("/tenants/delete", { method: "POST", bodyJson: input });
+}
+
+export function savePlan(input: {
+  id?: string | null;
+  key: string;
+  name: string;
+  displayOrder?: number;
+  isActive?: boolean;
+  pricingPolicy?: Record<string, unknown>;
+  entitlementPolicy?: Record<string, unknown>;
+}) {
+  return request<BootstrapPayload>("/plans", { method: "POST", bodyJson: input });
+}
+
+export function deletePlan(input: { id?: string; key?: string }) {
+  return request<BootstrapPayload>("/plans/delete", { method: "POST", bodyJson: input });
 }
 
 export function saveUser(input: {
@@ -240,19 +279,32 @@ export function savePlatformPluginApproval(input: {
 }
 
 export function uploadPluginBundle(input: { file: File; tenantSlug?: string }) {
-  const formData = new FormData();
-  formData.append("bundle", input.file);
   const tenantSlug = String(input.tenantSlug || "").trim().toLowerCase();
-  if (tenantSlug) {
-    formData.append("tenantSlug", tenantSlug);
-  }
-  return request<PluginAdminState>("/plugins", {
-    method: "POST",
-    formData,
+  return input.file.arrayBuffer().then((buffer) => {
+    const base64 = arrayBufferToBase64(buffer);
+    return request<PluginAdminState>("/plugins", {
+      method: "POST",
+      bodyJson: {
+        bundleBase64: base64,
+        bundleFilename: input.file.name,
+        tenantSlug: tenantSlug || undefined,
+      },
+    });
   });
 }
 
 async function tryRefreshAccessToken(): Promise<boolean> {
   const nextAccess = await refreshAccessToken();
   return nextAccess != null && nextAccess.length > 0;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }

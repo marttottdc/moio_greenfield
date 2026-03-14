@@ -4,6 +4,8 @@ import os
 import threading
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, Mapping
+from urllib.parse import urlparse
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
@@ -12,17 +14,67 @@ from agent_console.resolvers.django_resolvers import build_resolvers_for_backend
 from agent_console.runtime.config import load_config
 from agent_console.runtime.backend import AgentConsoleBackend
 from agent_console.session_store_db import DatabaseSessionStore
+from tenancy.resolution import resolve_tenant_from_user
+
+
+def _normalize_runtime_base_url(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+
+def runtime_base_url_from_request(request) -> str:
+    try:
+        return _normalize_runtime_base_url(request.build_absolute_uri("/"))
+    except Exception:
+        return ""
+
+
+def runtime_base_url_from_scope(scope: Mapping[str, Any] | None) -> str:
+    if not isinstance(scope, Mapping):
+        return ""
+    headers_raw = scope.get("headers") or []
+    headers: dict[str, str] = {}
+    for key, value in headers_raw:
+        try:
+            headers[key.decode("latin1").strip().lower()] = value.decode("latin1").strip()
+        except Exception:
+            continue
+    host = headers.get("x-forwarded-host") or headers.get("host") or ""
+    proto = headers.get("x-forwarded-proto") or str(scope.get("scheme") or "").strip().lower()
+    if "," in host:
+        host = host.split(",", 1)[0].strip()
+    if "," in proto:
+        proto = proto.split(",", 1)[0].strip().lower()
+    if proto in {"ws", "http"}:
+        proto = "http"
+    elif proto in {"wss", "https"}:
+        proto = "https"
+    else:
+        proto = "https"
+    return _normalize_runtime_base_url(f"{proto}://{host}") if host else ""
 
 
 def _api_connection_resolver(connection_name: str, *, initiator: dict | None = None) -> dict | None:
     """
     Resolve Moio platform API connection for agent tools (e.g. moio_api.run).
-    Uses only Platform Configuration (Integration Hub → platform settings) my_url.
-    Returns None with missingCredential if not configured, so it can be resolved in settings.
+    Prefers the live runtime origin when present on the initiator and otherwise
+    falls back to Platform Configuration (Integration Hub → platform settings) my_url.
     """
+    runtime_base_url = _normalize_runtime_base_url((initiator or {}).get("runtimeBaseUrl"))
+    if runtime_base_url:
+        return {
+            "baseUrl": runtime_base_url,
+            "authType": "initiator_bearer",
+            "source": "internal_api",
+            "protocol": "rest",
+        }
     try:
-        from django_tenants.utils import schema_context
-        from tenancy.tenant_support import public_schema_name
+        from tenancy.tenant_support import public_schema_name, schema_context
         from central_hub.config import get_platform_configuration
 
         with schema_context(public_schema_name()):
@@ -93,6 +145,9 @@ def _get_tenant_openai_config(user) -> tuple[str | None, str | None]:
             api_key = (cfg.config or {}).get("api_key")
             if not api_key or not str(api_key).strip():
                 return None, None
+            # Do not use masked value (sk-****) sent from frontend
+            if isinstance(api_key, str) and "****" in api_key:
+                return None, None
             model = (cfg.config or {}).get("default_model") or "gpt-4.1-mini"
             return str(api_key).strip(), str(model).strip() or "gpt-4.1-mini"
 
@@ -110,6 +165,7 @@ def _get_tenant_openai_config(user) -> tuple[str | None, str | None]:
                     out = _from_cfg(cfg)
                     if out[0]:
                         return out
+        # If not found, row may have tenant_uuid NULL (RLS hides it). Run: python manage.py backfill_tenant_uuid
     except Exception:
         pass
     return None, None
@@ -124,9 +180,9 @@ def _runtime_config_path() -> str:
     return str(app_dir / "resources" / "config.example.toml")
 
 
-def runtime_initiator_from_user(user) -> dict[str, object]:
+def runtime_initiator_from_user(user, *, base_url: str | None = None) -> dict[str, object]:
     role = "admin" if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) else "member"
-    return {
+    initiator = {
         "id": int(getattr(user, "id", 0) or 0),
         "email": str(getattr(user, "email", "") or "").strip().lower(),
         "displayName": str(getattr(user, "get_full_name", lambda: "")() or getattr(user, "username", "") or "").strip(),
@@ -134,17 +190,33 @@ def runtime_initiator_from_user(user) -> dict[str, object]:
         "tenantRole": role,
         "tenantAdmin": role == "admin",
     }
+    normalized_base_url = _normalize_runtime_base_url(base_url)
+    if normalized_base_url:
+        initiator["runtimeBaseUrl"] = normalized_base_url
+    return initiator
 
 
-def runtime_scope_from_user(user, *, workspace_slug: str = "crm-agent") -> tuple[str, str]:
-    tenant = getattr(user, "tenant", None)
+def runtime_scope_from_user(user, *, workspace_slug: str = "main") -> tuple[str, str]:
+    tenant = resolve_tenant_from_user(user) or getattr(user, "tenant", None)
+    if not tenant:
+        tenant_id = getattr(user, "tenant_id", None)
+        if tenant_id:
+            from tenancy.tenant_support import public_schema_name, schema_context
+            with schema_context(public_schema_name()):
+                from tenancy.models import Tenant
+                tenant = Tenant.objects.filter(pk=tenant_id).first()
+    if not tenant:
+        raise TenantRequiredError(TenantRequiredError.MESSAGE)
+    # Use schema_name for scope; fall back to subdomain (rls_slug) when schema_name is empty
     tenant_schema = str(getattr(tenant, "schema_name", "") or "").strip()
     if not tenant_schema:
-        tenant_schema = str(getattr(user, "tenant_id", "") or "").strip() or "public"
+        tenant_schema = str(getattr(tenant, "subdomain", "") or getattr(tenant, "rls_slug", "") or "").strip()
+    if not tenant_schema:
+        raise TenantRequiredError(TenantRequiredError.MESSAGE)
     return tenant_schema, workspace_slug
 
 
-def get_runtime_backend_for_user(user, *, workspace_slug: str = "crm-agent") -> AgentConsoleBackend:
+def get_runtime_backend_for_user(user, *, workspace_slug: str = "main") -> AgentConsoleBackend:
     if getattr(user, "tenant_id", None) in (None, ""):
         raise TenantRequiredError(TenantRequiredError.MESSAGE)
     tenant_schema, resolved_workspace = runtime_scope_from_user(user, workspace_slug=workspace_slug)
@@ -200,9 +272,33 @@ def get_runtime_backend_for_user(user, *, workspace_slug: str = "crm-agent") -> 
             agent_profiles_catalog_resolver=resolvers.get("agent_profiles_catalog_resolver"),
             agent_profile_upsert_handler=resolvers.get("agent_profile_upsert_handler"),
             plugin_user_allowlist_resolver=resolvers.get("plugin_user_allowlist_resolver"),
+            plugin_runtime_config_resolver=resolvers.get("plugin_runtime_config_resolver"),
+            installed_plugins_resolver=resolvers.get("installed_plugins_resolver"),
             integration_status_resolver=resolvers.get("integration_status_resolver"),
             integration_guidance_resolver=resolvers.get("integration_guidance_resolver"),
         )
         async_to_sync(backend.start)()
         _BACKENDS[cache_key] = backend
         return backend
+
+
+def invalidate_runtime_backend_cache(*, tenant_schema: str | None = None, workspace_slug: str | None = None) -> int:
+    """Invalidate cached runtime backends by tenant/workspace scope."""
+    removed: list[AgentConsoleBackend] = []
+    with _LOCK:
+        keys = list(_BACKENDS.keys())
+        for key in keys:
+            scope_tenant, scope_workspace = key
+            if tenant_schema and scope_tenant != tenant_schema:
+                continue
+            if workspace_slug and scope_workspace != workspace_slug:
+                continue
+            backend = _BACKENDS.pop(key, None)
+            if backend is not None:
+                removed.append(backend)
+    for backend in removed:
+        try:
+            async_to_sync(backend.stop)()
+        except Exception:
+            continue
+    return len(removed)

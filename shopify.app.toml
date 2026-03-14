@@ -23,7 +23,7 @@ redirect_urls = [
 ]
 
 [access_scopes]
-scopes = "write_app_proxy"
+scopes = "write_app_proxy,read_customer_events,read_channels,read_customers,read_inventory,read_locations,read_products,read_content,customer_read_customers,customer_read_orders,read_products,read_customers,read_orders,read_inventory"
 
 # App proxy: storefront calls /apps/moio-chat/... are forwarded here (no API base URL in theme)
 [app_proxy]

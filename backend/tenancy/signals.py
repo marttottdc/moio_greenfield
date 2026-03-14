@@ -8,7 +8,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 try:
-    from django_tenants.utils import schema_context
+    from tenancy.tenant_support import schema_context
 except Exception:
     schema_context = None
 

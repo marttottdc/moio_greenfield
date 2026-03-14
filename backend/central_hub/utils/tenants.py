@@ -9,7 +9,7 @@ from central_hub.context_utils import current_tenant, set_current_tenant
 from central_hub.models import Tenant
 
 try:
-    from django_tenants.utils import schema_context
+    from tenancy.tenant_support import schema_context
 except Exception:  # pragma: no cover - package/config may be unavailable in tests
     schema_context = None
 

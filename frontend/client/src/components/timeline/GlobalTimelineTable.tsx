@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Fragment } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Loader2,
@@ -151,7 +152,7 @@ export function GlobalTimelineTable(props: {
   canLoadMore: boolean;
   onLoadMore: () => void;
   onEditActivity?: (activity: any) => void;
-  onActivityClick?: (item: TimelineItem) => void;
+  onItemClick?: (item: TimelineItem) => void;
 }) {
   const { user } = useAuth();
   const rows = props.items.map((item) => itemToRowModel(item, user?.id ?? null));
@@ -162,52 +163,58 @@ export function GlobalTimelineTable(props: {
   const compactTable = "text-xs";
   const compactHead = "h-8 px-2 text-xs font-medium text-muted-foreground";
   const compactCell = "p-2 align-middle text-xs";
+  const columnsCount = 8;
 
   return (
-    <div className="space-y-4 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-      {dayKeys.map((dayKey) => {
-        const dayRows = byDay.get(dayKey) ?? [];
-        const isTodayDate = dayKey && isToday(new Date(dayKey + "T12:00:00"));
-        const dayLabel = dayKey
-          ? format(new Date(dayKey + "T12:00:00"), "EEEE, MMM d, yyyy")
-          : "No date";
-        return (
-          <div key={dayKey || "no-date"} className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs font-medium">{dayLabel}</h3>
-              {isTodayDate && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  Today
-                </Badge>
-              )}
-            </div>
-            <Table className={cn(compactTable, "min-w-[720px]")}>
-              <TableHeader>
-                <TableRow className="border-b">
-                  <TableHead className={`w-[72px] ${compactHead}`}>When</TableHead>
-                  <TableHead className={`w-[120px] ${compactHead}`}>Type</TableHead>
-                  <TableHead className={compactHead}>Title / Summary</TableHead>
-                  <TableHead className={`w-[140px] ${compactHead}`}>Anchor</TableHead>
-                  <TableHead className={`w-[80px] ${compactHead}`}>Author</TableHead>
-                  <TableHead className={`w-[72px] ${compactHead}`}>Status</TableHead>
-                  <TableHead className={`w-[72px] ${compactHead}`}>Visibility</TableHead>
-                  <TableHead className={`w-[100px] text-right ${compactHead}`}>Actions</TableHead>
+    <div className="space-y-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <Table className={cn(compactTable, "min-w-[720px]")}>
+        <TableHeader className="sticky top-0 z-20 bg-background">
+          <TableRow className="border-b">
+            <TableHead className={`w-[72px] ${compactHead}`}>When</TableHead>
+            <TableHead className={`w-[120px] ${compactHead}`}>Type</TableHead>
+            <TableHead className={compactHead}>Title / Summary</TableHead>
+            <TableHead className={`w-[140px] ${compactHead}`}>Anchor</TableHead>
+            <TableHead className={`w-[80px] ${compactHead}`}>Author</TableHead>
+            <TableHead className={`w-[72px] ${compactHead}`}>Status</TableHead>
+            <TableHead className={`w-[72px] ${compactHead}`}>Visibility</TableHead>
+            <TableHead className={`w-[100px] text-right ${compactHead}`}>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {dayKeys.map((dayKey) => {
+            const dayRows = byDay.get(dayKey) ?? [];
+            const isTodayDate = dayKey && isToday(new Date(dayKey + "T12:00:00"));
+            const dayLabel = dayKey
+              ? format(new Date(dayKey + "T12:00:00"), "EEEE, MMM d, yyyy")
+              : "No date";
+            return (
+              <Fragment key={`group-${dayKey || "no-date"}`}>
+                <TableRow className="border-0 hover:bg-transparent">
+                  <TableCell colSpan={columnsCount} className="py-1.5 px-2 border-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-medium">{dayLabel}</h3>
+                      {isTodayDate && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Today
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
                 {dayRows.map((row) => {
                   const Icon = activityIcon(row.kind);
                   const isCaptured = row.kind === "note_captured";
                   const isActivity = row.type === "activity";
+                  const isCaptureEntry = row.type === "capture_entry";
                   const activity = isActivity ? (row.item as any).activity ?? row.item : null;
                   return (
                     <TableRow
                       key={`${row.type}-${row.id}`}
                       className={cn(
                         "border-b",
-                        isActivity && props.onActivityClick && "cursor-pointer hover:bg-muted/50"
+                        (isActivity || isCaptureEntry) && props.onItemClick && "cursor-pointer hover:bg-muted/50"
                       )}
-                      onClick={() => isActivity && props.onActivityClick?.(row.item)}
+                      onClick={() => (isActivity || isCaptureEntry) && props.onItemClick?.(row.item)}
                     >
                       <TableCell className={`${compactCell} text-muted-foreground`}>
                         {row.whenDisplay}
@@ -312,11 +319,11 @@ export function GlobalTimelineTable(props: {
                     </TableRow>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </div>
-        );
-      })}
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
       <div className="flex justify-center pt-1">
         <Button
           variant="outline"

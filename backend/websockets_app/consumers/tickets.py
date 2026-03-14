@@ -94,7 +94,8 @@ class TicketUpdatesConsumer(TenantAwareConsumer):
             return False
         try:
             from crm.models import Ticket
-            ticket = Ticket.objects.get(pk=ticket_id)
+            with self.tenant_db_context():
+                ticket = Ticket.objects.get(pk=ticket_id)
             return str(ticket.tenant_id) == str(self.tenant_id)
         except Exception:
             return False

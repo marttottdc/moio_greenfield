@@ -530,7 +530,7 @@ class Ticket(TenantScopedModel):
     )
     origin_ref = models.CharField(max_length=120, blank=True, default="")
     origin_session = models.ForeignKey(
-        'chatbot.ChatbotSession',
+        'chatbot.AgentSession',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

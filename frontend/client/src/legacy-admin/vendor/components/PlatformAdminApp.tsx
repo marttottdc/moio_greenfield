@@ -6,6 +6,7 @@ import {
   clearPlatformAuthSession,
   deleteGlobalSkill,
   deleteIntegration,
+  deletePlan,
   deleteTenant,
   deleteUser,
   logout,
@@ -16,10 +17,12 @@ import {
   saveGlobalSkill,
   saveIntegration,
   saveNotificationSettings,
+  savePlan,
   savePlatformConfiguration,
   saveTenant,
   saveTenantIntegration,
   saveUser,
+  updateTenant,
 } from "../lib/platformAdminApi";
 import { showBrowserNotification } from "../lib/pwa";
 import type {
@@ -28,6 +31,7 @@ import type {
   FlashTone,
   IntegrationDefinition,
   NotificationSettings,
+  Plan as PlanType,
   PlatformConfiguration,
   PlatformUser,
   PluginAdminState,
@@ -48,6 +52,23 @@ type TenantFormState = {
   schemaName: string;
   primaryDomain: string;
   isActive: boolean;
+  plan: string;
+  moduleEnablements: {
+    crm: boolean;
+    flowsDatalab: boolean;
+    chatbot: boolean;
+    agentConsole: boolean;
+  };
+};
+
+type PlanFormState = {
+  id: string | null;
+  key: string;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  pricingPolicyText: string;
+  entitlementPolicyText: string;
 };
 
 type UserFormState = {
@@ -90,6 +111,7 @@ type PlatformConfigFormState = PlatformConfiguration;
 type NavSection =
   | "overview"
   | "tenants"
+  | "plans"
   | "users"
   | "integrations"
   | "plugins"
@@ -123,6 +145,15 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; icon: React.ReactNode }
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
         <path d="M4 20h16M7 20V8l5-4 5 4v12M10 12h4M10 16h4" />
+      </svg>
+    ),
+  },
+  {
+    key: "plans",
+    label: "Plans",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 9h18M9 21V9M3 21l6-12 6 12 6-12" />
       </svg>
     ),
   },
@@ -199,6 +230,23 @@ const DEFAULT_TENANT_FORM: TenantFormState = {
   schemaName: "",
   primaryDomain: "",
   isActive: true,
+  plan: "free",
+  moduleEnablements: {
+    crm: true,
+    flowsDatalab: false,
+    chatbot: false,
+    agentConsole: false,
+  },
+};
+
+const DEFAULT_PLAN_FORM: PlanFormState = {
+  id: null,
+  key: "",
+  name: "",
+  displayOrder: 0,
+  isActive: true,
+  pricingPolicyText: "{}",
+  entitlementPolicyText: "{}",
 };
 
 const DEFAULT_USER_FORM: UserFormState = {
@@ -277,6 +325,7 @@ export default function PlatformAdminApp() {
   const [publicSchema, setPublicSchema] = useState("public");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [plans, setPlans] = useState<PlanType[]>([]);
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationDefinition[]>([]);
   const [globalSkills, setGlobalSkills] = useState<SkillDefinition[]>([]);
@@ -292,6 +341,7 @@ export default function PlatformAdminApp() {
   const pluginUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const [tenantForm, setTenantForm] = useState<TenantFormState>(DEFAULT_TENANT_FORM);
+  const [planForm, setPlanForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
   const [userForm, setUserForm] = useState<UserFormState>(DEFAULT_USER_FORM);
   const [integrationForm, setIntegrationForm] = useState<IntegrationFormState>(DEFAULT_INTEGRATION_FORM);
   const [skillForm, setSkillForm] = useState<SkillFormState>(DEFAULT_SKILL_FORM);
@@ -299,6 +349,7 @@ export default function PlatformAdminApp() {
   const [configForm, setConfigForm] = useState<PlatformConfigFormState>(DEFAULT_PLATFORM_CONFIG_FORM);
 
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [integrationModalOpen, setIntegrationModalOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
@@ -360,6 +411,7 @@ export default function PlatformAdminApp() {
     setPublicSchema(payload.publicSchema || "public");
     setCurrentUser(payload.currentUser ?? null);
     setTenants(Array.isArray(payload.tenants) ? payload.tenants : []);
+    setPlans(Array.isArray(payload.plans) ? payload.plans : []);
     setUsers(Array.isArray(payload.users) ? payload.users : []);
     setIntegrations(Array.isArray(payload.integrations) ? payload.integrations : []);
     setGlobalSkills(Array.isArray(payload.globalSkills) ? payload.globalSkills : []);
@@ -499,6 +551,7 @@ export default function PlatformAdminApp() {
   }
 
   function editTenantForm(row: Tenant) {
+    const enablements = row.moduleEnablements || DEFAULT_TENANT_FORM.moduleEnablements;
     setTenantForm({
       id: row.id,
       name: row.name,
@@ -506,9 +559,92 @@ export default function PlatformAdminApp() {
       schemaName: row.schemaName,
       primaryDomain: row.primaryDomain,
       isActive: row.isActive,
+      plan: row.plan || "free",
+      moduleEnablements: {
+        crm: true,
+        flowsDatalab: Boolean(enablements.flowsDatalab),
+        chatbot: Boolean(enablements.chatbot),
+        agentConsole: Boolean(enablements.agentConsole),
+      },
     });
     setSelectedTenantSlug(row.slug);
     setTenantModalOpen(true);
+  }
+
+  function newPlanForm() {
+    setPlanForm(DEFAULT_PLAN_FORM);
+    setPlanModalOpen(true);
+  }
+
+  function editPlanForm(row: PlanType) {
+    setPlanForm({
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      displayOrder: row.displayOrder ?? 0,
+      isActive: row.isActive ?? true,
+      pricingPolicyText: JSON.stringify(row.pricingPolicy || {}, null, 2),
+      entitlementPolicyText: JSON.stringify(row.entitlementPolicy || {}, null, 2),
+    });
+    setPlanModalOpen(true);
+  }
+
+  async function onSubmitPlan(event: FormEvent) {
+    event.preventDefault();
+    let pricingPolicy: Record<string, unknown> = {};
+    let entitlementPolicy: Record<string, unknown> = {};
+    try {
+      const parsedPricing = JSON.parse(planForm.pricingPolicyText || "{}");
+      const parsedEntitlement = JSON.parse(planForm.entitlementPolicyText || "{}");
+      if (parsedPricing && typeof parsedPricing === "object" && !Array.isArray(parsedPricing)) {
+        pricingPolicy = parsedPricing as Record<string, unknown>;
+      } else {
+        throw new Error("Pricing policy must be a JSON object.");
+      }
+      if (parsedEntitlement && typeof parsedEntitlement === "object" && !Array.isArray(parsedEntitlement)) {
+        entitlementPolicy = parsedEntitlement as Record<string, unknown>;
+      } else {
+        throw new Error("Entitlement policy must be a JSON object.");
+      }
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : "Invalid plan JSON payload.", "error");
+      return;
+    }
+    try {
+      await savePlan({
+        id: planForm.id,
+        key: planForm.key,
+        name: planForm.name,
+        displayOrder: planForm.displayOrder,
+        isActive: planForm.isActive,
+        pricingPolicy,
+        entitlementPolicy,
+      });
+      const payload = await bootstrap();
+      applyPayload(payload);
+      setPlanModalOpen(false);
+      setFlash("Plan saved.", "ok");
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  async function onDeletePlan() {
+    if (!planForm.id) {
+      setFlash("Select a plan first.", "error");
+      return;
+    }
+    if (!window.confirm(`Delete plan "${planForm.name || planForm.key}"? Tenants using this plan will keep the key but it will no longer be selectable.`)) return;
+    try {
+      await deletePlan({ id: planForm.id });
+      const payload = await bootstrap();
+      applyPayload(payload);
+      setPlanForm(DEFAULT_PLAN_FORM);
+      setPlanModalOpen(false);
+      setFlash("Plan deleted.", "ok");
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : String(error), "error");
+    }
   }
 
   function newUserForm() {
@@ -612,15 +748,27 @@ export default function PlatformAdminApp() {
   async function onSubmitTenant(event: FormEvent) {
     event.preventDefault();
     try {
-      const payload = await saveTenant({
-        id: tenantForm.id,
-        name: tenantForm.name,
-        slug: tenantForm.slug,
-        schemaName: tenantForm.schemaName,
-        primaryDomain: tenantForm.primaryDomain,
-        isActive: tenantForm.isActive,
-      });
-      applyPayload(payload);
+      if (tenantForm.id) {
+        const payload = await updateTenant({
+          id: tenantForm.id,
+          plan: tenantForm.plan,
+          name: tenantForm.name,
+          isActive: tenantForm.isActive,
+          moduleEnablements: tenantForm.moduleEnablements,
+        });
+        applyPayload(payload);
+      } else {
+        const payload = await saveTenant({
+          name: tenantForm.name,
+          slug: tenantForm.slug,
+          schemaName: tenantForm.schemaName,
+          primaryDomain: tenantForm.primaryDomain,
+          isActive: tenantForm.isActive,
+          plan: tenantForm.plan,
+          moduleEnablements: tenantForm.moduleEnablements,
+        });
+        applyPayload(payload);
+      }
       setTenantModalOpen(false);
       setFlash("Tenant saved.", "ok");
     } catch (error) {
@@ -987,19 +1135,21 @@ export default function PlatformAdminApp() {
                 {activeSection !== "overview" ? (
                 <div
                   className={
-                    activeSection === "tenants" || activeSection === "users"
+                    activeSection === "tenants" || activeSection === "plans" || activeSection === "users"
                       ? "flex min-h-0 flex-1 flex-col gap-3"
                       : "space-y-3"
                   }
                 >
                   {sectionVisible("tenants") ? (
-                    <SectionCard fillHeight title="Tenants" subtitle="Create isolated tenant environments and bind primary domains." actionLabel="New Tenant" onAction={newTenantForm}>
+                    <SectionCard fillHeight title="Tenants" subtitle="Create isolated tenant environments and assign plans." actionLabel="New Tenant" onAction={newTenantForm}>
                       <TableWrap fillHeight>
                         <table className="min-w-full text-left text-xs">
                           <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                             <tr>
                               <th className="px-2 py-1.5">Name</th>
                               <th className="px-2 py-1.5">Slug</th>
+                              <th className="px-2 py-1.5">Plan</th>
+                              <th className="px-2 py-1.5">Modules</th>
                               <th className="px-2 py-1.5">Schema</th>
                               <th className="px-2 py-1.5">Domain</th>
                               <th className="w-14 px-2 py-1.5" />
@@ -1008,7 +1158,7 @@ export default function PlatformAdminApp() {
                           <tbody className="divide-y divide-slate-100">
                             {tenants.length === 0 ? (
                               <tr>
-                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                <td className="px-2 py-2 text-slate-500" colSpan={7}>
                                   No tenants yet.
                                 </td>
                               </tr>
@@ -1017,11 +1167,79 @@ export default function PlatformAdminApp() {
                                 <tr key={row.id} className="hover:bg-slate-50/80">
                                   <td className="px-2 py-1.5 font-medium text-slate-900">{row.name || row.slug}</td>
                                   <td className="px-2 py-1.5 font-mono text-slate-600">{row.slug}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.plan || "free"}</td>
+                                  <td className="px-2 py-1.5 text-[11px] text-slate-600">
+                                    <div className="flex flex-wrap gap-1">
+                                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
+                                        CRM
+                                      </span>
+                                      {row.moduleEnablements?.flowsDatalab ? (
+                                        <span className="rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-semibold text-sky-700">
+                                          Flows+DataLab
+                                        </span>
+                                      ) : null}
+                                      {row.moduleEnablements?.chatbot ? (
+                                        <span className="rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 font-semibold text-violet-700">
+                                          Chatbot
+                                        </span>
+                                      ) : null}
+                                      {row.moduleEnablements?.agentConsole ? (
+                                        <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">
+                                          AgentConsole
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </td>
                                   <td className="px-2 py-1.5 font-mono text-slate-600">{row.schemaName}</td>
                                   <td className="px-2 py-1.5 font-mono text-slate-600">{row.primaryDomain || "-"}</td>
                                   <td className="px-2 py-1.5">
                                     <button
                                       onClick={() => editTenantForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </TableWrap>
+                    </SectionCard>
+                  ) : null}
+
+                  {sectionVisible("plans") ? (
+                    <SectionCard fillHeight title="Plans" subtitle="Define subscription tiers for tenants. Assign plans when creating or editing tenants." actionLabel="New Plan" onAction={newPlanForm}>
+                      <TableWrap>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Key</th>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Order</th>
+                              <th className="px-2 py-1.5">Active</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {plans.length === 0 ? (
+                              <tr>
+                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                  No plans yet. Add Free, Pro, Business or custom plans.
+                                </td>
+                              </tr>
+                            ) : (
+                              plans.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.key}</td>
+                                  <td className="px-2 py-1.5 font-medium text-slate-900">{row.name}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.displayOrder ?? 0}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.isActive ? "yes" : "no"}</td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editPlanForm(row)}
                                       className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                                       type="button"
                                     >
@@ -1882,30 +2100,94 @@ export default function PlatformAdminApp() {
               placeholder="Acme Corp"
             />
           </Field>
-          <Field label="Tenant Slug">
-            <input
+          <Field label="Plan">
+            <select
               className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              value={tenantForm.slug}
-              onChange={(e) => setTenantForm((p) => ({ ...p, slug: e.target.value }))}
-              placeholder="acme"
-            />
+              value={tenantForm.plan}
+              onChange={(e) => setTenantForm((p) => ({ ...p, plan: e.target.value }))}
+            >
+              {(plans.length > 0 ? plans : [{ key: "free", name: "Free" }, { key: "pro", name: "Pro" }, { key: "business", name: "Business" }]).map((plan) => (
+                <option key={plan.key} value={plan.key}>
+                  {plan.name}
+                </option>
+              ))}
+            </select>
           </Field>
-          <Field label="Schema Name">
-            <input
-              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
-              value={tenantForm.schemaName}
-              onChange={(e) => setTenantForm((p) => ({ ...p, schemaName: e.target.value }))}
-              placeholder="acme"
-            />
+          <Field label="Module Enablements">
+            <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+              <label className="mb-1.5 flex items-center gap-2">
+                <input type="checkbox" checked disabled />
+                CRM (base, always enabled)
+              </label>
+              <label className="mb-1.5 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={tenantForm.moduleEnablements.flowsDatalab}
+                  onChange={(e) =>
+                    setTenantForm((p) => ({
+                      ...p,
+                      moduleEnablements: { ...p.moduleEnablements, flowsDatalab: e.target.checked },
+                    }))
+                  }
+                />
+                Flows + Data Lab addon
+              </label>
+              <label className="mb-1.5 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={tenantForm.moduleEnablements.chatbot}
+                  onChange={(e) =>
+                    setTenantForm((p) => ({
+                      ...p,
+                      moduleEnablements: { ...p.moduleEnablements, chatbot: e.target.checked },
+                    }))
+                  }
+                />
+                Chatbot addon
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={tenantForm.moduleEnablements.agentConsole}
+                  onChange={(e) =>
+                    setTenantForm((p) => ({
+                      ...p,
+                      moduleEnablements: { ...p.moduleEnablements, agentConsole: e.target.checked },
+                    }))
+                  }
+                />
+                Agent Console addon
+              </label>
+            </div>
           </Field>
-          <Field label="Primary Domain">
-            <input
-              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
-              value={tenantForm.primaryDomain}
-              onChange={(e) => setTenantForm((p) => ({ ...p, primaryDomain: e.target.value }))}
-              placeholder="acme.localhost"
-            />
-          </Field>
+          {!tenantForm.id ? (
+            <>
+              <Field label="Tenant Slug">
+                <input
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  value={tenantForm.slug}
+                  onChange={(e) => setTenantForm((p) => ({ ...p, slug: e.target.value }))}
+                  placeholder="acme"
+                />
+              </Field>
+              <Field label="Schema Name">
+                <input
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                  value={tenantForm.schemaName}
+                  onChange={(e) => setTenantForm((p) => ({ ...p, schemaName: e.target.value }))}
+                  placeholder="acme"
+                />
+              </Field>
+              <Field label="Primary Domain">
+                <input
+                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                  value={tenantForm.primaryDomain}
+                  onChange={(e) => setTenantForm((p) => ({ ...p, primaryDomain: e.target.value }))}
+                  placeholder="acme.localhost"
+                />
+              </Field>
+            </>
+          ) : null}
           <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
             <input
               type="checkbox"
@@ -1928,6 +2210,77 @@ export default function PlatformAdminApp() {
               </button>
             ) : null}
             <button type="button" onClick={() => setTenantModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={planModalOpen} onClose={() => setPlanModalOpen(false)} title={planForm.id ? "Edit plan" : "New plan"}>
+        <form onSubmit={onSubmitPlan}>
+          <Field label="Key (slug)">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+              value={planForm.key}
+              onChange={(e) => setPlanForm((p) => ({ ...p, key: e.target.value.trim().toLowerCase() }))}
+              placeholder="e.g. pro"
+              readOnly={!!planForm.id}
+            />
+          </Field>
+          <Field label="Name">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={planForm.name}
+              onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="e.g. Pro"
+            />
+          </Field>
+          <Field label="Display order">
+            <input
+              type="number"
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              value={planForm.displayOrder}
+              onChange={(e) => setPlanForm((p) => ({ ...p, displayOrder: parseInt(e.target.value, 10) || 0 }))}
+            />
+          </Field>
+          <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={planForm.isActive}
+              onChange={(e) => setPlanForm((p) => ({ ...p, isActive: e.target.checked }))}
+            />
+            Plan active (show in tenant dropdown)
+          </label>
+          <Field label="Pricing policy (JSON)">
+            <textarea
+              className="h-28 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
+              value={planForm.pricingPolicyText}
+              onChange={(e) => setPlanForm((p) => ({ ...p, pricingPolicyText: e.target.value }))}
+              placeholder='{"currency":"USD","units":{"basic_user":{"included":5,"unitPrice":0}}}'
+            />
+          </Field>
+          <Field label="Entitlement policy (JSON)">
+            <textarea
+              className="h-36 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
+              value={planForm.entitlementPolicyText}
+              onChange={(e) => setPlanForm((p) => ({ ...p, entitlementPolicyText: e.target.value }))}
+              placeholder='{"trialMonthsFromTenantCreation":6,"assignmentCaps":{"flowsDatalabUsers":2,"chatbotTenantInstances":1}}'
+            />
+          </Field>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
+              Save Plan
+            </button>
+            {planForm.id ? (
+              <button
+                type="button"
+                className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                onClick={() => void onDeletePlan()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setPlanModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
               Cancel
             </button>
           </div>

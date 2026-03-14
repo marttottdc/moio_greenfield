@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays, User, Building2, Briefcase, Eye, ChevronLeft, ChevronRight } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Loader2, Clock, AlertTriangle, StickyNote, CheckSquare, Lightbulb, CalendarDays, User, Building2, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
@@ -72,6 +72,58 @@ function parseTime(value?: string): number {
   return Number.isFinite(t) ? t : 0;
 }
 
+function activityPreview(activity: any): string | null {
+  const content = (activity?.content ?? {}) as Record<string, unknown>;
+  const kind = String(activity?.kind ?? "").toLowerCase();
+
+  if (kind === "task") {
+    const description = typeof content.description === "string" ? content.description.trim() : "";
+    if (description) return description;
+  }
+  if (kind === "note" || kind === "idea") {
+    const body = typeof content.body === "string" ? content.body.trim() : "";
+    if (body) return body;
+  }
+  const eventPayload =
+    content && typeof content.event === "object" && content.event && typeof (content.event as any).payload === "object"
+      ? ((content.event as any).payload as Record<string, unknown>)
+      : null;
+  const moveComment = eventPayload && typeof eventPayload.move_comment === "string"
+    ? eventPayload.move_comment.trim()
+    : "";
+  if (moveComment) return `Movement comment: ${moveComment}`;
+  return null;
+}
+
+function toActivityDetail(item: TimelineItem): ActivityDetailData | null {
+  if (item.type === "activity") {
+    return ((item as any).activity ?? item) as ActivityDetailData;
+  }
+  if (item.type === "capture_entry") {
+    const entry: any = (item as any).entry ?? item;
+    const anchorModel = String(entry.anchor_model ?? "").trim().toLowerCase();
+    const anchorId = entry.anchor_id ? String(entry.anchor_id) : "";
+    return {
+      id: `capture-${String(item.id)}`,
+      title: entry.summary ? String(entry.summary) : "Captured note",
+      kind: "note",
+      created_at: item.created_at,
+      user_id: entry.actor_id ? String(entry.actor_id) : null,
+      visibility: entry.visibility ? String(entry.visibility) : undefined,
+      status: entry.status ? String(entry.status) : "captured",
+      content: {
+        body: entry.raw_text ? String(entry.raw_text) : "",
+        summary: entry.summary ? String(entry.summary) : "",
+        capture_entry_id: String(entry.id ?? item.id),
+      },
+      contact_id: anchorModel === "crm.contact" && anchorId ? anchorId : null,
+      customer_id: anchorModel === "crm.customer" && anchorId ? anchorId : null,
+      deal_id: anchorModel === "crm.deal" && anchorId ? anchorId : null,
+    };
+  }
+  return null;
+}
+
 type ActivityKind = "task" | "note" | "idea" | "event" | string;
 
 function activityIcon(kind: ActivityKind) {
@@ -83,9 +135,8 @@ function activityIcon(kind: ActivityKind) {
   return Clock;
 }
 
-function CaptureEntryCard({ item }: { item: TimelineItem }) {
+function CaptureEntryCard({ item, onCaptureClick }: { item: TimelineItem; onCaptureClick?: (item: TimelineItem) => void }) {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
   const entry: any = (item as any).entry ?? item;
   const raw = String(entry.raw_text ?? "").trim();
   const status = String(entry.status ?? "captured");
@@ -125,24 +176,22 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
   return (
     <div
       className={cn(
-        "p-4 rounded-lg border bg-card hover-elevate transition-all space-y-2",
-        anchor?.href ? "cursor-pointer" : undefined
+        "w-full max-w-full p-4 rounded-lg border border-border/80 bg-card shadow-sm hover-elevate transition-all space-y-2",
+        onCaptureClick && "cursor-pointer hover:bg-muted/30"
       )}
       onClick={() => {
-        if (!anchor?.href) return;
-        navigate(anchor.href);
+        onCaptureClick?.(item);
       }}
       data-testid={`timeline-capture-${item.id}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <StickyNote className="h-4 w-4 text-amber-600 shrink-0" />
           <Badge variant="secondary" className="shrink-0">Note</Badge>
           <Badge variant="outline" className="shrink-0 border-amber-300 text-amber-700">Captured</Badge>
           <Badge variant="outline" className="shrink-0">{status}</Badge>
           {visibility && <Badge variant="outline" className="shrink-0">{visibility}</Badge>}
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{formatWhen(item.created_at)}</span>
       </div>
 
       <div className="text-xs text-muted-foreground min-w-0 truncate">
@@ -154,7 +203,11 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
           {anchor?.href ? (
             <span className="truncate">
               Anchored to{" "}
-              <Link href={anchor.href} className="text-foreground hover:underline">
+              <Link
+                href={anchor.href}
+                className="text-foreground hover:underline"
+                onClick={(event) => event.stopPropagation()}
+              >
                 {anchor.kind}: {anchorText}
               </Link>
             </span>
@@ -171,6 +224,7 @@ function CaptureEntryCard({ item }: { item: TimelineItem }) {
       ) : (
         <div className="text-sm text-muted-foreground">No content</div>
       )}
+      <div className="text-xs text-muted-foreground text-right whitespace-nowrap">{formatWhen(item.created_at)}</div>
     </div>
   );
 }
@@ -181,6 +235,7 @@ function ActivityCard({ item, onActivityClick }: { item: TimelineItem; onActivit
   const kind = (item as any).kind ?? (item as any).type ?? (item as any)?.activity?.kind;
   const Icon = activityIcon(kind);
   const activity: any = (item as any).activity ?? item;
+  const preview = activityPreview(activity);
   const author = (() => {
     if (activity?.author && String(activity.author).trim()) return String(activity.author).trim();
     const actorId = activity?.user_id ? String(activity.user_id) : "";
@@ -189,25 +244,28 @@ function ActivityCard({ item, onActivityClick }: { item: TimelineItem; onActivit
     return `User ${shortId(actorId)}`;
   })();
   const hasRelated = activity?.contact_id || activity?.customer_id || activity?.deal_id;
+  const createdWhen = formatWhen(item.created_at);
 
   return (
     <div
       className={cn(
-        "p-4 rounded-lg border bg-card space-y-2",
+        "w-full max-w-full p-4 rounded-lg border border-border/80 bg-card shadow-sm space-y-2",
         onActivityClick && "cursor-pointer hover:bg-muted/50 transition-colors"
       )}
       data-testid={`timeline-activity-${item.id}`}
       onClick={() => onActivityClick?.(item)}
       role={onActivityClick ? "button" : undefined}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon className={cn("h-4 w-4 shrink-0", String(kind || "").toLowerCase() === "note" ? "text-amber-600" : "text-muted-foreground")} />
-          {kind && <Badge variant="secondary" className="shrink-0">{String(kind)}</Badge>}
+          {kind && (
+            <Badge variant="secondary" className="shrink-0 hidden min-[380px]:inline-flex">
+              {String(kind)}
+            </Badge>
+          )}
           <span className="font-medium truncate">{String(title)}</span>
-          {onActivityClick && <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{formatWhen(item.created_at)}</span>
       </div>
       <div className="text-xs text-muted-foreground min-w-0 truncate">
         By <span className="text-foreground">{author}</span>
@@ -244,27 +302,29 @@ function ActivityCard({ item, onActivityClick }: { item: TimelineItem; onActivit
           )}
         </div>
       )}
+      {preview && <div className="text-xs text-muted-foreground line-clamp-2">{preview}</div>}
+      <div className="text-xs text-muted-foreground text-right">{createdWhen}</div>
     </div>
   );
 }
 
 function FallbackCard({ item }: { item: TimelineItem }) {
   return (
-    <div className="p-4 rounded-lg border bg-card space-y-2" data-testid={`timeline-item-${item.id}`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className="w-full max-w-full p-4 rounded-lg border border-border/80 bg-card shadow-sm space-y-2" data-testid={`timeline-item-${item.id}`}>
+      <div className="flex items-start justify-between gap-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <Badge variant="secondary" className="shrink-0">{String(item.type || "item")}</Badge>
           <span className="font-medium truncate">{item.id}</span>
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{formatWhen(item.created_at)}</span>
       </div>
+      <span className="block text-xs text-muted-foreground text-right whitespace-nowrap">{formatWhen(item.created_at)}</span>
     </div>
   );
 }
 
-function TimelineItemCard({ item, onActivityClick }: { item: TimelineItem; onActivityClick?: (item: TimelineItem) => void }) {
-  if (item.type === "capture_entry") return <CaptureEntryCard item={item} />;
-  if (item.type === "activity") return <ActivityCard item={item} onActivityClick={onActivityClick} />;
+function TimelineItemCard({ item, onItemClick }: { item: TimelineItem; onItemClick?: (item: TimelineItem) => void }) {
+  if (item.type === "capture_entry") return <CaptureEntryCard item={item} onCaptureClick={onItemClick} />;
+  if (item.type === "activity") return <ActivityCard item={item} onActivityClick={onItemClick} />;
   return <FallbackCard item={item} />;
 }
 
@@ -278,15 +338,17 @@ export function GlobalTimeline(props: {
   const view = props.view ?? "cards";
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<TimelineItem[]>([]);
-  const [selectedActivity, setSelectedActivity] = useState<TimelineItem | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<ActivityDetailData | null>(null);
+  const [selectedDetailEditable, setSelectedDetailEditable] = useState(false);
   const [activityDetailOpen, setActivityDetailOpen] = useState(false);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
 
-  const handleActivityClick = (item: TimelineItem) => {
-    if (item.type === "activity") {
-      setSelectedActivity(item);
-      setActivityDetailOpen(true);
-    }
+  const handleItemClick = (item: TimelineItem) => {
+    const detail = toActivityDetail(item);
+    if (!detail) return;
+    setSelectedDetail(detail);
+    setSelectedDetailEditable(item.type === "activity");
+    setActivityDetailOpen(true);
   };
 
   const mergeUnique = (prev: TimelineItem[], next: TimelineItem[]) => {
@@ -416,17 +478,17 @@ export function GlobalTimeline(props: {
           canLoadMore={canLoadMore}
           onLoadMore={handleLoadMore}
           onEditActivity={props.onEditActivity}
-          onActivityClick={handleActivityClick}
+          onItemClick={handleItemClick}
         />
         <ActivityDetailSheet
           open={activityDetailOpen}
           onOpenChange={setActivityDetailOpen}
-          activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
-          onEdit={(a) => {
+          activity={selectedDetail}
+          onEdit={selectedDetailEditable ? (a) => {
             setActivityDetailOpen(false);
             props.onEditActivity?.(a);
-          }}
-          renderActivityEditForm={props.renderActivityEditForm}
+          } : undefined}
+          renderActivityEditForm={selectedDetailEditable ? props.renderActivityEditForm : undefined}
         />
       </>
     );
@@ -489,7 +551,7 @@ export function GlobalTimeline(props: {
             </Button>
           )}
         </div>
-        <div className="space-y-3 overflow-y-auto">
+        <div className="space-y-3 overflow-y-auto overflow-x-hidden">
           {selectedCalendarDate && (
             <p className="text-sm text-muted-foreground">
               {format(selectedCalendarDate, "MMMM d, yyyy")}
@@ -504,7 +566,7 @@ export function GlobalTimeline(props: {
           ) : (
             <>
               {filteredByDate.map((item) => (
-                <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onActivityClick={handleActivityClick} />
+                <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onItemClick={handleItemClick} />
               ))}
               {canLoadMore && (
                 <Button variant="outline" onClick={handleLoadMore} disabled={query.isFetching}>
@@ -518,31 +580,31 @@ export function GlobalTimeline(props: {
         <ActivityDetailSheet
           open={activityDetailOpen}
           onOpenChange={setActivityDetailOpen}
-          activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
-          onEdit={(a) => {
+          activity={selectedDetail}
+          onEdit={selectedDetailEditable ? (a) => {
             setActivityDetailOpen(false);
             props.onEditActivity?.(a);
-          }}
-          renderActivityEditForm={props.renderActivityEditForm}
+          } : undefined}
+          renderActivityEditForm={selectedDetailEditable ? props.renderActivityEditForm : undefined}
         />
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 overflow-x-hidden touch-pan-y">
       {items.map((item) => (
-        <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onActivityClick={handleActivityClick} />
+        <TimelineItemCard key={`${item.type}-${item.id}`} item={item} onItemClick={handleItemClick} />
       ))}
       <ActivityDetailSheet
         open={activityDetailOpen}
         onOpenChange={setActivityDetailOpen}
-        activity={selectedActivity?.type === "activity" ? ((selectedActivity as any).activity ?? selectedActivity) as ActivityDetailData : null}
-        onEdit={(a) => {
+        activity={selectedDetail}
+        onEdit={selectedDetailEditable ? (a) => {
           setActivityDetailOpen(false);
           props.onEditActivity?.(a);
-        }}
-        renderActivityEditForm={props.renderActivityEditForm}
+        } : undefined}
+        renderActivityEditForm={selectedDetailEditable ? props.renderActivityEditForm : undefined}
       />
       <div className="flex items-center justify-center pt-2">
         <Button variant="outline" onClick={handleLoadMore} disabled={!canLoadMore || query.isFetching}>

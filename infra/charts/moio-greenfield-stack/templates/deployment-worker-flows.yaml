@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-flows
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: worker-flows
+spec:
+  replicas: {{ .Values.workers.flows.replicas }}
+  selector:
+    matchLabels:
+      app: worker-flows
+  template:
+    metadata:
+      labels:
+        app: worker-flows
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      containers:
+        - name: worker
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "celery -A moio_platform worker -E -l info --concurrency={{ .Values.workers.flows.concurrency }} -Q ${APP_NAME}-FLOWS"
+          env:
+            - name: IMAGE_TAG
+              value: {{ .Values.image.tag | quote }}
+          envFrom:
+            - configMapRef:
+                name: moio-greenfield-config
+            - secretRef:
+                name: moio-greenfield-secrets

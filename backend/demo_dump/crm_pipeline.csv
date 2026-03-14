@@ -1,0 +1,3 @@
+id,name,description,is_default,is_active,created_at,updated_at,tenant_id
+afd998a3-3a60-482b-bd3d-04464f07a486,Ventas,Pipeline principal,False,True,2026-03-10 22:50:01.847947+00:00,2026-03-10 22:50:26.694078+00:00,1
+9069544f-56d5-4538-ac5a-9a6658ee8720,Sales Pipeline,,True,True,2026-03-11 07:26:43.580037+00:00,2026-03-11 07:27:24.306490+00:00,1

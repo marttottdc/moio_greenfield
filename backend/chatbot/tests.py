@@ -1,9 +1,9 @@
 from django.db import models
-from chatbot.models.chatbot_session import ChatbotMemory  # Adjust import based on your app structure
+from chatbot.models.agent_session import SessionThread
 import pandas as pd
 
 # Fetch all utterances, ordered by timestamp
-utterances = ChatbotMemory.objects.all().order_by('created').select_related('session')
+utterances = SessionThread.objects.all().order_by('created').select_related('session')
 
 # Convert to a list of dictionaries
 data = [

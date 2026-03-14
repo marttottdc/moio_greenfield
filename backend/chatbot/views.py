@@ -19,7 +19,7 @@ from chatbot.core.campaign_flow import AssessmentInstanceFlow
 from chatbot.lib.whatsapp_client_api import compose_media_template_message, template_requirements, \
     WhatsappBusinessClient, compose_template_based_message, replace_template_placeholders
 from assessments.models.assessment_data import PainPoint, AssessmentCampaign, AssessmentInstance
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from chatbot.models.agent_session import AgentSession, SessionThread
 
 from chatbot.tasks import whatsapp_webhook_handler, archive_conversation, instagram_webhook_handler, messenger_webhook_handler
 from crm.models import Contact
@@ -329,7 +329,7 @@ def create_campaign(request):
 def dashboard(request):
     tenant = current_tenant.get()
     contacts_with_session_count = Contact.objects.annotate(
-        session_count=Count('chatbot_session')
+        session_count=Count('agent_sessions')
     ).filter(session_count__gt=0, tenant=tenant).values('user_id', 'fullname', 'phone', 'session_count')  # Adjust fields as needed
 
     context = {
@@ -342,7 +342,7 @@ def dashboard(request):
 
 @login_required()
 def dashboard_kpi(request):
-    active_sessions = ChatbotSession.objects.filter(tenant=current_tenant.get(), active=True).count()
+    active_sessions = AgentSession.objects.filter(tenant=current_tenant.get(), active=True).count()
 
     return render(request, 'chatbot/partials/dashboard_kpis.html', {'active_sessions': active_sessions})
 
@@ -350,7 +350,7 @@ def dashboard_kpi(request):
 @login_required()
 def chatroom(request):
     tenant = current_tenant.get()
-    # chat_sessions = ChatbotSession.objects.filter(tenant=tenant).order_by("-active", "-last_interaction", "-start", )
+    # chat_sessions = AgentSession.objects.filter(tenant=tenant).order_by("-active", "-last_interaction", "-start", )
     # active_sessions = chat_sessions.count()
 
     context = {
@@ -365,7 +365,7 @@ def chatroom(request):
 def sessions(request):
     start_time = timezone.now()
     tenant = current_tenant.get()
-    chat_sessions = ChatbotSession.objects.filter(tenant=tenant, active=True).order_by("-active", "-last_interaction", "-start")
+    chat_sessions = AgentSession.objects.filter(tenant=tenant, active=True).order_by("-active", "-last_interaction", "-start")
     active_sessions = chat_sessions.count()
 
     context = {
@@ -381,8 +381,8 @@ def sessions(request):
 def conversation_detail(request, session_id):
 
     if request.method == "GET":
-        session = ChatbotSession.objects.get(pk=session_id)
-        session_thread = session.memory_thread.order_by("created")
+        session = AgentSession.objects.get(pk=session_id)
+        session_thread = session.threads.order_by("created")
 
         context = {
             "session": session,

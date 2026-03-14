@@ -25,6 +25,9 @@ django_asgi_app = get_asgi_application()
 
 from websockets_app.routing import websocket_urlpatterns
 
+# WebSocket: AllowedHostsOriginValidator checks Origin header against ALLOWED_HOSTS
+# (e.g. Origin http://localhost:5177 → host "localhost" is allowed). Rejection happens
+# before URLRouter, so no consumer runs and the client sees connection closed with no body.
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AllowedHostsOriginValidator(

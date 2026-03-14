@@ -1,0 +1,1 @@
+id,status,started_at,finished_at,duration_ms,celery_task_id,input_data,result_data,error_message,error_traceback,trigger_type,scheduled_task_id,tenant_id

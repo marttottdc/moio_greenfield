@@ -107,8 +107,9 @@ class WhatsAppNotificationsConsumer(TenantAwareConsumer):
         if not self.tenant_id:
             return False
         try:
-            from chatbot.models.chatbot_session import ChatbotSession
-            conversation = ChatbotSession.objects.get(session__exact=conversation_id)
+            from chatbot.models.agent_session import AgentSession
+            with self.tenant_db_context():
+                conversation = AgentSession.objects.get(pk=conversation_id)
             return str(conversation.tenant_id) == str(self.tenant_id)
 
         except Exception as e:

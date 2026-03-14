@@ -11,22 +11,20 @@ App embed block that adds a chat bubble to the storefront. Visitors are identifi
    ```
    `shopify_write_app_toml` writes `client_id` and `application_url` into `shopify.app.toml` from PlatformConfiguration (no manual copy). **Run `shopify app deploy` every time you change the widget** (Liquid, JS or CSS). The rest of the app is deployed separately.
 
-2. **Theme Editor**: After deployment, the merchant enables the block in **Online Store > Themes > Customize > App embeds** and turns on "Moio Chat".
+2. **Theme Editor**: After deployment, the merchant enables the block in **Online Store > Themes > Customize > App embeds** and turns on "Moio Chat". **All widget configuration is done here** (title, greeting, bubble icon, primary color, position, offsets, window size, which templates to show on). The backend is only used for `ws_url` and whether the app is installed (`enabled`).
 
-3. **App proxy**: Config is fetched via the Shopify app proxy (`/apps/moio-chat/chat-widget-config`). No URL to configure in the theme; the proxy is set in `shopify.app.toml` (and `shopify_write_app_toml` writes the proxy URL from PlatformConfiguration).
-
-4. **App panel**: Configure the widget (greeting, color, position, allowed templates) in the Moio app embedded in Shopify Admin. Visibility is controlled only by the theme app embed (on/off in Theme editor); the app panel no longer has an "Enable" toggle.
+3. **App proxy**: The widget still calls `/apps/moio-chat/chat-widget-config` to get `ws_url` and `enabled`. Theme settings override display config; the proxy is set in `shopify.app.toml` (and `shopify_write_app_toml` writes the proxy URL from PlatformConfiguration).
 
 ## Files
 
-- `blocks/chat-widget.liquid` – App embed (target: body), injects `data-shop`, `data-customer-id` (when logged in), `data-allowed-templates`, `data-locale`. Config is fetched via app proxy (`/apps/moio-chat/chat-widget-config`).
+- `blocks/chat-widget.liquid` – App embed (target: body). Outputs `data-shop`, `data-customer-id` (when logged in), `data-locale`, and a JSON script `#mc-tc` with theme editor settings (title, greeting, position, color, etc.). The JS merges theme config with backend response (backend supplies only `ws_url` and `enabled`).
 - `assets/chat-widget.js` – Fetches config, connects to WebSocket (`/ws/shopify-chat/`), sends `init` with `shop_domain`, `anonymous_id`, `customer_id`; handles `send_message` and displays messages.
 - `assets/chat-widget.css` – Styles for bubble and chat window.
 
 ## Backend
 
 - **App proxy** `GET /api/v1/integrations/shopify/app-proxy/<path>` – Shopify forwards storefront requests from `https://{shop}/apps/moio-chat/...` here. Signature is verified with `shopify_client_secret`; `chat-widget-config` path returns the same JSON as below.
-- **GET** `/api/v1/integrations/shopify/chat-widget-config/?shop=xxx.myshopify.com` – Public config (title, bubble_icon, greeting, primary_color, position, allowed_templates, ws_url). The API always returns enabled: true when the shop is linked; visibility is determined by the theme app embed only.
+- **GET** `/api/v1/integrations/shopify/chat-widget-config/?shop=xxx.myshopify.com` – Returns **only** `{ "enabled": true, "ws_url": "wss://..." }` when the shop is linked and installed; `{ "enabled": false }` otherwise. All display config (title, greeting, position, etc.) lives in the **theme block** (single source of truth).
 - **WebSocket** `/ws/shopify-chat/` – No auth. First message must be `action: "init"` with `shop_domain`, `anonymous_id`, optional `customer_id`. Then `send_message`, `get_history`.
 
 ## Rich content messages

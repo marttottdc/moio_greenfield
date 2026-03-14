@@ -3,7 +3,7 @@ from datetime import timedelta
 
 import plotly.graph_objects as go
 import pandas as pd
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 from crm.models import Contact
 
 
@@ -13,7 +13,7 @@ def conversations_over_time(tenant, date_range=200):
     end_date = timezone.now()
 
     # Obtener las sesiones filtradas por tenant y rango de fechas
-    sessions = ChatbotSession.objects.filter(
+    sessions = AgentSession.objects.filter(
         tenant=tenant,
         start__range=(start_date, end_date)
     )

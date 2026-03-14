@@ -32,10 +32,17 @@ from drf_spectacular.utils import extend_schema
 
 from moio_platform.authentication import BearerTokenAuthentication
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
+from tenancy.resolution import _current_connection_schema, ensure_request_tenant_context
+
+_tenancy_trace = logging.getLogger("tenancy_trace")
 
 from crm.models import Contact, ContactType, Ticket, TicketComment, Customer, CustomerContact
 from crm.services.contact import normalize_phone_e164, sync_whatsapp_blocklist
-from chatbot.models.chatbot_session import ChatbotMemory, ChatbotSession
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+from chatbot.models.agent_session import AgentSession, SessionThread
+from chatbot.models.agent_configuration import CHANNEL_SHOPIFY_WEBCHAT
 from chatbot.core.human_mode_context import append_context_message
 
 from .data_store import demo_store
@@ -98,34 +105,20 @@ class CommunicationsAPIMixin:
     MAX_PAGE_SIZE = 100
 
     def _resolve_tenant_for_request(self, request):
-        """Resolve tenant from user, context, or JWT when auth/middleware ordering differs."""
-        tenant = getattr(request.user, "tenant", None)
-        if tenant and getattr(tenant, "schema_name", None):
-            return tenant
+        """Resolve tenant using the canonical tenancy helper."""
         try:
-            from tenancy.context_utils import current_tenant
-
-            tenant = current_tenant.get()
+            return ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
-            tenant = None
-        if tenant and getattr(tenant, "schema_name", None):
-            return tenant
-        try:
-            from tenancy.host_rewrite import _get_tenant_schema_from_jwt
-            from tenancy.models import Tenant
-            from tenancy.tenant_support import public_schema_name
-
-            schema_name = _get_tenant_schema_from_jwt(request)
-            if not schema_name:
-                return None
-            try:
-                from django_tenants.utils import schema_context
-
-                with schema_context(public_schema_name()):
-                    return Tenant.objects.filter(schema_name=schema_name).first()
-            except Exception:
-                return Tenant.objects.filter(schema_name=schema_name).first()
-        except Exception:
+            tenant = getattr(request, "tenant", None)
+            if tenant and getattr(tenant, "schema_name", None):
+                return tenant
+            tenant = getattr(request.user, "tenant", None)
+            if tenant and getattr(tenant, "schema_name", None):
+                return tenant
             return None
 
     def _get_tenant_or_none(self, request):
@@ -133,17 +126,12 @@ class CommunicationsAPIMixin:
 
     def _ensure_tenant_schema(self, request):
         """Ensure tenant DB schema is active before tenant-scoped communication queries."""
-        from django.conf import settings
-
-        tenant = self._resolve_tenant_for_request(request)
-        if not tenant or not getattr(tenant, "schema_name", None):
-            return
-        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            return
         try:
-            connection.set_tenant(tenant)
-            if getattr(request.user, "tenant", None) is None:
-                setattr(request.user, "tenant", tenant)
+            ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
             pass
 
@@ -175,11 +163,11 @@ class CommunicationsAPIMixin:
         self._ensure_tenant_schema(request)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
-            return ChatbotSession.objects.none()
-        base_qs = ChatbotSession.objects.filter(tenant=tenant).select_related("contact", "contact__ctype")
+            return AgentSession.objects.none()
+        base_qs = AgentSession.objects.filter(tenant=tenant).select_related("contact", "contact__ctype")
         messages_prefetch = Prefetch(
-            "memory_thread",
-            queryset=ChatbotMemory.objects.order_by("-created")[:50],
+            "threads",
+            queryset=SessionThread.objects.order_by("-created")[:50],
             to_attr="prefetched_messages",
         )
         return base_qs.prefetch_related(messages_prefetch)
@@ -241,7 +229,7 @@ class CommunicationsAPIMixin:
             return "agent"
         return "system"
 
-    def _serialize_message(self, message: ChatbotMemory, contact: Contact) -> Dict[str, Any]:
+    def _serialize_message(self, message: SessionThread, contact: Contact) -> Dict[str, Any]:
         sender = self._sender_from_role(message.role)
         sender_name = contact.display_name or contact.fullname or contact.whatsapp_name or contact.phone or contact.mobile
         if sender == "agent":
@@ -278,36 +266,36 @@ class CommunicationsAPIMixin:
         # default to WhatsApp-style rich messaging
         return ["text", "image", "video", "audio", "document", "location"]
 
-    def _conversation_status(self, session: ChatbotSession) -> str:
+    def _conversation_status(self, session: AgentSession) -> str:
         if session.active:
             return "active"
         if session.end:
             return "closed"
         return "pending"
 
-    def _get_last_message(self, session: ChatbotSession) -> Optional[ChatbotMemory]:
+    def _get_last_message(self, session: AgentSession) -> Optional[SessionThread]:
         messages = getattr(session, "prefetched_messages", None)
         if messages:
             return messages[0]
-        return session.memory_thread.order_by("-created").first()
+        return session.threads.order_by("-created").first()
 
-    def _get_session_for_request(self, request, session_id: str) -> Optional[ChatbotSession]:
+    def _get_session_for_request(self, request, session_id: str) -> Optional[AgentSession]:
         queryset = self._tenant_sessions_queryset(request)
         try:
             return queryset.get(pk=session_id)
-        except ChatbotSession.DoesNotExist:
+        except AgentSession.DoesNotExist:
             return None
 
-    def _unread_count(self, session: ChatbotSession) -> int:
+    def _unread_count(self, session: AgentSession) -> int:
         context = session.context or {}
         last_read_at_raw = context.get("last_read_at") if isinstance(context, dict) else None
         last_read_at = self._parse_iso_datetime(last_read_at_raw)
-        qs = session.memory_thread.filter(role__iexact="USER")
+        qs = session.threads.filter(role__iexact="USER")
         if last_read_at:
             qs = qs.filter(created__gt=last_read_at)
         return qs.count()
 
-    def _serialize_conversation_summary(self, request, session: ChatbotSession) -> Dict[str, Any]:
+    def _serialize_conversation_summary(self, request, session: AgentSession) -> Dict[str, Any]:
         last_message = self._get_last_message(session)
         contact_payload = self._serialize_contact(session.contact, request)
         unread_count = self._unread_count(session)
@@ -331,7 +319,7 @@ class CommunicationsAPIMixin:
             payload["last_message"] = None
         return payload
 
-    def _serialize_session_with_metadata(self, request, session: ChatbotSession) -> Dict[str, Any]:
+    def _serialize_session_with_metadata(self, request, session: AgentSession) -> Dict[str, Any]:
         updated_source = session.last_interaction or session.end or session.start
         return {
             "id": str(session.pk),
@@ -351,7 +339,7 @@ class CommunicationsAPIMixin:
             "created_at": self._isoformat(session.start),
             "updated_at": self._isoformat(updated_source),
             "metadata": {
-                "total_messages": session.memory_thread.count(),
+                "total_messages": session.threads.count(),
                 "ai_summary": session.final_summary or "",
             },
             "unread_count": self._unread_count(session),
@@ -369,18 +357,12 @@ class ContactAPIMixin:
     }
 
     def _ensure_tenant_schema(self, request):
-        """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
-        from django.conf import settings
-
-        tenant = getattr(request.user, "tenant", None)
-        if not tenant or not getattr(tenant, "schema_name", None):
-            return
-        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            return
         try:
-            from django.db import connection
-
-            connection.set_tenant(tenant)
+            ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
             pass
 
@@ -546,6 +528,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
     def get(self, request, contact_id):
         self._ensure_tenant_schema(request)
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
@@ -553,6 +536,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
     def patch(self, request, contact_id):
         self._ensure_tenant_schema(request)
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
@@ -724,6 +708,12 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         page = max(page, 1)
         start = (page - 1) * limit
         end = start + limit
+        _tenancy_trace.debug(
+            "contacts_list: request.tenant=%s request.user.tenant=%s conn_schema=%s (before count)",
+            getattr(request, "tenant", None) and getattr(getattr(request, "tenant", None), "schema_name", ""),
+            getattr(getattr(request, "user", None), "tenant", None) and getattr(getattr(getattr(request, "user", None), "tenant", None), "schema_name", ""),
+            _current_connection_schema(),
+        )
         total = queryset.count()
         contacts = [self._serialize_contact(contact) for contact in queryset[start:end]]
         pagination = {
@@ -981,12 +971,12 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
     def get(self, request):
         queryset = self._tenant_sessions_queryset(request)
         latest_created_subquery = (
-            ChatbotMemory.objects.filter(session=OuterRef("pk"))
+            SessionThread.objects.filter(session=OuterRef("pk"))
             .order_by("-created")
             .values("created")[:1]
         )
         latest_role_subquery = (
-            ChatbotMemory.objects.filter(session=OuterRef("pk"))
+            SessionThread.objects.filter(session=OuterRef("pk"))
             .order_by("-created")
             .values("role")[:1]
         )
@@ -1057,7 +1047,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
 
         now = timezone.now()
         session_context = request.data.get("context") or {"created_via_api": True}
-        session = ChatbotSession.objects.create(
+        session = AgentSession.objects.create(
             tenant=tenant,
             contact=contact,
             start=now,
@@ -1089,7 +1079,7 @@ class CommunicationsConversationDetailView(ProtectedAPIView, CommunicationsAPIMi
         if before_raw and before_dt is None:
             return _error("invalid_request", "before must be an ISO-8601 timestamp")
 
-        messages_qs = session.memory_thread.order_by("-created")
+        messages_qs = session.threads.order_by("-created")
         if before_dt:
             messages_qs = messages_qs.filter(created__lt=before_dt)
         messages = list(messages_qs[:limit])
@@ -1156,6 +1146,41 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
 
         # Check if human mode is enabled
         if session.human_mode:
+            # Shopify webchat: persist and push via WebSocket so widget shows it in real time
+            if session.channel == CHANNEL_SHOPIFY_WEBCHAT:
+                text_content = content if isinstance(content, str) else str(content)
+                message = SessionThread.objects.create(
+                    session=session,
+                    role="ASSISTANT",
+                    content=text_content,
+                    author=author_name,
+                )
+                session.context = append_context_message(session.context, "assistant", text_content)
+                session.last_interaction = timezone.now()
+                session.active = True
+                session.save(update_fields=["last_interaction", "active", "context"])
+                try:
+                    channel_layer = get_channel_layer()
+                    if channel_layer:
+                        group_name = f"shopify_chat_session_{session.pk}"
+                        async_to_sync(channel_layer.group_send)(
+                            group_name,
+                            {
+                                "type": "human_message",
+                                "content": text_content,
+                                "author": author_name,
+                                "timestamp": timezone.now().isoformat(),
+                            },
+                        )
+                except Exception as e:
+                    logger.warning("Shopify webchat push human message via WebSocket failed: %s", e)
+                return Response(
+                    {
+                        "conversation_id": str(session.pk),
+                        "message": self._serialize_message(message, session.contact),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
             try:
                 from chatbot.core.messenger import Messenger
                 from central_hub.tenant_config import get_tenant_config
@@ -1170,7 +1195,7 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
                     return _error("send_failed", "Failed to send message to contact", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                 delivered_content = sent_items[0]
-                message = ChatbotMemory.objects.create(
+                message = SessionThread.objects.create(
                     session=session,
                     role="ASSISTANT",
                     content=delivered_content,
@@ -1195,7 +1220,7 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
                 return _error("send_error", "Error sending message", status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             # Normal mode: Just add to conversation thread (existing behavior)
-            message = ChatbotMemory.objects.create(
+            message = SessionThread.objects.create(
                 session=session,
                 role="ASSISTANT",
                 content=content,
@@ -1222,7 +1247,7 @@ class CommunicationsConversationMarkReadView(ProtectedAPIView, CommunicationsAPI
         if session is None:
             return _error("not_found", "Conversation not found", status.HTTP_404_NOT_FOUND)
         latest_user_message = (
-            session.memory_thread.filter(role__iexact="USER").order_by("-created").first()
+            session.threads.filter(role__iexact="USER").order_by("-created").first()
         )
         now = timezone.now()
         context = dict(session.context or {})
@@ -1512,7 +1537,7 @@ class CommunicationsSummaryView(ProtectedAPIView, CommunicationsAPIMixin):
                 "by_channel": [],
             })
 
-        queryset = ChatbotSession.objects.filter(tenant=tenant)
+        queryset = AgentSession.objects.filter(tenant=tenant)
 
         total = queryset.count()
         active = queryset.filter(active=True).count()
@@ -1523,7 +1548,7 @@ class CommunicationsSummaryView(ProtectedAPIView, CommunicationsAPIMixin):
         latest_interaction = self._isoformat(latest.get("latest"))
 
         latest_role_subquery = (
-            ChatbotMemory.objects.filter(session=OuterRef("pk"))
+            SessionThread.objects.filter(session=OuterRef("pk"))
             .order_by("-created")
             .values("role")[:1]
         )
@@ -1539,7 +1564,7 @@ class CommunicationsSummaryView(ProtectedAPIView, CommunicationsAPIMixin):
                 )
             )
             unread_subquery = Subquery(
-                ChatbotMemory.objects.filter(
+                SessionThread.objects.filter(
                     session=OuterRef("pk"),
                     role__iexact="USER",
                     created__gt=OuterRef("last_read_at")
@@ -1550,7 +1575,7 @@ class CommunicationsSummaryView(ProtectedAPIView, CommunicationsAPIMixin):
             ).aggregate(total_unread=Sum("unread_count"))
             total_unread = sessions_with_unread.get("total_unread") or 0
         except Exception:
-            total_unread = ChatbotMemory.objects.filter(
+            total_unread = SessionThread.objects.filter(
                 session__tenant=tenant,
                 session__active=True,
                 role__iexact="USER"
@@ -1610,16 +1635,12 @@ class TicketAPIMixin:
     MAX_PAGE_SIZE = 100
 
     def _ensure_tenant_schema(self, request):
-        """Ensure DB connection points to tenant schema for ticket queries."""
-        from django.conf import settings
-
-        tenant = getattr(request.user, "tenant", None)
-        if not tenant or not getattr(tenant, "schema_name", None):
-            return
-        if not getattr(settings, "DJANGO_TENANTS_ENABLED", False):
-            return
         try:
-            connection.set_tenant(tenant)
+            ensure_request_tenant_context(
+                request,
+                user=getattr(request, "user", None),
+                require_tenant=False,
+            )
         except Exception:
             pass
 

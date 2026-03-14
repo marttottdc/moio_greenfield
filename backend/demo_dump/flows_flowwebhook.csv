@@ -1,0 +1,1 @@
+id,endpoint_path,http_method,secret_token,allowed_ips,headers_validation,payload_validation,total_calls,last_called_at,created_at,updated_at,flow_id

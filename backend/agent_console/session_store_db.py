@@ -41,7 +41,7 @@ def _default_payload(session_key: str) -> dict[str, Any]:
 class DatabaseSessionStore:
     """
     Session store that persists to the database (AgentConsoleSession).
-    Must be used with django_tenants schema_context(tenant_schema) when querying.
+    Use tenancy.tenant_support.schema_context(tenant_schema) when querying if needed (no-op for single schema).
     """
 
     _database_store = True  # marker so backend skips sessions_dir.mkdir
@@ -51,7 +51,7 @@ class DatabaseSessionStore:
         self.workspace_slug = (workspace_slug or "main").strip() or "main"
 
     def _schema_context(self):
-        from django_tenants.utils import schema_context
+        from tenancy.tenant_support import schema_context
         return schema_context(self.tenant_schema)
 
     def _is_missing_table_error(self, exc: Exception) -> bool:

@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from crm.api.mixins import PaginationMixin, ProtectedAPIView
+from tenancy.resolution import ensure_request_tenant_context
 from moio_platform.core.events import emit_event
 from moio_platform.core.events.snapshots import snapshot_contact, snapshot_deal
 from crm.models import Deal, Pipeline, PipelineStage, DealStatusChoices, Customer
@@ -19,6 +20,7 @@ class DealsView(PaginationMixin, ProtectedAPIView):
     DEFAULT_PAGE_SIZE = 50
 
     def get(self, request):
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=True)
         tenant = self._get_tenant(request)
         deals = Deal.objects.filter(tenant=tenant).select_related(
             'contact', 'pipeline', 'stage', 'owner'
@@ -316,6 +318,7 @@ class DealMoveStageView(PaginationMixin, ProtectedAPIView):
                 "from_stage_name": from_stage_name,
                 "to_stage_id": str(stage.id),
                 "to_stage_name": to_stage_name,
+                "move_comment": comment_text or None,
                 "pipeline_id": str(deal.pipeline_id) if deal.pipeline_id else None,
                 "pipeline_name": deal.pipeline.name if deal.pipeline else None,
                 # Canonical + alias for deal amount.

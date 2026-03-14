@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from crm.models import ContactType
 from chatbot.charts.dahboard_stats import conversations_over_time
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 from crm.core.data_import import import_addresses, import_customers, import_products, import_leads, import_contacts, \
     import_tags
 from crm.core.integrators import get_all_orders
@@ -326,7 +326,7 @@ def crm_dashboard_kpis(request):
         "contacts": Contact.objects.filter(tenant=current_tenant.get()).count(),
         "pending_orders": EcommerceOrder.objects.filter(status__exact="processing").count(),
         "risk_orders": EcommerceOrder.objects.filter(status__in=("on_hold", "failed")).count(),
-        "active_sessions": ChatbotSession.objects.filter(active__exact=True, tenant=current_tenant.get()).count(),
+        "active_sessions": AgentSession.objects.filter(active__exact=True, tenant=current_tenant.get()).count(),
         "customers": Customer.objects.filter(tenant=current_tenant.get()).count()
 
     }
@@ -491,7 +491,7 @@ def contact_paged_list(request):
         'new_this_month': Contact.objects.filter(tenant=tenant, created__gte=current_month).count(),
         'active_contacts': Contact.objects.filter(
             tenant=tenant,
-            chatbot_session__active=True
+            agent_sessions__active=True
         ).distinct().count(),
         'customer_contacts': Contact.objects.filter(
             tenant=tenant,
@@ -831,7 +831,7 @@ def dashboard(request):
     config = get_tenant_config(tenant)
 
     contacts_with_session_count = Contact.objects.annotate(
-        session_count=Count('chatbot_session')
+        session_count=Count('agent_sessions')
     ).filter(session_count__gt=0, tenant=tenant).values('user_id', 'fullname', 'phone',
                                                         'session_count')  # Adjust fields as needed
 
@@ -899,7 +899,7 @@ def tasks(request):
 def communications(request):
 
     typecomm = ("Whatsapp",)
-    active_chats = ChatbotSession.objects.filter(tenant=current_tenant.get(), active__exact=True).count()
+    active_chats = AgentSession.objects.filter(tenant=current_tenant.get(), active__exact=True).count()
 
     context = {
         "typecomm": typecomm,
@@ -916,7 +916,7 @@ def communications(request):
 
 @login_required
 def sessions_list(request):
-    sessions = ChatbotSession.objects.filter(tenant=current_tenant.get()).order_by("-start","-last_interaction")
+    sessions = AgentSession.objects.filter(tenant=current_tenant.get()).order_by("-start","-last_interaction")
     action = request.GET.get('action')
 
     paginator = Paginator(sessions, 3)

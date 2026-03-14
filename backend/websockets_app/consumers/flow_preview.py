@@ -95,14 +95,15 @@ class FlowPreviewConsumer(TenantAwareConsumer):
     def _get_execution(self):
         from flows.models import FlowExecution, Flow
         try:
-            flow = Flow.objects.get(id=self.flow_id)
-            return (
-                FlowExecution.objects.filter(
-                    flow=flow,
-                    execution_context__preview_run_id=self.run_id
+            with self.tenant_db_context():
+                flow = Flow.objects.get(id=self.flow_id)
+                return (
+                    FlowExecution.objects.filter(
+                        flow=flow,
+                        execution_context__preview_run_id=self.run_id
+                    )
+                    .order_by("-started_at")
+                    .first()
                 )
-                .order_by("-started_at")
-                .first()
-            )
         except Flow.DoesNotExist:
             return None

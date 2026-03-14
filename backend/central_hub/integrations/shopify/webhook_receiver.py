@@ -43,7 +43,9 @@ SHOPIFY_SHOP_HEADER = "HTTP_X_SHOPIFY_SHOP_DOMAIN"
 
 
 def _get_portal_config() -> PlatformConfiguration | None:
-    return PlatformConfiguration.objects.first()
+    """Use public-request helper so unauthenticated webhook requests always see the row."""
+    from central_hub.config import get_platform_configuration_for_public_request
+    return get_platform_configuration_for_public_request()
 
 
 def mark_shopify_shop_uninstalled(shop_domain: str) -> None:
@@ -62,13 +64,10 @@ def mark_shopify_shop_uninstalled(shop_domain: str) -> None:
     links = list(
         ShopifyShopLink.objects.filter(shop_domain=shop_domain).select_related("tenant")
     )
-    try:
-        from django_tenants.utils import schema_context
-    except ImportError:
-        schema_context = None
+    from tenancy.tenant_support import schema_context
     for link in links:
         schema_name = getattr(link.tenant, "schema_name", None)
-        if schema_name and schema_context is not None:
+        if schema_name:
             try:
                 with schema_context(schema_name):
                     for cfg in IntegrationConfig.objects.filter(

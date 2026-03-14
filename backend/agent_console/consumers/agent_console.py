@@ -21,6 +21,7 @@ from agent_console.services.runtime_service import (
     OpenAINotConfiguredError,
     TenantRequiredError,
     get_runtime_backend_for_user,
+    runtime_base_url_from_scope,
     runtime_initiator_from_user as _runtime_initiator_from_user,
 )
 
@@ -40,8 +41,24 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
         self._auth_expiry_task: asyncio.Task | None = None
         self._token_exp_ts: int | None = None
 
+    async def _reject_auth(self, message: str, code: int = 4001) -> None:
+        """Accept the connection, send an error frame, then close. Ensures the client
+        gets a proper WebSocket response instead of a dropped connection."""
+        await self.accept()
+        await self.send_json({
+            "type": "error",
+            "payload": {"message": message, "code": "auth_failed"},
+        })
+        await self.close(code=code)
+
     async def connect(self):
+        path = (self.scope.get("path") or "").strip()
         query_string = (self.scope.get("query_string") or b"").decode()
+        logger.info(
+            "Agent console connect path=%r query_len=%s",
+            path,
+            len(query_string),
+        )
         params = {}
         for part in query_string.split("&"):
             if "=" in part:
@@ -50,19 +67,21 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
 
         token = params.get("accessToken") or params.get("token")
         if not token:
-            await self.close(code=4001)
+            logger.warning("Agent console rejected: missing accessToken in query")
+            await self._reject_auth("Missing accessToken in query", code=4001)
             return
 
         try:
             access_token = AccessToken(token)
             user_id = access_token.get("user_id")
             if not user_id:
-                await self.close(code=4001)
+                await self._reject_auth("Invalid token: missing user_id", code=4001)
                 return
             exp_raw = access_token.get("exp")
             self._token_exp_ts = int(exp_raw) if exp_raw is not None else None
-        except TokenError:
-            await self.close(code=4001)
+        except TokenError as e:
+            logger.warning("Agent console rejected: invalid token %s", e)
+            await self._reject_auth(f"Invalid token: {e}", code=4001)
             return
 
         from django.contrib.auth import get_user_model
@@ -72,10 +91,15 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
                 lambda: User.objects.select_related("tenant").get(pk=user_id)
             )
         except User.DoesNotExist:
-            await self.close(code=4001)
+            logger.warning("Agent console rejected: user_id=%s not found", user_id)
+            await self._reject_auth("User not found", code=4001)
             return
 
         if getattr(self.user, "tenant_id", None) in (None, ""):
+            logger.warning(
+                "Agent console rejected: user_id=%s has no tenant_id",
+                user_id,
+            )
             await self.accept()
             await self.send_json(
                 {
@@ -89,7 +113,7 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4403)
             return
 
-        self._initiator = _build_initiator(self.user, access_token=token)
+        self._initiator = _build_initiator(self.user, scope=self.scope, access_token=token)
         self._workspace_slug = (params.get("workspace") or "main").strip().lower() or "main"
         self._session_key = (params.get("sessionKey") or self._workspace_slug or "main").strip().lower() or "main"
 
@@ -120,7 +144,11 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4403)
             return
         except Exception as e:
-            logger.exception("Failed to get runtime backend for user")
+            logger.exception(
+                "Failed to get runtime backend for user: %s",
+                e,
+                extra={"user_id": getattr(self.user, "id", None)},
+            )
             await self.accept()
             await self.send_json({
                 "type": "error",
@@ -135,6 +163,12 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
         self._backend.set_event_sink(_event_sink)
 
         await self.accept()
+        logger.info(
+            "Agent console connected user_id=%s tenant_id=%s workspace=%s",
+            getattr(self.user, "id", None),
+            getattr(self.user, "tenant_id", None),
+            self._workspace_slug,
+        )
         self._schedule_auth_expiry_timer()
 
         try:
@@ -380,8 +414,8 @@ class AgentConsoleConsumer(AsyncJsonWebsocketConsumer):
             })
 
 
-def _build_initiator(user, *, access_token: str | None = None) -> Dict[str, Any]:
-    d = dict(_runtime_initiator_from_user(user))
+def _build_initiator(user, *, scope: Dict[str, Any] | None = None, access_token: str | None = None) -> Dict[str, Any]:
+    d = dict(_runtime_initiator_from_user(user, base_url=runtime_base_url_from_scope(scope)))
     tenant_id = getattr(user, "tenant_id", None)
     if tenant_id is not None:
         d["tenantId"] = str(tenant_id or "")

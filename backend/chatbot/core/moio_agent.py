@@ -6,7 +6,7 @@ from django.utils import timezone
 
 import chatbot.events
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
-from chatbot.models.chatbot_session import ChatbotMemory
+from chatbot.models.agent_session import AgentSession, SessionThread
 
 from crm.models import Contact, ContactType
 from chatbot.models.agent_configuration import AgentConfiguration
@@ -22,7 +22,6 @@ import logging
 from chatbot.lib.whatsapp_client_api import WhatsappMessage
 from chatbot.core.agents import OrchestratorAgent
 from chatbot.core.human_mode_context import append_context_message
-from chatbot.models.chatbot_session import ChatbotSession
 from moio_platform.core.events import emit_event
 from agents import Agent, WebSearchTool, FileSearchTool, function_tool, Runner, RunHooks, AgentOutputSchema, \
     set_default_openai_key, ModelSettings, trace
@@ -46,7 +45,7 @@ class AgentThread:
             author = role
 
         try:
-            latest_utterance = ChatbotMemory.objects.filter(session=self.session).latest("created")
+            latest_utterance = SessionThread.objects.filter(session=self.session).latest("created")
             print(f"Latest utterance {latest_utterance.content}")
 
             #  ============================================================
@@ -61,7 +60,7 @@ class AgentThread:
             else:
                 print(f'Last utterance ->{latest_utterance.role}')
 
-                new_utterance = ChatbotMemory(
+                new_utterance = SessionThread(
                     session=self.session,
                     role=role,
                     content=content,
@@ -70,9 +69,9 @@ class AgentThread:
                 new_utterance.save()
 
         #  ============================================================
-        except ChatbotMemory.DoesNotExist:
+        except SessionThread.DoesNotExist:
 
-            new_utterance = ChatbotMemory(
+            new_utterance = SessionThread(
                 session=self.session,
                 role=role,
                 content=content,
@@ -97,7 +96,7 @@ class AgentThread:
     def get_full_transcript(self):
 
         gpt_conversation = []
-        for dialog in ChatbotMemory.objects.filter(session=self.session).order_by("created"):
+        for dialog in SessionThread.objects.filter(session=self.session).order_by("created"):
             gpt_dialog = {
                 "role": dialog.role,
                 "content": dialog.content,
@@ -108,10 +107,10 @@ class AgentThread:
 
     def get_latest_user_utterance(self):
         try:
-            latest = ChatbotMemory.objects.filter(session=self.session, role="user").latest("created")
+            latest = SessionThread.objects.filter(session=self.session, role="user").latest("created")
             return latest
 
-        except ChatbotMemory.DoesNotExist:
+        except SessionThread.DoesNotExist:
             return None
 
 
@@ -139,11 +138,11 @@ class MoioAgent:
         print(f"Default agent is {self.current_agent}")
 
         try:
-            assistant_session = ChatbotSession.objects.get(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel)
+            assistant_session = AgentSession.objects.get(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel)
 
-        except ChatbotSession.DoesNotExist:
+        except AgentSession.DoesNotExist:
 
-            assistant_session = ChatbotSession.objects.create(
+            assistant_session = AgentSession.objects.create(
                 tenant_id=self.config.tenant_id,
                 contact=contact,
                 start=timezone.now(),
@@ -153,13 +152,13 @@ class MoioAgent:
             assistant_session.save()
 
             try:
-                emit_event(
-                    name="chatbot_session.created",
+                event_id = emit_event(
+                    name="agent_session.created",
                     tenant_id=contact.tenant.tenant_code,
                     actor={"type": "system", "id": "moio_agent"},
-                    entity={"type": "chatbot_session", "id": str(assistant_session.session)},
-                    payload={
-                        "session_id": str(assistant_session.session),
+entity={"type": "agent_session", "id": str(assistant_session.pk)},
+                payload={
+                    "session_id": str(assistant_session.pk),
                         "contact_id": str(contact.user_id) if getattr(contact, "user_id", None) else None,
                         "contact_name": contact.fullname,
                         "channel": assistant_session.channel,
@@ -168,15 +167,20 @@ class MoioAgent:
                     },
                     source="chatbot",
                 )
+                try:
+                    from crm.services.event_activity_ingestion import create_activities_from_event
+                    create_activities_from_event(event_id)
+                except Exception:
+                    pass
             except Exception:
                 pass
 
             thread = AgentThread(assistant_session)
             thread.add_utterance(self.additional_instructions, role="system", author="moio")
 
-        except ChatbotSession.MultipleObjectsReturned:
+        except AgentSession.MultipleObjectsReturned:
 
-            assistant_session = ChatbotSession.objects.filter(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel).latest("last_interaction")
+            assistant_session = AgentSession.objects.filter(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel).latest("last_interaction")
 
         self.assistant_session = assistant_session
 
@@ -203,8 +207,8 @@ class MoioAgent:
                 # output_type=WhatsAppMessage
             )
 
-            print(f"Session is {self.assistant_session.session}")
-            result = asyncio.run(Runner.run(ag, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.session)))
+            print(f"Session is {self.assistant_session.pk}")
+            result = asyncio.run(Runner.run(ag, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.pk)))
 
             thread.add_utterance(content=result.final_output, role='assistant', author="")
             return result.final_output
@@ -236,8 +240,8 @@ class MoioAgent:
                 # output_type=WhatsAppMessage
             )
 
-            print(f"Session is {self.assistant_session.session}")
-            result = asyncio.run(Runner.run(ag, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.session)))
+            print(f"Session is {self.assistant_session.pk}")
+            result = asyncio.run(Runner.run(ag, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.pk)))
 
             thread.add_utterance(content=result.final_output, role='assistant', author="")
             return result.final_output
@@ -258,13 +262,13 @@ class MoioAgent:
             elapsed_time = timezone.now() - add_utterance_start_time
             print(f"Time to add utterance:{elapsed_time.total_seconds()}")
 
-            ag = OrchestratorAgent(self.assistant_session.session)
-            print(f"Session is {self.assistant_session.session}")
+            ag = OrchestratorAgent(self.assistant_session.pk)
+            print(f"Session is {self.assistant_session.pk}")
 
             result = Runner.run_sync(
                 ag.orchestrator_agent,
                 input=json.dumps(thread.get_full_transcript()),
-                context=str(self.assistant_session.session)
+                context=str(self.assistant_session.pk)
             )
 
             print(f"final output: {result.final_output}")
@@ -303,7 +307,7 @@ class MoioAgent:
         result = Runner.run_sync(
             summarizer,
             input=json.dumps(thread.get_full_transcript()),
-            context=str(self.assistant_session.session)
+            context=str(self.assistant_session.pk)
         )
         print(result.final_output)
 
@@ -325,19 +329,19 @@ class MoioAgent:
                 output_type=ConversationAnalysisModel
             )
             try:
-                result = asyncio.run(Runner.run(analyzer, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.session)))
+                result = asyncio.run(Runner.run(analyzer, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.pk)))
             except RuntimeError as e:
 
                 # No loop exists (e.g., prefork)
                 logger.debug(f"No event loop: {e}")
-                result = Runner.run(analyzer, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.session))
+                result = Runner.run(analyzer, input=json.dumps(thread.get_full_transcript()), context=str(self.assistant_session.pk))
 
             print(f"Analysis result status: {result.final_output.status} will {result.final_output.action} message: {result.final_output.message_to_send}")
             if result.final_output.action == ConversationRequiredAction.END_CONVERSATION:
 
                 print(f"Action: END_CONVERSATION")
                 thread.add_utterance(content=result.final_output.message_to_send, role='assistant', author=handler_name)
-                session = ChatbotSession.objects.get(session=self.assistant_session)
+                session = AgentSession.objects.get(pk=self.assistant_session.pk)
                 mt = MoioAssistantTools(session=session)
                 mt.end_conversation(result.final_output.summary)
 
@@ -380,7 +384,7 @@ class AgentEngine:
 
                 limit = timezone.now() - timedelta(minutes=config.agent_reopen_threshold)
 
-                assistant_session = ChatbotSession.objects.get(
+                assistant_session = AgentSession.objects.get(
                     Q(contact=contact),
                     Q(tenant_id=self.config.tenant_id),
                     Q(channel=self.channel),
@@ -391,10 +395,10 @@ class AgentEngine:
                     assistant_session.active = True
                     assistant_session.save(update_fields=['active'])
             else:
-                assistant_session = ChatbotSession.objects.get(contact=contact, tenant_id=self.config.tenant_id,
+                assistant_session = AgentSession.objects.get(contact=contact, tenant_id=self.config.tenant_id,
                                                                active=True, channel=self.channel)
 
-        except ChatbotSession.DoesNotExist:
+        except AgentSession.DoesNotExist:
 
             try:
                 default_agent = AgentConfiguration.objects.get(tenant=self.config.tenant, default=True).name
@@ -408,7 +412,7 @@ class AgentEngine:
 
             print(f"Setting Default agent: {default_agent}")
 
-            assistant_session = ChatbotSession.objects.create(
+            assistant_session = AgentSession.objects.create(
                 tenant_id=self.config.tenant_id,
                 contact=contact,
                 start=timezone.now(),
@@ -423,13 +427,13 @@ class AgentEngine:
             assistant_session.save()
 
             try:
-                emit_event(
-                    name="chatbot_session.created",
+                event_id = emit_event(
+                    name="agent_session.created",
                     tenant_id=contact.tenant.tenant_code,
                     actor={"type": "system", "id": "moio_agent"},
-                    entity={"type": "chatbot_session", "id": str(assistant_session.session)},
-                    payload={
-                        "session_id": str(assistant_session.session),
+entity={"type": "agent_session", "id": str(assistant_session.pk)},
+                payload={
+                    "session_id": str(assistant_session.pk),
                         "contact_id": str(contact.user_id) if getattr(contact, "user_id", None) else None,
                         "contact_name": contact.fullname,
                         "channel": assistant_session.channel,
@@ -438,6 +442,11 @@ class AgentEngine:
                     },
                     source="chatbot",
                 )
+                try:
+                    from crm.services.event_activity_ingestion import create_activities_from_event
+                    create_activities_from_event(event_id)
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -447,9 +456,9 @@ class AgentEngine:
             thread = AgentThread(assistant_session)
             thread.add_utterance(self.additional_instructions, role="system", author="moio")
 
-        except ChatbotSession.MultipleObjectsReturned:
+        except AgentSession.MultipleObjectsReturned:
 
-            assistant_session = ChatbotSession.objects.filter(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel).latest("last_interaction")
+            assistant_session = AgentSession.objects.filter(contact=contact, tenant_id=self.config.tenant_id, active=True, channel=self.channel).latest("last_interaction")
 
         self.assistant_session = assistant_session
 
@@ -495,7 +504,7 @@ class AgentEngine:
             self.assistant_session.context = result.to_input_list()
             thread.add_utterance(content=result.final_output, role='assistant', author=result.last_agent.name)
 
-            print(f"Session is {self.assistant_session.session}")
+            print(f"Session is {self.assistant_session.pk}")
             self.assistant_session.current_agent = result.last_agent.name  # Reemplazar con la actualization del agente a cargo de la session
             self.assistant_session.save()
 
@@ -582,7 +591,7 @@ class AgentEngine:
             self.assistant_session.context = result.to_input_list()
             thread.add_utterance(content=result.final_output, role='assistant', author=result.last_agent.name)
 
-            print(f"Session is {self.assistant_session.session}")
+            print(f"Session is {self.assistant_session.pk}")
             self.assistant_session.current_agent = result.last_agent.name  # Reemplazar con la actualization del agente a cargo de la session
             self.assistant_session.save()
 
@@ -604,13 +613,13 @@ class AgentEngine:
             elapsed_time = timezone.now() - add_utterance_start_time
             print(f"Time to add utterance:{elapsed_time.total_seconds()}")
 
-            ag = OrchestratorAgent(self.assistant_session.session)
-            print(f"Session is {self.assistant_session.session}")
+            ag = OrchestratorAgent(self.assistant_session.pk)
+            print(f"Session is {self.assistant_session.pk}")
 
             result = Runner.run_sync(
                 ag.orchestrator_agent,
                 input=json.dumps(thread.get_full_transcript()),
-                context=str(self.assistant_session.session)
+                context=str(self.assistant_session.pk)
             )
 
             print(f"final output: {result.final_output}")
@@ -635,7 +644,7 @@ class AgentEngine:
             elapsed_time = timezone.now() - add_utterance_start_time
             print(f"Time to add utterance:{elapsed_time.total_seconds()}")
 
-            print(f"Session is {self.assistant_session.session}")
+            print(f"Session is {self.assistant_session.pk}")
 
         except Exception as e:
             print(e)
@@ -668,7 +677,7 @@ class AgentEngine:
         result = Runner.run_sync(
             summarizer,
             input=json.dumps(thread.get_full_transcript()),
-            context=str(self.assistant_session.session)
+            context=str(self.assistant_session.pk)
         )
         print(result.final_output)
 
@@ -715,7 +724,7 @@ class AgentEngine:
             self.assistant_session.context = result.to_input_list()
             thread.add_utterance(content=result.final_output, role='assistant', author=result.last_agent.name)
 
-            print(f"Session is {self.assistant_session.session}")
+            print(f"Session is {self.assistant_session.pk}")
             self.assistant_session.current_agent = result.last_agent.name  # Reemplazar con la actualization del agente a cargo de la session
             self.assistant_session.save()
 
@@ -730,7 +739,7 @@ def session_sweep(tenant_id: int):
     config = get_tenant_config_by_id(tenant_id) if isinstance(tenant_id, int) else get_tenant_config(tenant_id)
     inactive_threshold = config.assistants_inactivity_limit
 
-    sessions = ChatbotSession.objects.filter(
+    sessions = AgentSession.objects.filter(
         tenant_id=tenant_id, active=True, channel="whatsapp"
     ).iterator()
 
@@ -740,4 +749,4 @@ def session_sweep(tenant_id: int):
                 engine = AgentEngine(config, session.contact)
                 engine.analyze_conversation("Conversation inactive – consider ending")
             except Exception as e:
-                logger.exception(f"Sweep error for session {session.session}: {e}")
+                logger.exception(f"Sweep error for session {session.pk}: {e}")

@@ -12,6 +12,7 @@ from rest_framework.response import Response
 
 from crm.models import Customer, Address
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
+from tenancy.resolution import ensure_request_tenant_context
 from tenancy.rbac import user_has_role
 
 try:
@@ -232,12 +233,14 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
         }
 
     def get(self, request, customer_id):
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         customer = self._get_customer(request, customer_id)
         if not customer:
             return _error("customer_not_found", "Customer not found", status.HTTP_404_NOT_FOUND)
         return Response(self._serialize_customer(customer))
 
     def patch(self, request, customer_id):
+        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         customer = self._get_customer(request, customer_id)
         if not customer:
             return _error("customer_not_found", "Customer not found", status.HTTP_404_NOT_FOUND)

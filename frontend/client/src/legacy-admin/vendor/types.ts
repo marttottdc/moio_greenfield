@@ -9,6 +9,13 @@ export type Tenant = {
   schemaName: string;
   isActive: boolean;
   primaryDomain: string;
+  plan?: string;
+  moduleEnablements?: {
+    crm: boolean;
+    flowsDatalab: boolean;
+    chatbot: boolean;
+    agentConsole: boolean;
+  };
 };
 
 export type IntegrationDefinition = {
@@ -196,12 +203,23 @@ export type TenantPluginState = PluginAdminState & {
   isTenantAdmin: boolean;
 };
 
+export type Plan = {
+  id: string;
+  key: string;
+  name: string;
+  displayOrder: number;
+  isActive: boolean;
+  pricingPolicy?: Record<string, unknown>;
+  entitlementPolicy?: Record<string, unknown>;
+};
+
 export type BootstrapPayload = {
   tenantsEnabled: boolean;
   publicSchema: string;
   message?: string;
   currentUser: CurrentUser | null;
   tenants: Tenant[];
+  plans?: Plan[];
   users: PlatformUser[];
   integrations: IntegrationDefinition[];
   /** Integrations Hub contract catalog (from central_hub registry); use for hub/control plane UX */
@@ -240,6 +258,8 @@ export type TenantWorkspace = {
   specialtyPrompt: string;
   enabledSkillKeys: string[];
   toolAllowlist?: string[];
+  pluginAllowlist?: string[];
+  integrationAllowlist?: string[];
   defaultVendor?: string;
   defaultModel?: string;
   defaultThinking?: string;

@@ -8,7 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 try:
-    from django_tenants.utils import schema_context
+    from tenancy.tenant_support import schema_context
 except Exception:  # pragma: no cover - package/config may be unavailable in tests
     schema_context = None
 

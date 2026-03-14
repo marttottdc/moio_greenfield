@@ -18,6 +18,22 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// Prevent unhandled EPIPE/ECONNRESET when client disconnects before response is fully sent
+app.use((req, res, next) => {
+  const onError = (err: NodeJS.ErrnoException) => {
+    if (err?.code === "EPIPE" || err?.code === "ECONNRESET") {
+      // Client closed connection; suppress so Node doesn't throw unhandled 'error'
+      return;
+    }
+    // Other errors: remove our listener so default behavior can run
+    res.removeListener("error", onError);
+    req.socket?.removeListener("error", onError);
+  };
+  res.on("error", onError);
+  req.socket?.on("error", onError);
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -50,6 +66,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  server.setMaxListeners(128);
 
   // Proxy /api to Django backend (catches /api not handled by Express routes above).
   // Do NOT add a local handler for POST /api/v1/integrations/shopify/webhook/ – Shopify webhooks
@@ -132,18 +149,41 @@ app.use((req, res, next) => {
 
   // WebSocket proxy: /ws/* -> backend (agent-console, tickets, etc.)
   const wsProxy = httpProxy.createProxyServer({ ws: true });
+  // Avoid "MaxListeners (10) exceeded" when many WS connections proxy through
+  if (typeof wsProxy.setMaxListeners === "function") {
+    wsProxy.setMaxListeners(128);
+  }
   const backendWsTarget = (BACKEND_URL || "http://localhost:8093")
     .replace(/^http:\/\//i, "ws://")
     .replace(/^https:\/\//i, "wss://");
+  // Backend host for Host header so routing/ASGI sees the backend origin (e.g. localhost:8093)
+  const backendWsHost = (() => {
+    try {
+      const u = new URL(backendWsTarget.replace(/^ws/, "http"));
+      return u.host;
+    } catch {
+      return "localhost:8093";
+    }
+  })();
   server.on("upgrade", (req, socket, head) => {
     if (req.url?.startsWith("/ws")) {
+      if (typeof socket.setMaxListeners === "function") {
+        socket.setMaxListeners(32);
+      }
+      log(`WebSocket upgrade ${req.url} -> ${backendWsTarget}`);
+      const headers = { ...req.headers, host: backendWsHost } as Record<string, string>;
       wsProxy.ws(
         req,
         socket,
         head,
-        { target: backendWsTarget, headers: { ...req.headers } },
+        { target: backendWsTarget, headers },
         (err) => {
-          if (err) log(`WebSocket proxy error [${req.url}]: ${err.message}`);
+          if (err) {
+            log(`WebSocket proxy error [${req.url}]: ${err.message}`);
+            if (process.env.NODE_ENV !== "production") {
+              console.error("WebSocket proxy error details:", err);
+            }
+          }
         }
       );
     }

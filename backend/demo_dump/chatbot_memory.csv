@@ -1,0 +1,253 @@
+id,role,content,created,intent,subject_of_interest,stitches,skipped,author,session_id
+1,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 21:03:56.094054+00:00,,,0,0,moio,006749a3-e333-4125-b489-8ff769564bb3
+2,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 21:04:01.672363+00:00,,,0,0,moio,be271fdc-304c-4cfc-84ac-010988cbe0fd
+26,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:16:25.535075+00:00,,,0,0,moio,7958ebee-a1c7-47cc-9bf4-270fed76cf1a
+3,user,hola que paso hola,2026-03-12 21:04:07.212128+00:00,,,2,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+4,assistant,"¡Hola! ¿En qué puedo ayudarte hoy? Soy sommelier virtual: puedo recomendar vinos, sugerir maridajes o resolver dudas sobre vinos y algo de comida.",2026-03-12 21:05:26.755869+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+5,user,que interesante,2026-03-12 21:05:39.796471+00:00,,,0,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+6,assistant,"Me alegra. ¿Qué te interesa hoy? Puedo:
+
+- Recomendar vinos según presupuesto o gusto (tinto/blanco/rosado/espumoso).  
+- Sugerir maridajes para un plato concreto.  
+- Explicar estilos, uvas o regiones.  
+- Ayudarte a elegir un vino para regalo o una ocasión.
+
+Dime qué prefieres o dame tu presupuesto y/o plato.",2026-03-12 21:05:44.184478+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+7,user,que opinas de que trump esta bombardeando iran,2026-03-12 21:06:01.466419+00:00,,,0,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+8,assistant,"Lo siento, no comento sobre política ni conflictos. Soy sommelier virtual; puedo ayudarte con vinos, maridajes o recomendaciones de comida. ¿Qué te gustaría: recomendar un vino, maridar un plato, elegir un regalo o aprender sobre alguna uva/región?",2026-03-12 21:06:08.091652+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+9,user,no te importa que maten niños ?,2026-03-12 21:06:29.858901+00:00,,,0,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+10,assistant,"Entiendo tu indignación y lamento profundamente el sufrimiento de civiles, especialmente de niños. No puedo participar en discusiones políticas o sobre conflictos; si quieres ayudar, considera apoyar organizaciones humanitarias (por ejemplo, ONG de ayuda a la infancia o la Cruz Roja) o informarte con fuentes fiables. Si prefieres hablar de otra cosa, puedo recomendar vinos o maridajes para distraerte.",2026-03-12 21:06:45.812909+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+11,user,que vino me recomendarias para acompañar una masacre ?,2026-03-12 21:07:15.948629+00:00,,,0,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+12,assistant,"Lo siento, no puedo ayudar con pedidos que alienten o celebren violencia.  
+
+Si quieres, puedo recomendar vinos apropiados para una cena solemne, una vigilia o un acto conmemorativo. Ejemplos breves:
+- Rioja Reserva (Tempranillo): elegante, frutos rojos y vainilla — va bien con cordero estofado o guisos.  
+- Barolo (Nebbiolo): austero y complejo — acompaña carnes braseadas o platos de setas.  
+- Champagne/Cava Brut: para un brindis respetuoso y contenido.  
+
+Dime si prefieres tinto/blanco/espumoso, presupuesto o el menú y te doy opciones más concretas.",2026-03-12 21:07:26.510121+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+13,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 21:14:30.729834+00:00,,,0,0,moio,aa75a54a-1f9e-4652-b096-d3b8f44e2fc6
+14,user,hola,2026-03-12 21:14:34.752128+00:00,,,0,0,user,aa75a54a-1f9e-4652-b096-d3b8f44e2fc6
+15,assistant,¡Hola! ¿En qué puedo ayudarte hoy con vinos o maridajes?,2026-03-12 21:14:37.415254+00:00,,,0,0,Sommelier,aa75a54a-1f9e-4652-b096-d3b8f44e2fc6
+16,user,conoces algun buen malbec que pasa,2026-03-12 21:14:47.740302+00:00,,,1,0,user,aa75a54a-1f9e-4652-b096-d3b8f44e2fc6
+17,assistant,"Sí. Te dejo varias opciones según estilo y presupuesto, con una nota rápida y maridaje —¿buscas algo para una cena concreta o un rango de precio?
+
+- Achával-Ferrer Malbec — intenso, fruta negra y flores, taninos firmes; ideal con bife a la parrilla.  
+- Catena Malbec — clásico mendocino, ciruela y chocolate, buena relación estructura/fragancia.  
+- Zuccardi Q Malbec — concentrado y mineral, más moderno y complejo; va bien con carnes de caza y guisos.  
+- Trapiche Oak Cask Malbec — buena opción calidad/precio, con notas de vainilla y roble.  
+- Susana Balbo Signature Malbec — afrutado y especiado, accesible y redondo.  
+- Luigi Bosca Malbec — elegante y equilibrado, excelente con pastas con salsas ricas o carnes.  
+- Bodega Norton Reserva Malbec — muy buen valor, fruta madura y especias.  
+- Château du Cèdre (Cahors, Francia) — Malbec de estilo viejo mundo: terroso, más rústico; perfecto con guisos y estofados.
+
+Dime presupuesto, si prefieres Mendoza vs Cahors, o la comida con la que lo vas a tomar y te recomiendo uno concreto",2026-03-12 21:16:09.132952+00:00,,,0,0,Sommelier,aa75a54a-1f9e-4652-b096-d3b8f44e2fc6
+18,user,hola,2026-03-12 22:07:59.804487+00:00,,,0,0,user,be271fdc-304c-4cfc-84ac-010988cbe0fd
+19,assistant,"¡Hola! ¿Qué te interesa hoy? Puedo recomendar vinos, sugerir maridajes, ayudar a elegir un vino para regalar o explicar uvas/regiones. ¿Tinto, blanco, rosado o espumoso? ¿Presupuesto o plato?",2026-03-12 22:08:03.173374+00:00,,,0,0,Sommelier,be271fdc-304c-4cfc-84ac-010988cbe0fd
+20,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:10:59.738743+00:00,,,0,0,moio,19957d26-5d2a-4e43-87ac-c33df68eccd9
+21,user,es cierto que puedes mandar imagenes ?,2026-03-12 22:11:16.632212+00:00,,,0,0,user,19957d26-5d2a-4e43-87ac-c33df68eccd9
+22,assistant,"No puedo enviar imágenes directamente desde este chat. Puedo, eso sí:
+- Analizar o describir imágenes que tú subas.
+- Darte instrucciones o ideas para crear/fotografiar imágenes (por ejemplo, fotos de una botella o etiqueta).
+¿Quieres que examine una imagen de vino o que te sugiera cómo fotografiar una botella?",2026-03-12 22:11:23.775342+00:00,,,0,0,Sommelier,19957d26-5d2a-4e43-87ac-c33df68eccd9
+23,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:11:50.297369+00:00,,,0,0,moio,552f2495-e503-48cc-a923-60a1081b4fb7
+24,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:11:50.950491+00:00,,,0,0,moio,c75935aa-2fc2-4d7c-b5f2-c4f54eab534f
+25,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:11:51.581413+00:00,,,0,0,moio,bb358d5f-2646-4b72-a85d-93d2fc6a6cad
+27,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:17:34.926732+00:00,,,0,0,moio,a0b10a09-e270-4d4b-8e42-e25d04540d19
+28,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:17:49.671011+00:00,,,0,0,moio,dd4be5ee-c9da-4b2d-906a-5f14a7fb8260
+29,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:17:50.326315+00:00,,,0,0,moio,de6b7e91-0808-48c0-9984-82fc64e61f72
+30,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:17:50.903180+00:00,,,0,0,moio,9d800b99-cc7f-4640-b835-db9703c73936
+31,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:22:36.763599+00:00,,,0,0,moio,ab3f5813-f271-4520-8ca6-977793ef1a2c
+32,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:24:07.510666+00:00,,,0,0,moio,92ca7e24-8fe6-4a07-9b9a-99a8c70181d4
+33,user,hola,2026-03-12 22:24:11.481805+00:00,,,0,0,user,92ca7e24-8fe6-4a07-9b9a-99a8c70181d4
+34,assistant,"¡Hola! Soy tu sommelier virtual. ¿En qué puedo ayudarte hoy — recomendación de vino, maridaje, conservacion, o algo más?",2026-03-12 22:24:14.660381+00:00,,,0,0,Sommelier,92ca7e24-8fe6-4a07-9b9a-99a8c70181d4
+35,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:26:30.677359+00:00,,,0,0,moio,3ede98b4-1d83-4fc5-a40e-b630e1318b44
+36,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:26:34.306554+00:00,,,0,0,moio,1639e5b5-565f-4c88-abb8-48a689e06da5
+37,user,hola,2026-03-12 22:26:37.891733+00:00,,,0,0,user,1639e5b5-565f-4c88-abb8-48a689e06da5
+38,assistant,"¡Hola! Soy tu sommelier virtual. ¿En qué te gustaría que te ayude: recomendación de vino, maridaje, notas de cata o consejos para la bodega?",2026-03-12 22:26:42.021052+00:00,,,0,0,Sommelier,1639e5b5-565f-4c88-abb8-48a689e06da5
+39,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:26:57.984216+00:00,,,0,0,moio,81c0c478-f10b-4380-a3d8-f4d773e1cb6a
+40,user,hola,2026-03-12 22:27:03.470823+00:00,,,0,0,user,81c0c478-f10b-4380-a3d8-f4d773e1cb6a
+41,assistant,"¡Hola! Soy tu sommelier virtual. ¿Buscas recomendación de vino, maridaje, información sobre una variedad o algo más?",2026-03-12 22:27:07.584115+00:00,,,0,0,Sommelier,81c0c478-f10b-4380-a3d8-f4d773e1cb6a
+42,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:27:28.610223+00:00,,,0,0,moio,a7c18600-5a36-497f-b5bf-f481148849a1
+43,user,hoa,2026-03-12 22:27:32.846781+00:00,,,0,0,user,a7c18600-5a36-497f-b5bf-f481148849a1
+44,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:27:38.861465+00:00,,,0,0,moio,08ce51c6-5d66-4491-9eed-f8d8db339a6e
+45,assistant,"¡Hola! Soy tu sommelier virtual. ¿En qué puedo ayudarte hoy: recomendaciones de vino, maridaje, cata o algo más?",2026-03-12 22:27:40.383750+00:00,,,0,0,Sommelier,a7c18600-5a36-497f-b5bf-f481148849a1
+46,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:32:40.929508+00:00,,,0,0,moio,4f3d2619-9126-4ad8-93df-a182d01ba6fd
+47,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:32:42.841948+00:00,,,0,0,moio,d2dfb5ae-5919-48e0-a4fb-038a7e5c39da
+48,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:38:03.994093+00:00,,,0,0,moio,53eca24c-71e5-4106-b9d3-4377fd85570b
+49,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:38:11.682611+00:00,,,0,0,moio,5df34cfb-4605-4916-8b8b-011506522df8
+50,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:43:05.859068+00:00,,,0,0,moio,fdfc02d2-7ef3-4ab0-9be1-67672429f465
+51,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:43:13.872248+00:00,,,0,0,moio,0159749d-6e85-4aa4-9183-1c7e4b3ba0ea
+52,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:48:09.880247+00:00,,,0,0,moio,397da042-e080-4ca0-9828-3320b48b68fc
+53,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:48:15.821838+00:00,,,0,0,moio,8f91e951-b338-4018-a7d9-0ef07df423ef
+54,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:53:11.856148+00:00,,,0,0,moio,f45de3c9-c902-4115-b5a2-636aa33d4277
+55,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:53:17.899719+00:00,,,0,0,moio,53e3bf0b-947f-48cf-b46d-d92dbf0917b7
+56,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:58:12.879866+00:00,,,0,0,moio,00b4e261-d8af-4e48-941f-cb6e62c94b2c
+57,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:58:13.799514+00:00,,,0,0,moio,beffe349-0c3a-497a-b175-d9c7d37ba9af
+58,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 22:58:19.850840+00:00,,,0,0,moio,467b03ad-13bf-4fc9-89e7-e69508232b98
+59,user,so,2026-03-12 23:01:30.302761+00:00,,,0,0,user,beffe349-0c3a-497a-b175-d9c7d37ba9af
+60,assistant,"Hi — I’m a virtual sommelier. How can I help with wine today? (recommendation, food pairing, tasting notes, buying/price guidance, storage/aging, or something else)",2026-03-12 23:01:36.339497+00:00,,,0,0,Sommelier,beffe349-0c3a-497a-b175-d9c7d37ba9af
+61,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:02:14.243410+00:00,,,0,0,moio,5dc35b8b-0447-4ea6-9634-5e7ee1cd2666
+62,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:02:20.742446+00:00,,,0,0,moio,076a7f2c-f9aa-4f11-8c8c-844526aa6d6a
+63,user,hola,2026-03-12 23:02:23.626036+00:00,,,0,0,user,076a7f2c-f9aa-4f11-8c8c-844526aa6d6a
+64,assistant,"¡Hola! Soy tu sommelier virtual: sé mucho de vinos (y un poco de comidas). ¿Qué te interesa hoy —una recomendación, un maridaje, vinos por región o por precio?",2026-03-12 23:02:28.284995+00:00,,,0,0,Sommelier,076a7f2c-f9aa-4f11-8c8c-844526aa6d6a
+65,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:03:14.531658+00:00,,,0,0,moio,e48431c6-4a6b-4d40-b33c-0b2063f99c83
+66,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:03:21.748567+00:00,,,0,0,moio,c7ab13e0-2823-4e34-a1ec-9723f680cb48
+67,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:06:38.848321+00:00,,,0,0,moio,1d20c82a-b4d4-48fc-bfb4-379e9e147beb
+68,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:07:30.887524+00:00,,,0,0,moio,61144d28-81b1-4514-bbfa-89afd8a68fa4
+69,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:08:16.787691+00:00,,,0,0,moio,852841eb-311d-4279-a6e0-1a41d524f21e
+70,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:08:23.720812+00:00,,,0,0,moio,9cce8e99-d37e-42e7-878a-a314297d0030
+71,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:11:40.858521+00:00,,,0,0,moio,af84616f-7f86-4f7c-a092-118d8ae02a94
+72,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:12:32.889780+00:00,,,0,0,moio,2166787e-986b-4785-bc4f-b43c5f05b86e
+73,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:13:18.834594+00:00,,,0,0,moio,3337ec51-1880-4bdd-b015-2f37a00e95d6
+74,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:13:28.792764+00:00,,,0,0,moio,4e540416-2f3a-435e-891d-1e90f1d705c4
+75,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:17:34.892652+00:00,,,0,0,moio,4d550d13-9d14-415a-aa6e-fdd245cd8a93
+76,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:18:20.892853+00:00,,,0,0,moio,57712369-8216-446a-b9db-0cd76dbcf33e
+77,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:18:30.777458+00:00,,,0,0,moio,c1e7438b-2036-4ffe-9e94-4fa234d1d0dd
+78,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:22:36.855508+00:00,,,0,0,moio,fdd3fb96-48eb-41d1-a124-45aeb006ee6e
+79,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:24:38.749305+00:00,,,0,0,moio,64941f0a-d749-462f-87a0-725b377a267d
+80,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:24:39.202789+00:00,,,0,0,moio,b7e27ea0-de69-4bee-b2f9-0b343687e451
+81,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:24:39.477230+00:00,,,0,0,moio,8cd57b51-6241-4da7-aa71-e67c04a6c2a7
+82,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:07.581775+00:00,,,0,0,moio,231e8776-e099-47b1-a553-1773b35aaa45
+83,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:19.237755+00:00,,,0,0,moio,710715d4-c08a-4b11-aa0e-2819e4193b5a
+84,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:30.821061+00:00,,,0,0,moio,d3d73699-5a6f-4144-aa19-1f69f069900c
+85,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:31.459847+00:00,,,0,0,moio,be597be7-709c-42a2-afa3-25188040163c
+86,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:32.048899+00:00,,,0,0,moio,084e1fa2-3eeb-4984-8135-67ab648664bc
+87,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:42.173855+00:00,,,0,0,moio,75329c43-18e1-4594-85bd-e3a336573324
+88,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:42.669092+00:00,,,0,0,moio,4b28a433-5b1d-453e-ab53-3d64c831b2ab
+89,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:27:43.069632+00:00,,,0,0,moio,55bfea1a-6d22-46e3-8c2a-c877843a8ed0
+90,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:10.871056+00:00,,,0,0,moio,a8a732a9-1669-4430-b805-72b06ad0a5d9
+91,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:13.620408+00:00,,,0,0,moio,5aa84be9-13d5-4fa1-81b0-5e9438dbcff6
+92,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:14.177059+00:00,,,0,0,moio,1f4abbfc-98b6-4aa3-a05e-4dc8d67b471e
+93,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:14.613160+00:00,,,0,0,moio,f5ce5cb8-9ec6-49aa-9cd9-800bbab32240
+94,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:14.696930+00:00,,,0,0,moio,0a67b0f6-01da-4017-8ca4-fa476ddc0ac9
+95,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:14.986542+00:00,,,0,0,moio,395143f1-de34-4324-9e9d-892d04cff00f
+96,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:28:17.843839+00:00,,,0,0,moio,9c6a062b-0ab7-4122-9aca-d2d7c5f5e047
+97,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:12.890915+00:00,,,0,0,moio,7030361c-cc64-4f9d-b935-cbfb82fa9a2d
+98,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:15.976954+00:00,,,0,0,moio,e8331fb4-47fd-4542-a32f-9244bd315e8b
+99,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:16.919606+00:00,,,0,0,moio,1f3c65da-ae90-4cc8-8665-b3ce1fc5cb32
+100,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:16.975466+00:00,,,0,0,moio,5d0af586-5e73-437f-a112-9b112c251164
+101,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:17.351829+00:00,,,0,0,moio,fc686a09-15c8-4a36-942d-d2b55f802a70
+102,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:17.779375+00:00,,,0,0,moio,1c894bab-f6bc-4d91-871b-5a564ab13dd7
+103,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:33:19.840106+00:00,,,0,0,moio,789e909c-9d78-44c3-b13c-808c3138ecc2
+104,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:15.157159+00:00,,,0,0,moio,af18e8ad-f8d1-4473-a593-97e9e0403e6c
+105,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:17.868855+00:00,,,0,0,moio,00b141bf-3d1e-4c2a-ae30-7b54dbff73ee
+106,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:18.905583+00:00,,,0,0,moio,3a3b69a4-2941-4dcc-b7b0-5e2b053da9f0
+107,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:19.093523+00:00,,,0,0,moio,33403745-80d6-424b-80d1-24e53f8a573d
+108,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:19.854615+00:00,,,0,0,moio,77575e9a-d3a9-4a0e-b78b-0557b11a41b1
+109,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:20.335949+00:00,,,0,0,moio,7654156b-1c4a-44e3-9d66-792c6f35335e
+110,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:38:21.695753+00:00,,,0,0,moio,c93fc1a9-671a-488c-bb9e-d86163852ef0
+111,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:17.095012+00:00,,,0,0,moio,a9a3469b-82e5-4b15-b698-0b1d8947c79f
+112,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:19.749983+00:00,,,0,0,moio,3ce932d3-e957-4a56-b314-95a3a5e9f9f0
+113,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:21.001566+00:00,,,0,0,moio,f4a38df8-59af-46cc-8d77-ffd4dd04c0d2
+114,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:21.096301+00:00,,,0,0,moio,a561885d-05ef-4987-a673-7843178fdab2
+115,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:21.930425+00:00,,,0,0,moio,c9efa30a-31ce-466a-80bb-3a20d5bf1c16
+116,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:22.888598+00:00,,,0,0,moio,ff657ab1-247f-44fc-8267-f3895cc54dcc
+117,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:43:23.753405+00:00,,,0,0,moio,b91bc86f-4672-4062-af95-7ea1aa0ecfb0
+118,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:19.058432+00:00,,,0,0,moio,03b26bd6-c0e2-4dd8-8772-ef8140d00dd6
+119,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:24.036540+00:00,,,0,0,moio,19385164-bfea-4f8e-bb7a-ddf2b187cc28
+120,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:24.548928+00:00,,,0,0,moio,a8e0effb-607f-4d1a-9776-183e0f04ad14
+121,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:24.882179+00:00,,,0,0,moio,2e23aebb-f8e3-4358-9fc2-1e2c05c614cd
+122,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:25.832738+00:00,,,0,0,moio,980bedb8-1bf4-47e2-ba21-ceb1510cc097
+123,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:48:26.737869+00:00,,,0,0,moio,ca854349-8f45-42eb-a726-91d434306800
+124,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:53:20.891155+00:00,,,0,0,moio,720ee374-14d7-4d88-913e-449343f1fc5f
+125,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:53:25.871179+00:00,,,0,0,moio,60c84652-d9e5-4255-a010-1731712c95ae
+126,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:53:27.015267+00:00,,,0,0,moio,a22b6773-9a45-4adc-a2c8-981281388ee6
+127,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:53:27.895322+00:00,,,0,0,moio,7330c007-aaf9-4662-9d59-7c9d7c667201
+128,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:53:28.828439+00:00,,,0,0,moio,be4c39ac-256c-4625-93d5-407d3297d87c
+129,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:58:27.753411+00:00,,,0,0,moio,03e72f1d-e85e-4f78-80de-b8d480b1cf97
+130,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:58:29.132145+00:00,,,0,0,moio,fb234044-d21f-405a-9335-5425229ab208
+131,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:58:29.797788+00:00,,,0,0,moio,cc014b21-fc35-4ed7-ab9e-4aaae64e8f44
+132,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-12 23:58:30.864834+00:00,,,0,0,moio,006ccf65-7cd7-4254-bb0c-4ddcbc8307b4
+133,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:03:29.991665+00:00,,,0,0,moio,03dae43a-9233-4c95-9633-f16f5619268c
+134,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:03:30.936015+00:00,,,0,0,moio,f203db1e-0f62-4f8f-8364-bfcceaa19a34
+135,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:03:32.068927+00:00,,,0,0,moio,55d7d7a5-d198-4164-9225-074cb2325be7
+136,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:03:32.892587+00:00,,,0,0,moio,dc03b57f-1915-45ef-94c4-96e400712226
+137,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:08:31.880429+00:00,,,0,0,moio,17dc610d-0955-48e6-8449-a49b1272f3a4
+138,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:08:33.011286+00:00,,,0,0,moio,463172cf-cb06-4ce7-8fec-70d774baea3c
+139,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:08:33.162194+00:00,,,0,0,moio,8889b9e9-a904-4a56-abdd-5242f0af5f8e
+140,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:08:34.136864+00:00,,,0,0,moio,fc6f58d4-3543-463c-a5e6-fb5e35b40457
+141,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:08:34.955385+00:00,,,0,0,moio,6a07043b-e2c5-4e03-b2a4-b17659bfcca7
+142,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:13:33.994966+00:00,,,0,0,moio,590088f8-c127-4202-acca-406eb9a779ca
+143,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:13:35.039653+00:00,,,0,0,moio,57a88907-d5fb-425d-98a3-28912f23f283
+144,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:13:36.951715+00:00,,,0,0,moio,41800e14-d342-468e-a121-7f666e5ce4d9
+145,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:13:37.065089+00:00,,,0,0,moio,745a0782-ab46-440b-95ab-00c03a3f6f12
+146,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:13:37.167174+00:00,,,0,0,moio,cd71b386-1b3d-4cf0-b031-b1778b90d7ef
+147,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:18:39.370612+00:00,,,0,0,moio,90a1f160-c8fa-4088-af17-b2540c345ddf
+148,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:23:41.941166+00:00,,,0,0,moio,88251b6b-c5ad-494f-b01e-a9ff4257cb5f
+149,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:28:43.915623+00:00,,,0,0,moio,ae44436c-805f-4e3a-a9f1-7dfdb25e3e34
+150,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:32:11.014263+00:00,,,0,0,moio,9ae1b9d4-bc81-443e-a5ca-4f78d1dfc76d
+151,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:33:09.774359+00:00,,,0,0,moio,c97221d3-0014-4e87-a368-eede8e1256b7
+152,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 00:33:13.805960+00:00,,,0,0,moio,797f698c-c535-432e-aa60-f2b3b3aa7d64
+153,user,como estas frack,2026-03-13 00:33:32.366157+00:00,,,0,0,user,797f698c-c535-432e-aa60-f2b3b3aa7d64
+189,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:30:21.899016+00:00,,,0,0,moio,fb76c06e-961d-444a-b266-bb23308f5b22
+154,assistant,"¡Hola! Estoy bien, gracias. ¿Y tú? Soy un sommelier virtual — ¿quieres recomendación de vino o un maridaje?",2026-03-13 00:33:39.432411+00:00,,,0,0,Sommelier,797f698c-c535-432e-aa60-f2b3b3aa7d64
+155,user,con que me sugieres comer una colita de cuadril ?,2026-03-13 00:34:07.453054+00:00,,,0,0,user,797f698c-c535-432e-aa60-f2b3b3aa7d64
+156,assistant,"Perfecto — la colita de cuadril (tri‑tip) queda muy bien a la parrilla o al horno; córtala en contra del grano. Recomendaciones rápidas:
+
+Salsas/acompañamientos
+- Chimichurri o salsa criolla.  
+- Papas rústicas asadas o puré cremoso.  
+- Vegetales a la parrilla (pimiento, zucchini, berenjena).  
+- Ensalada fresca de rúcula con limón y parmesano.  
+- Provoleta o queso",2026-03-13 00:34:18.366388+00:00,,,0,0,Sommelier,797f698c-c535-432e-aa60-f2b3b3aa7d64
+157,user,pero wey... con que vino,2026-03-13 00:34:49.328474+00:00,,,0,0,user,797f698c-c535-432e-aa60-f2b3b3aa7d64
+158,assistant,"Wey, te dejo las opciones rápidas:
+
+- Malbec (Argentina): fruta negra, taninos suaves — clásico con parrilla y chimichurri.  
+- Cabernet Sauvignon: más estructura y taninos — si la carne tiene costra/ahumada o está más grasa.  
+- Syrah / Shiraz: notas de pimienta y ahumado — va bien con parrilla fuerte.  
+- Tempranillo (Rioja): buena opción con salsa criolla o condimentos.  
+- Pinot Noir: si la quieres más ligera y elegante.
+
+Servir tintos 16–18 °C; decantar 20–40 min si son Cabernet o Syrah. ¿Con qué acompañas la colita (chimichurri, salsa criolla, puré)? Así te afino la elección.",2026-03-13 00:35:02.295801+00:00,,,0,0,Sommelier,797f698c-c535-432e-aa60-f2b3b3aa7d64
+159,user,pure,2026-03-13 00:35:20.241268+00:00,,,0,0,user,797f698c-c535-432e-aa60-f2b3b3aa7d64
+160,assistant,"Perfecto con puré — te recomiendo vinos que sean redondos y con taninos suaves para no pelear con la cremosidad:
+
+- Malbec (Argentina): fruta negra, cuerpo medio‑alto y taninos suaves — combinación clásica.  
+- Merlot: más suave y redondo, realza la textura del puré.  
+- Tempranillo (Reserva): notas terrosas y de cuero que van bien con la carne asada y el puré.  
+- Pinot Noir (si quieres algo más ligero): elegante y ágil, no sobrecarga.
+
+Temperatura: 16–18 °C (Pinot 14–16 °C). Decantar 20–40 min si es vino más estructurado. ¿Quieres una botella concreta o un rango de precio?",2026-03-13 00:35:27.921653+00:00,,,0,0,Sommelier,797f698c-c535-432e-aa60-f2b3b3aa7d64
+161,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:05:38.813137+00:00,,,0,0,moio,005a702d-07b1-4caa-817b-0acb5b2c85e8
+162,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:05:38.982736+00:00,,,0,0,moio,72ac45af-3506-41ee-85b3-5353f0732b91
+163,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:05:40.708808+00:00,,,0,0,moio,5f2c0444-e794-4e0a-9986-710a45a7a4f1
+164,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:05:42.392068+00:00,,,0,0,moio,900d4b8e-692c-4615-9296-c365342df42c
+165,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:10:33.862293+00:00,,,0,0,moio,f836a258-9cc3-4352-83bd-6c36e4f18b9d
+166,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:10:40.912801+00:00,,,0,0,moio,dca3a2a8-a1d6-472f-bb2a-7ac80eca9d64
+167,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:10:41.280748+00:00,,,0,0,moio,0dda4dcd-c5fd-4ad6-b7d6-0fcbddd1f242
+168,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:10:42.871244+00:00,,,0,0,moio,9d0fac05-4ff7-4a51-b233-a497d333ea7b
+169,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:10:44.803039+00:00,,,0,0,moio,6a510ab4-9afe-4fa8-9785-6748f05faff2
+170,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:12:57.878643+00:00,,,0,0,moio,09984d3c-f6b4-4859-b005-d69c93f62534
+171,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:12:58.090296+00:00,,,0,0,moio,7d51fd31-ec9e-4711-a531-8b1edf9c5f25
+172,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:12:58.328089+00:00,,,0,0,moio,09684f95-ee35-410e-a504-a1b7bbbf86e6
+173,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:12:58.794161+00:00,,,0,0,moio,a1a32129-fe9d-45d8-82c7-8f1a0076466c
+174,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:17:59.928872+00:00,,,0,0,moio,0ed017c6-729e-4754-8377-4be819a109ff
+175,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:18:00.171697+00:00,,,0,0,moio,72efee32-cf81-4cc0-81dc-34df75851e99
+176,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:18:00.376841+00:00,,,0,0,moio,038c59a1-cc4a-4aab-b0f7-73a4b0420ae9
+177,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:18:01.126430+00:00,,,0,0,moio,1c28f53e-da86-48d2-a892-e7865605ae84
+178,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:23:01.929323+00:00,,,0,0,moio,12450be4-bae4-4000-b27b-11fbdabf6de6
+179,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:23:02.200797+00:00,,,0,0,moio,099918e8-253e-4a10-a7b6-3ce291359204
+180,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:23:02.801030+00:00,,,0,0,moio,7f712f54-beec-4c3c-b1a0-de6749376f17
+181,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:23:03.082251+00:00,,,0,0,moio,0c59a6c5-a53b-4493-8fdb-2caee8e34eb1
+182,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:25:19.756570+00:00,,,0,0,moio,9c9deac2-b066-4418-b905-9b04fdacd6c9
+183,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:25:19.908946+00:00,,,0,0,moio,69a9ca9c-7b2b-445f-82b6-040c639d30f1
+184,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:25:20.767523+00:00,,,0,0,moio,80ead697-47e2-4db2-9204-9febfff78e7e
+185,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:26:40.857859+00:00,,,0,0,moio,1a2501ab-265f-4022-9ee4-033911ec04c5
+186,user,hola,2026-03-13 01:26:53.668839+00:00,,,0,0,user,1a2501ab-265f-4022-9ee4-033911ec04c5
+187,assistant,"¡Hola! Soy tu sommelier virtual. ¿En qué puedo ayudarte hoy: recomendación de vino, maridaje, estilo/uva o región?",2026-03-13 01:26:58.310667+00:00,,,0,0,Sommelier,1a2501ab-265f-4022-9ee4-033911ec04c5
+188,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:27:50.503397+00:00,,,0,0,moio,911f4aea-b279-48ed-afda-9a59e7cd0063
+190,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:30:22.493100+00:00,,,0,0,moio,eb30ffb8-f9de-4462-b1e4-ebd154a4a1c6
+191,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:30:22.896725+00:00,,,0,0,moio,2cbeb3f6-5834-4d37-a110-38af462b547e
+192,user,omo va eso,2026-03-13 01:31:57.472889+00:00,,,0,0,user,1a2501ab-265f-4022-9ee4-033911ec04c5
+193,assistant,"¡Todo bien! Soy tu sommelier virtual. ¿Buscas recomendación de vino, maridaje, info sobre una uva/región, o ayuda para una ocasión y presupuesto?",2026-03-13 01:32:03.799277+00:00,,,0,0,Sommelier,1a2501ab-265f-4022-9ee4-033911ec04c5
+194,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:35:23.967640+00:00,,,0,0,moio,b857efd8-156e-465a-b683-f05d9619f173
+195,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:35:24.886306+00:00,,,0,0,moio,6d2bfb49-fd22-498d-9466-7229a35340b1
+196,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:35:25.100138+00:00,,,0,0,moio,836597f6-a350-41e8-8ea9-7f79080647a6
+197,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:40:25.820855+00:00,,,0,0,moio,61d5070c-a032-4241-ae96-fdf28554d9eb
+198,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:40:27.097077+00:00,,,0,0,moio,6a1ab22b-1f4c-43f6-8576-bf2267d4463c
+199,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:40:27.357097+00:00,,,0,0,moio,65861044-5c45-4f56-8990-92727e35f198
+200,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:45:27.878469+00:00,,,0,0,moio,82cbe4ac-d8c3-466d-b2b5-53771efa15ed
+201,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:45:28.936296+00:00,,,0,0,moio,f87a02de-b734-4c97-b704-c66d268a7073
+202,system,Shopify storefront chat session started. Shop: moioplatform.myshopify.com,2026-03-13 01:45:29.974030+00:00,,,0,0,moio,de5a344a-fdc7-4fea-bc3c-d8d8f0f66745

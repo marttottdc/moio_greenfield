@@ -10,13 +10,13 @@ import secrets
 import string
 import uuid
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
-from django_tenants.models import DomainMixin, TenantMixin
 
 from tenancy.context_utils import current_tenant
 from tenancy.validators import validate_subdomain_rfc
@@ -40,17 +40,19 @@ def _default_schema_name(nombre: str | None, subdomain: str | None, tenant_code:
     return normalized[:63]
 
 
-class Tenant(TenantMixin, models.Model):
+class Tenant(models.Model):
     class Plan(models.TextChoices):
         FREE = "free", "Free"
         PRO = "pro", "Pro"
         BUSINESS = "business", "Business"
 
+    schema_name = models.CharField(max_length=63, null=True, blank=True, db_index=True)
     nombre = models.CharField(max_length=150, null=False)
     enabled = models.BooleanField(default=True)
     domain = models.CharField(max_length=150, null=False)
-    subdomain = models.CharField(max_length=100, null=True, blank=True, unique=True, db_index=True)
-    plan = models.CharField(max_length=20, choices=Plan.choices, default=Plan.FREE)
+    subdomain = models.CharField(max_length=100, null=False, blank=False, unique=True, db_index=True)
+    # Plan key (e.g. free, pro, business). Define plans in Platform Admin; defaults above for backward compat.
+    plan = models.CharField(max_length=40, default=Plan.FREE)
     tenant_code = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
     created = models.DateTimeField(default=timezone.now)
 
@@ -79,11 +81,24 @@ class Tenant(TenantMixin, models.Model):
     organization_time_format = models.CharField(max_length=10, default="24h")
     default_notification_list = models.TextField(null=True, blank=True, default="martin@moio.ai,")
 
+    # Slug del tenant "root" en RLS: subdomain = 'platform'. Todos ven su tenant + platform.
+    RLS_PLATFORM_SLUG = "platform"
+
+    @property
+    def rls_slug(self) -> str:
+        """Slug for RLS: subdomain (obligatorio). Nunca null ni vacío."""
+        return (self.subdomain or "").strip()
+
     @property
     def primary_domain(self) -> str:
         host = str(self.domain or "").strip()
         subdomain = str(self.subdomain or "").strip()
-        if host and subdomain:
+        if not host:
+            return ""
+        # If domain is already the full host (e.g. "demo.moio.ai"), avoid "demo.demo.moio.ai"
+        if subdomain and (host == subdomain or host.startswith(subdomain + ".")):
+            return host
+        if subdomain:
             return f"{subdomain}.{host}"
         return host
 
@@ -94,6 +109,7 @@ class Tenant(TenantMixin, models.Model):
             except ValueError as e:
                 from django.core.exceptions import ValidationError
                 raise ValidationError({"subdomain": str(e)}) from e
+        # subdomain es obligatorio; schema_name se deriva si falta
         if not self.schema_name:
             self.schema_name = _default_schema_name(
                 self.nombre,
@@ -109,7 +125,11 @@ class Tenant(TenantMixin, models.Model):
         return f"{self.pk} : {self.nombre}"
 
 
-class TenantDomain(DomainMixin):
+class TenantDomain(models.Model):
+    domain = models.CharField(max_length=253, db_index=True, unique=True)
+    is_primary = models.BooleanField(db_index=True, default=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="domains")
+
     class Meta:
         db_table = "portal_tenant_domain"
         verbose_name = "Tenant domain"
@@ -139,12 +159,59 @@ class ContentBlockManager(models.Manager):
         return queryset.filter(visibility=public_value)
 
 
+# Sentinel UUID for RLS when no tenant (policy matches no rows)
+RLS_NO_TENANT_UUID = "00000000-0000-0000-0000-000000000000"
+
+
 class TenantScopedModel(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    # Denormalized from tenant.tenant_code; backfilled on read when NULL (RLS uses tenant_id).
+    tenant_uuid = models.UUIDField(null=True, db_index=True, editable=False)
     objects = TenantManager()
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._backfill_tenant_uuid_if_null()
+        return instance
+
+    def _backfill_tenant_uuid_if_null(self):
+        """When we see a row with tenant_uuid NULL, set it from portal_tenant so it stays in sync."""
+        if self.tenant_uuid is not None or not self.tenant_id:
+            return
+        try:
+            from django.db import connection
+            tn = connection.ops.quote_name(self._meta.db_table)
+            pt = connection.ops.quote_name("portal_tenant")
+            with connection.cursor() as cur:
+                cur.execute(
+                    "UPDATE %s SET tenant_uuid = (SELECT tenant_code FROM %s WHERE %s.id = %s.tenant_id) "
+                    "WHERE id = %%s AND tenant_uuid IS NULL" % (tn, pt, pt, tn),
+                    [self.pk],
+                )
+                if cur.rowcount:
+                    cur.execute(
+                        "SELECT tenant_uuid FROM %s WHERE id = %%s" % tn,
+                        [self.pk],
+                    )
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        self.tenant_uuid = row[0]
+        except Exception:
+            pass
+
+    def save(self, *args, **kwargs):
+        if self.tenant_id and not self.tenant_uuid:
+            try:
+                t = getattr(self, "tenant", None)
+                if t and hasattr(t, "tenant_code"):
+                    self.tenant_uuid = t.tenant_code
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------

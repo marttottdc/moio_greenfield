@@ -3265,7 +3265,7 @@ def _agent_executor(node, payload, ctx):
 
         agent_ctx.setdefault("agent_config", dict(config or {}))
 
-        # Check if human mode is enabled on the ChatbotSession - skip AI response generation but still handle incoming message
+        # Check if human mode is enabled on the AgentSession - skip AI response generation but still handle incoming message
         human_mode_enabled = False
         session_id = ctx.get("session_id")
         if not session_id and isinstance(trigger_body, dict):
@@ -3287,8 +3287,8 @@ def _agent_executor(node, payload, ctx):
                 pass
         if session_id:
             try:
-                from chatbot.models import ChatbotSession
-                session = ChatbotSession.objects.get(id=session_id, tenant=tenant)
+                from chatbot.models import AgentSession
+                session = AgentSession.objects.get(pk=session_id, tenant=tenant)
                 human_mode_enabled = session.human_mode
             except Exception:
                 # Session not found or error - continue with normal flow

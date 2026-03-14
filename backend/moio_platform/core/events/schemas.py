@@ -343,7 +343,7 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "additionalProperties": True,
     },
 
-    # Communications (ChatbotSession lifecycle)
+    # Communications (AgentSession lifecycle)
     "communications.session_started": {
         "type": "object",
         "properties": {
@@ -437,8 +437,8 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "additionalProperties": True,
     },
 
-    # Chatbot sessions
-    "chatbot_session.created": {
+    # Agent sessions
+    "agent_session.created": {
         "type": "object",
         "properties": {
             "session_id": {"type": "string"},
@@ -451,7 +451,7 @@ EVENT_PAYLOAD_SCHEMAS: Dict[str, Dict[str, Any]] = {
         "required": ["session_id"],
         "additionalProperties": True,
     },
-    "chatbot_session.inactivated": {
+    "agent_session.inactivated": {
         "type": "object",
         "properties": {
             "session_id": {"type": "string"},

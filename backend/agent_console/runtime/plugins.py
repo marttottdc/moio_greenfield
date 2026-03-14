@@ -373,6 +373,18 @@ def load_plugin_bundle(path: Path) -> PluginBundle:
     )
 
 
+def load_plugin_bundle_from_zip_bytes(
+    zip_bytes: bytes,
+    *,
+    cache_root: Path,
+    plugin_id_hint: str = "",
+) -> PluginBundle:
+    normalized_hint = re.sub(r"[^a-z0-9._-]+", "-", str(plugin_id_hint or "").strip().lower()).strip("-")
+    digest = hashlib.sha1(bytes(zip_bytes or b"")).hexdigest()[:12]
+    bundle_dir = cache_root / f"{normalized_hint or 'plugin'}-{digest}"
+    return extract_plugin_zip_to_dir(bytes(zip_bytes or b""), bundle_dir)
+
+
 @dataclass(slots=True)
 class PluginEnablement:
     installed: bool = True
@@ -668,7 +680,12 @@ def evaluate_plugin_readiness(
     )
 
 
-def resolve_active_plugins(config: Any) -> tuple[list[ActivePlugin], list[PluginReadinessReport]]:
+def resolve_active_plugins(
+    config: Any,
+    *,
+    installed_plugins: list[dict[str, Any]] | None = None,
+    runtime_plugin_configs: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[ActivePlugin], list[PluginReadinessReport]]:
     manifest_root = Path(getattr(config, "manifests_dir", Path("./.data/plugins")))
     additional_roots = [
         Path(item).expanduser()
@@ -679,6 +696,9 @@ def resolve_active_plugins(config: Any) -> tuple[list[ActivePlugin], list[Plugin
     platform_approved = {str(item).strip().lower() for item in getattr(config, "platform_approved", []) if str(item).strip()}
     tenant_enabled = {str(item).strip().lower() for item in getattr(config, "tenant_enabled", []) if str(item).strip()}
     user_allowed = {str(item).strip().lower() for item in getattr(config, "user_allowed", []) if str(item).strip()}
+    platform_gate_open = not platform_approved
+    tenant_gate_open = not tenant_enabled
+    user_gate_open = not user_allowed
     approved_permissions = {
         str(item).strip() for item in getattr(config, "approved_permissions", []) if str(item).strip()
     }
@@ -694,45 +714,104 @@ def resolve_active_plugins(config: Any) -> tuple[list[ActivePlugin], list[Plugin
             if not plugin_id or not isinstance(raw_config, dict):
                 continue
             plugin_configs[plugin_id] = dict(raw_config)
+    if isinstance(runtime_plugin_configs, dict):
+        for raw_plugin_id, raw_config in runtime_plugin_configs.items():
+            plugin_id = str(raw_plugin_id or "").strip().lower()
+            if not plugin_id or not isinstance(raw_config, dict):
+                continue
+            plugin_configs[plugin_id] = dict(raw_config)
+            for raw_key in raw_config.keys():
+                key = str(raw_key or "").strip()
+                if not key:
+                    continue
+                tenant_config_keys.add(key)
+                tenant_config_keys.add(f"{plugin_id}:{key}")
 
     active_plugins: list[ActivePlugin] = []
     reports: list[PluginReadinessReport] = []
     seen_plugin_ids: set[str] = set()
-    discovered: list[Path] = []
+    discovered_bundles: list[PluginBundle] = []
     seen_manifest_paths: set[Path] = set()
+
+    runtime_cache_root = Path(tempfile.mkdtemp(prefix="agent-console-plugin-runtime-"))
+
     for root in scan_roots:
         for manifest_path in discover_plugin_manifest_paths(root):
             resolved = manifest_path.resolve()
             if resolved in seen_manifest_paths:
                 continue
             seen_manifest_paths.add(resolved)
-            discovered.append(resolved)
+            try:
+                discovered_bundles.append(load_plugin_bundle(resolved))
+            except PluginBundleError as exc:
+                reports.append(
+                    PluginReadinessReport(
+                        plugin_id=exc.plugin_id,
+                        active=False,
+                        stage="bundle",
+                        reasons=[str(exc)],
+                        missing={key: list(value) for key, value in exc.missing.items()},
+                    )
+                )
+            except ValueError as exc:
+                plugin_id = resolved.stem.replace(".plugin", "").strip().lower() or resolved.name.lower()
+                reports.append(
+                    PluginReadinessReport(
+                        plugin_id=plugin_id,
+                        active=False,
+                        stage="manifest",
+                        reasons=[str(exc)],
+                    )
+                )
 
-    for manifest_path in discovered:
+    for installed in installed_plugins or []:
+        if not isinstance(installed, dict):
+            continue
+        plugin_id_hint = str(installed.get("plugin_id", "") or "").strip().lower()
+        payload = installed.get("bundle_zip")
+        if isinstance(payload, memoryview):
+            zip_bytes = payload.tobytes()
+        else:
+            zip_bytes = bytes(payload or b"")
+        if not zip_bytes:
+            reports.append(
+                PluginReadinessReport(
+                    plugin_id=plugin_id_hint or "unknown",
+                    active=False,
+                    stage="install",
+                    reasons=["plugin bundle payload is empty"],
+                )
+            )
+            continue
         try:
-            bundle = load_plugin_bundle(manifest_path)
+            discovered_bundles.append(
+                load_plugin_bundle_from_zip_bytes(
+                    zip_bytes,
+                    cache_root=runtime_cache_root,
+                    plugin_id_hint=plugin_id_hint,
+                )
+            )
         except PluginBundleError as exc:
             reports.append(
                 PluginReadinessReport(
-                    plugin_id=exc.plugin_id,
+                    plugin_id=exc.plugin_id or plugin_id_hint or "unknown",
                     active=False,
                     stage="bundle",
                     reasons=[str(exc)],
                     missing={key: list(value) for key, value in exc.missing.items()},
                 )
             )
-            continue
         except ValueError as exc:
-            plugin_id = manifest_path.stem.replace(".plugin", "").strip().lower() or manifest_path.name.lower()
             reports.append(
                 PluginReadinessReport(
-                    plugin_id=plugin_id,
+                    plugin_id=plugin_id_hint or "unknown",
                     active=False,
                     stage="manifest",
                     reasons=[str(exc)],
                 )
             )
-            continue
+
+    for bundle in discovered_bundles:
 
         manifest = bundle.manifest
         if manifest.plugin_id in seen_plugin_ids:
@@ -756,9 +835,9 @@ def resolve_active_plugins(config: Any) -> tuple[list[ActivePlugin], list[Plugin
             manifest,
             PluginEnablement(
                 installed=True,
-                platform_approved=manifest.plugin_id in platform_approved,
-                tenant_enabled=manifest.plugin_id in tenant_enabled,
-                user_allowed=manifest.plugin_id in user_allowed,
+                platform_approved=platform_gate_open or manifest.plugin_id in platform_approved,
+                tenant_enabled=tenant_gate_open or manifest.plugin_id in tenant_enabled,
+                user_allowed=user_gate_open or manifest.plugin_id in user_allowed,
             ),
             PluginRuntimeContext(
                 tenant_config_keys=tenant_config_keys,

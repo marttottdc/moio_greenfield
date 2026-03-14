@@ -652,7 +652,7 @@ export default function CRM() {
   };
 
   const isContactsOrAccounts = activeTab === "contacts" || activeTab === "accounts";
-  const hideSubmenuOnMobile = isMobile && isContactsOrAccounts;
+  const hideSubmenuOnMobile = isMobile && (isContactsOrAccounts || activeTab === "overview");
 
   const contactsTitle = activeTab === "accounts" ? t("crm.accounts") : t("crm.contacts");
   const contactsSubtitle = activeTab === "accounts" ? t("crm.accounts_description") : t("crm.contacts_description");
@@ -967,6 +967,7 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
   openContactId?: string | null;
   setOpenContactId: (id: string | null) => void;
 }) {
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const { setAction } = useAppBarAction();
   const [page, setPage] = useState(1);
@@ -1034,6 +1035,25 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
   const handleEditFromDetails = (contact: ContactDetailsContact) => {
     setOpenContactId(null);
     openEdit(contact as CRMContact);
+  };
+
+  const handleDeleteFromEditor = async (contactId: string) => {
+    try {
+      await apiRequest("DELETE", apiV1(`/crm/contacts/${contactId}/`));
+      toast({ title: "Contact deleted", description: "The contact was deleted successfully." });
+      setIsEditorOpen(false);
+      setEditorContact(null);
+      setOpenContactId(null);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts")] });
+      queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
+    } catch (error: any) {
+      toast({
+        title: "Failed to delete contact",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const accountsForFilter = useQuery<AccountsResponse>({
@@ -1217,10 +1237,6 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
         onOpenChange={(open) => !open && setOpenContactId(null)}
         contactId={openContactId ?? null}
         onEdit={handleEditFromDetails}
-        onDeleted={() => {
-          setOpenContactId(null);
-          queryClient.invalidateQueries({ queryKey: [apiV1("/crm/contacts/")] });
-        }}
       />
       <ContactEditorModal
         open={isEditorOpen}
@@ -1228,6 +1244,7 @@ function ContactsTab({ searchQuery, openContactId, setOpenContactId }: {
         contact={editorContact}
         onClose={() => setIsEditorOpen(false)}
         onSaved={() => handleAddSuccess()}
+        onDelete={handleDeleteFromEditor}
       />
     </div>
   );

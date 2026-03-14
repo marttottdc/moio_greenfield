@@ -10,7 +10,7 @@ from crm.lib.woocommerce_api import WooCommerceAPI
 
 from crm.models import Stock, ProductVariant, Product, Tag, EcommerceOrder, ActivityRecord, KnowledgeItem, VisibilityChoices
 from crm.core.tickets import create_ticket
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 # from crm.lib.crm_search import search_by_tag, search_text, search_by_product
 from moio_platform.lib.tools import function_to_spec
 
@@ -137,7 +137,7 @@ def comfort_message_handler(sender, message, tenant_id, phone, **kwargs):
 
 class MoioAssistantTools:
 
-    def __init__(self, session: ChatbotSession):
+    def __init__(self, session: AgentSession):
         self.assistant_id = session.assistant_id
         self.tenant_id = session.tenant_id
         self.contact = session.contact

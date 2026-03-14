@@ -6,7 +6,7 @@ from agents import Runner
 from agents import set_default_openai_key
 
 from chatbot.agents.moio_agents_loader import build_agents_for_tenant
-from chatbot.models.chatbot_session import ChatbotSession
+from chatbot.models.agent_session import AgentSession
 from central_hub.tenant_config import get_tenant_config
 import logging
 
@@ -351,7 +351,7 @@ whatsapp_formatting_instructions = """You are a Formatter service that will prov
                     """,
 
 
-def agent_processor(user_input: str, session: ChatbotSession):
+def agent_processor(user_input: str, session: AgentSession):
 
     config = get_tenant_config(session.tenant)
     set_default_openai_key(config.openai_api_key)
@@ -364,7 +364,7 @@ def agent_processor(user_input: str, session: ChatbotSession):
     thread.append(user_utterance)
 
     context = {                                                 # Opcion para pasar Contexto al Agente
-        "session": session.session,
+        "session": str(session.pk),
         "tenant": session.tenant,
         "contact": {
             "name": session.contact.whatsapp_name,
