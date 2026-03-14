@@ -17,7 +17,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from central_hub.api.platform_bootstrap import build_bootstrap_payload, _is_platform_admin_user
 from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from central_hub.authentication import TenantJWTAAuthentication
-from central_hub.models import Plan, PlatformConfiguration, PlatformNotificationSettings
+from central_hub.models import Capability, Plan, PlatformConfiguration, PlatformNotificationSettings, Role
 from agent_console.models import AgentConsoleInstalledPlugin
 from agent_console.services.runtime_service import invalidate_runtime_backend_cache
 from agent_console.services.plugin_installation_service import parse_plugin_bundle_zip
@@ -247,6 +247,102 @@ class PlatformPlansDeleteView(PlatformAdminMixin, APIView):
         except Plan.DoesNotExist:
             return Response(
                 {"ok": False, "error": {"message": "Plan not found.", "code": "not_found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        payload = build_bootstrap_payload(request.user)
+        return Response({"ok": True, "payload": payload})
+
+
+# ---------------------------------------------------------------------------
+# Roles (combinations of capabilities; slug = Django Group name for assignment)
+# ---------------------------------------------------------------------------
+
+
+class PlatformRolesSaveView(PlatformAdminMixin, APIView):
+    """POST /api/platform/roles/ — create or update role."""
+
+    def post(self, request):
+        err = self._check_platform_admin(request)
+        if err is not None:
+            return err
+        data = request.data or {}
+        role_id = data.get("id")
+        name = (data.get("name") or "").strip()
+        slug = (data.get("slug") or "").strip().lower().replace(" ", "_")
+        display_order = data.get("displayOrder")
+        capability_keys = data.get("capabilityKeys")
+        if isinstance(capability_keys, list):
+            capability_keys = [str(k).strip() for k in capability_keys if k]
+        else:
+            capability_keys = []
+
+        if not name:
+            return Response(
+                {"ok": False, "error": {"message": "name is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not slug:
+            return Response(
+                {"ok": False, "error": {"message": "slug is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not slug.replace("_", "").isalnum():
+            return Response(
+                {"ok": False, "error": {"message": "slug must be alphanumeric (and underscores)", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if role_id:
+                role = Role.objects.get(pk=role_id)
+                role.name = name
+                role.slug = slug
+                if display_order is not None:
+                    role.display_order = display_order
+                role.save()
+            else:
+                role, _ = Role.objects.update_or_create(
+                    slug=slug,
+                    defaults={
+                        "name": name,
+                        "display_order": display_order if display_order is not None else 0,
+                    },
+                )
+            caps = list(Capability.objects.filter(key__in=capability_keys))
+            role.capabilities.set(caps)
+        except Role.DoesNotExist:
+            return Response(
+                {"ok": False, "error": {"message": "Role not found.", "code": "not_found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        payload = build_bootstrap_payload(request.user)
+        return Response({"ok": True, "payload": payload})
+
+
+class PlatformRolesDeleteView(PlatformAdminMixin, APIView):
+    """POST /api/platform/roles/delete/ — delete role by id or slug."""
+
+    def post(self, request):
+        err = self._check_platform_admin(request)
+        if err is not None:
+            return err
+        data = request.data or {}
+        role_id = data.get("id")
+        slug = (data.get("slug") or "").strip().lower()
+        if not role_id and not slug:
+            return Response(
+                {"ok": False, "error": {"message": "id or slug is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            if slug:
+                role = Role.objects.get(slug=slug)
+            else:
+                role = Role.objects.get(pk=role_id)
+            role.delete()
+        except Role.DoesNotExist:
+            return Response(
+                {"ok": False, "error": {"message": "Role not found.", "code": "not_found"}},
                 status=status.HTTP_404_NOT_FOUND,
             )
         payload = build_bootstrap_payload(request.user)

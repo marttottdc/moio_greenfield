@@ -18,6 +18,8 @@ import logging
 from typing import Any, Dict, Optional, List
 from celery import shared_task
 
+from moio_platform.settings import FLOWS_Q
+
 from .base import (
     ExecutorResult,
     ExecutorContext,
@@ -30,7 +32,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="executors.store_flow_result")
+@shared_task(bind=True, name="executors.store_flow_result", queue=FLOWS_Q)
 def store_flow_result_task(
     self,
     tenant_id: str,
@@ -109,7 +111,7 @@ def store_flow_result_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.flow_completion_notify")
+@shared_task(bind=True, name="executors.flow_completion_notify", queue=FLOWS_Q)
 def flow_completion_notify_task(
     self,
     tenant_id: str,
@@ -176,7 +178,7 @@ def flow_completion_notify_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.webhook_response")
+@shared_task(bind=True, name="executors.webhook_response", queue=FLOWS_Q)
 def webhook_response_task(
     self,
     response_data: Dict[str, Any],
@@ -213,7 +215,7 @@ def webhook_response_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.log_flow_completion")
+@shared_task(bind=True, name="executors.log_flow_completion", queue=FLOWS_Q)
 def log_flow_completion_task(
     self,
     tenant_id: str,

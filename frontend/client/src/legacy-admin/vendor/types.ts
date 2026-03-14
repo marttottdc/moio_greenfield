@@ -214,6 +214,21 @@ export type Plan = {
   entitlementPolicy?: Record<string, unknown>;
 };
 
+export type Capability = {
+  id: string;
+  key: string;
+  label: string;
+  description?: string;
+};
+
+export type Role = {
+  id: string;
+  name: string;
+  slug: string;
+  displayOrder: number;
+  capabilityKeys: string[];
+};
+
 export type BootstrapPayload = {
   tenantsEnabled: boolean;
   publicSchema: string;
@@ -221,6 +236,8 @@ export type BootstrapPayload = {
   currentUser: CurrentUser | null;
   tenants: Tenant[];
   plans?: Plan[];
+  capabilities?: Capability[];
+  roles?: Role[];
   users: PlatformUser[];
   integrations: IntegrationDefinition[];
   /** Integrations Hub contract catalog (from central_hub registry); use for hub/control plane UX */

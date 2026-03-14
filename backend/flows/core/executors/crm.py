@@ -14,6 +14,8 @@ import logging
 from typing import Any, Dict, List, Optional
 from celery import shared_task
 
+from moio_platform.settings import FLOWS_Q
+
 from .base import (
     ExecutorResult,
     ExecutorContext,
@@ -26,7 +28,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="executors.create_contact")
+@shared_task(bind=True, name="executors.create_contact", queue=FLOWS_Q)
 def create_contact_task(
     self,
     tenant_id: str,
@@ -124,7 +126,7 @@ def create_contact_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.upsert_contact")
+@shared_task(bind=True, name="executors.upsert_contact", queue=FLOWS_Q)
 def upsert_contact_task(
     self,
     tenant_id: str,
@@ -191,7 +193,7 @@ def upsert_contact_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.create_ticket")
+@shared_task(bind=True, name="executors.create_ticket", queue=FLOWS_Q)
 def create_ticket_task(
     self,
     tenant_id: str,
@@ -303,7 +305,7 @@ def create_ticket_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.update_candidate_status")
+@shared_task(bind=True, name="executors.update_candidate_status", queue=FLOWS_Q)
 def update_candidate_status_task(
     self,
     tenant_id: str,
@@ -378,7 +380,7 @@ def update_candidate_status_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.search_contacts")
+@shared_task(bind=True, name="executors.search_contacts", queue=FLOWS_Q)
 def search_contacts_task(
     self,
     tenant_id: str,

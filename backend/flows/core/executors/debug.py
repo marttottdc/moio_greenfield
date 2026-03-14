@@ -15,6 +15,8 @@ import logging
 from typing import Any, Dict, Optional
 from celery import shared_task
 
+from moio_platform.settings import FLOWS_Q
+
 from .base import (
     ExecutorResult,
     ExecutorContext,
@@ -25,7 +27,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="executors.debug_log")
+@shared_task(bind=True, name="executors.debug_log", queue=FLOWS_Q)
 def debug_log_task(
     self,
     message: str,
@@ -97,7 +99,7 @@ def debug_log_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.passthrough")
+@shared_task(bind=True, name="executors.passthrough", queue=FLOWS_Q)
 def passthrough_task(
     self,
     payload: Any = None,
@@ -141,7 +143,7 @@ def passthrough_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.noop")
+@shared_task(bind=True, name="executors.noop", queue=FLOWS_Q)
 def noop_task(self) -> Dict[str, Any]:
     """
     No-operation task that does nothing and returns success.

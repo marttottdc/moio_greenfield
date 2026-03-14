@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from celery import shared_task
+from django.conf import settings
 
 from moio_platform.core.events import emit_event
 from central_hub.integrations.v1.models import CalendarAccount
@@ -19,7 +20,7 @@ def _select_fetcher(provider: str):
     raise ValueError(f"Unsupported provider for calendar: {provider}")
 
 
-@shared_task(bind=True, name="integrations.calendar_ingest")
+@shared_task(bind=True, name="integrations.calendar_ingest", queue=settings.LOW_PRIORITY_Q)
 def calendar_ingest(self, calendar_account_id: str):
     account = CalendarAccount.objects.select_related("external_account", "tenant").get(id=calendar_account_id)
     external = account.external_account

@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover - fallback when optional dependency is m
     class JSONEditorWidget(_widgets.Textarea):
         pass
 
-from central_hub.models import Plan, PlatformConfiguration, PlatformNotificationSettings, ProvisioningJob, Tenant
+from central_hub.models import Capability, Plan, PlatformConfiguration, PlatformNotificationSettings, ProvisioningJob, Role, Tenant
 from central_hub.integrations.models import IntegrationConfig
 from central_hub.integrations.v1.models import ExternalAccount, EmailAccount, CalendarAccount
 
@@ -75,6 +75,18 @@ class PlanAdmin(admin.ModelAdmin):
     ordering = ("display_order", "key")
 
 
+class CapabilityAdmin(admin.ModelAdmin):
+    list_display = ("key", "label")
+    search_fields = ("key", "label")
+
+
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "display_order")
+    list_editable = ("display_order",)
+    filter_horizontal = ("capabilities",)
+    prepopulated_fields = {"slug": ("name",)}
+
+
 class ProvisioningJobAdmin(admin.ModelAdmin):
     list_display = ("id", "status", "current_stage", "requested_name", "requested_email", "tenant", "user", "created_at")
     list_filter = ("status", "current_stage", "requested_locale", "created_at")
@@ -83,6 +95,8 @@ class ProvisioningJobAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Plan, PlanAdmin)
+admin.site.register(Capability, CapabilityAdmin)
+admin.site.register(Role, RoleAdmin)
 admin.site.register(ProvisioningJob, ProvisioningJobAdmin)
 admin.site.register(PlatformConfiguration)
 admin.site.register(PlatformNotificationSettings)

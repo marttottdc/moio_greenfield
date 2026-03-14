@@ -19,6 +19,8 @@ from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 from celery import shared_task
 
+from moio_platform.settings import FLOWS_Q
+
 from .base import (
     ExecutorResult,
     ExecutorContext,
@@ -30,7 +32,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="executors.process_webhook_trigger")
+@shared_task(bind=True, name="executors.process_webhook_trigger", queue=FLOWS_Q)
 def process_webhook_trigger_task(
     self,
     tenant_id: str,
@@ -85,7 +87,7 @@ def process_webhook_trigger_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.process_schedule_trigger")
+@shared_task(bind=True, name="executors.process_schedule_trigger", queue=FLOWS_Q)
 def process_schedule_trigger_task(
     self,
     tenant_id: str,
@@ -127,7 +129,7 @@ def process_schedule_trigger_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.process_event_trigger")
+@shared_task(bind=True, name="executors.process_event_trigger", queue=FLOWS_Q)
 def process_event_trigger_task(
     self,
     tenant_id: str,
@@ -175,7 +177,7 @@ def process_event_trigger_task(
     return ctx.result.to_dict()
 
 
-@shared_task(bind=True, name="executors.process_manual_trigger")
+@shared_task(bind=True, name="executors.process_manual_trigger", queue=FLOWS_Q)
 def process_manual_trigger_task(
     self,
     tenant_id: str,

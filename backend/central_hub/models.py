@@ -99,6 +99,55 @@ class Plan(models.Model):
         return f"{self.key}: {self.name}"
 
 
+class Capability(models.Model):
+    """
+    Granular permission (e.g. crm_contacts_read, users_manage).
+    Roles are combinations of these; used for eff.can() after intersecting with tenant plan.
+    """
+    key = models.CharField(max_length=80, unique=True, db_index=True)
+    label = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "platform_capability"
+        verbose_name = "Capability"
+        verbose_name_plural = "Capabilities"
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.label or self.key
+
+
+class Role(models.Model):
+    """
+    Role = combination of capabilities. Stored in DB for Platform Admin editing.
+    slug is used as Django Group name so tenant admins assign users to a group (one role per user).
+    """
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=80, unique=True, db_index=True)
+    display_order = models.IntegerField(default=0)
+    capabilities = models.ManyToManyField(
+        Capability,
+        related_name="roles",
+        blank=True,
+        help_text="Capabilities granted by this role (intersected with tenant plan).",
+    )
+
+    class Meta:
+        db_table = "platform_role"
+        verbose_name = "Role"
+        verbose_name_plural = "Roles"
+        ordering = ["display_order", "slug"]
+
+    def __str__(self):
+        return self.name or self.slug
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from django.contrib.auth.models import Group
+        Group.objects.get_or_create(name=self.slug)
+
+
 class ProvisioningJob(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     status = models.CharField(max_length=20, choices=PROVISIONING_STATUS_CHOICES, default="pending")

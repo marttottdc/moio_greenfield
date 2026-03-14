@@ -14,7 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from central_hub.authentication import TenantJWTAAuthentication
-from central_hub.models import Plan, PlatformConfiguration, PlatformNotificationSettings
+from central_hub.models import Capability, Plan, PlatformConfiguration, PlatformNotificationSettings, Role
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantIntegration
 from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
@@ -116,6 +116,25 @@ def _plan_payload(p: Plan) -> dict:
         "isSelfProvisionDefault": bool(getattr(p, "is_self_provision_default", False)),
         "pricingPolicy": getattr(p, "pricing_policy", None) or {},
         "entitlementPolicy": getattr(p, "entitlement_policy", None) or {},
+    }
+
+
+def _capability_payload(c: Capability) -> dict:
+    return {
+        "id": str(c.pk),
+        "key": getattr(c, "key", "") or "",
+        "label": getattr(c, "label", "") or "",
+        "description": getattr(c, "description", "") or "",
+    }
+
+
+def _role_payload(r: Role) -> dict:
+    return {
+        "id": str(r.pk),
+        "name": getattr(r, "name", "") or "",
+        "slug": getattr(r, "slug", "") or "",
+        "displayOrder": getattr(r, "display_order", 0),
+        "capabilityKeys": [cap.key for cap in r.capabilities.all()],
     }
 
 
@@ -265,6 +284,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
     plugin_state = {"sync": {"syncedCount": 0, "invalid": []}, "plugins": [], "tenantPlugins": [], "tenantPluginAssignments": []}
 
     plans_list = []
+    capabilities_list = []
+    roles_list = []
     if tenants_enabled():
         with tenant_rls_context(public_schema_name()):
             tenants_list = [_tenant_payload(t) for t in Tenant.objects.all().order_by("schema_name")]
@@ -277,6 +298,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
             notif = get_platform_notification_settings()
             plugin_state = platform_plugin_admin_state()
             plans_list = [_plan_payload(p) for p in Plan.objects.filter(is_active=True).order_by("display_order", "key")]
+            capabilities_list = [_capability_payload(c) for c in Capability.objects.all().order_by("key")]
+            roles_list = [_role_payload(r) for r in Role.objects.all().prefetch_related("capabilities").order_by("display_order", "slug")]
     else:
         tenants_list = [_tenant_payload(t) for t in Tenant.objects.all().order_by("schema_name")]
         for u in UserModel.objects.all().select_related("tenant").order_by("id"):
@@ -288,6 +311,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
         notif = get_platform_notification_settings()
         plugin_state = platform_plugin_admin_state()
         plans_list = [_plan_payload(p) for p in Plan.objects.filter(is_active=True).order_by("display_order", "key")]
+        capabilities_list = [_capability_payload(c) for c in Capability.objects.all().order_by("key")]
+        roles_list = [_role_payload(r) for r in Role.objects.all().prefetch_related("capabilities").order_by("display_order", "slug")]
     notification_settings = _notification_settings_payload(notif)
 
     # Integrations Hub contract: catalog from central_hub registry (single source for hub UX)
@@ -299,6 +324,8 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
         "currentUser": current_user,
         "tenants": tenants_list,
         "plans": plans_list,
+        "capabilities": capabilities_list,
+        "roles": roles_list,
         "users": users_list,
         "integrations": integrations_list,
         "hubIntegrations": hub_integrations_list,

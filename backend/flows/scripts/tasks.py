@@ -11,6 +11,7 @@ from typing import Any, Dict
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from moio_platform.settings import FLOWS_Q
 from django.utils import timezone
 
 from ..models import FlowScriptLog, FlowScriptRun
@@ -173,7 +174,7 @@ def _execute_in_subprocess(run: FlowScriptRun) -> Dict[str, Any]:
     }
 
 
-@shared_task(name="flows.scripts.execute_script_run")
+@shared_task(name="flows.scripts.execute_script_run", queue=FLOWS_Q)
 def execute_script_run(run_id: str) -> None:
     """Execute a ``FlowScriptRun`` asynchronously."""
 

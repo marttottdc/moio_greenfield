@@ -49,6 +49,18 @@ def _resolve_user_role(user) -> str:
     return best_role
 
 
+def _role_capabilities_from_db(role_slug: str) -> Set[str] | None:
+    """Return capability keys for this role from Role model, or None if not found (use fallback)."""
+    try:
+        from central_hub.models import Role
+        role = Role.objects.filter(slug=role_slug).first()
+        if role is None:
+            return None
+        return {c.key for c in role.capabilities.all() if c.key}
+    except Exception:
+        return None
+
+
 def _tenant_allowed_capabilities(features: Dict[str, Any]) -> Set[str]:
     if not features:
         return set()
@@ -98,7 +110,11 @@ def get_effective_capabilities(user, tenant_entitlements) -> EffectiveCapabiliti
 
     if _is_legacy_tenant(tenant_entitlements):
         role = _resolve_user_role(user)
-        role_caps = ROLE_CAPABILITIES.get(role, ROLE_CAPABILITIES["member"]).copy()
+        role_caps_from_db = _role_capabilities_from_db(role)
+        if role_caps_from_db is not None:
+            role_caps = role_caps_from_db & CAPABILITY_KEYS
+        else:
+            role_caps = ROLE_CAPABILITIES.get(role, ROLE_CAPABILITIES["member"]).copy()
         full_features = {k: (k in role_caps) for k in CAPABILITY_KEYS}
         for ui_key in ("crm", "campaigns", "flows"):
             full_features[ui_key] = True
@@ -111,7 +127,11 @@ def get_effective_capabilities(user, tenant_entitlements) -> EffectiveCapabiliti
 
     tenant_allowed = _tenant_allowed_capabilities(features)
     role = _resolve_user_role(user)
-    role_caps = ROLE_CAPABILITIES.get(role, ROLE_CAPABILITIES["member"]).copy()
+    role_caps_from_db = _role_capabilities_from_db(role)
+    if role_caps_from_db is not None:
+        role_caps = role_caps_from_db & CAPABILITY_KEYS
+    else:
+        role_caps = ROLE_CAPABILITIES.get(role, ROLE_CAPABILITIES["member"]).copy()
     allowed = role_caps & tenant_allowed
     effective_features = {k: k in allowed for k in tenant_allowed}
     for k, v in features.items():

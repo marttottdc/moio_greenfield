@@ -14,12 +14,13 @@ from typing import Any
 
 from asgiref.sync import async_to_sync
 from celery import shared_task
+from django.conf import settings
 from tenancy.tenant_support import public_schema_name, public_schema_context
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name="agent_console.tasks.run_agent_console_automation", bind=True)
+@shared_task(name="agent_console.tasks.run_agent_console_automation", bind=True, queue=settings.MEDIUM_PRIORITY_Q)
 def run_agent_console_automation(
     self,
     tenant_schema: str,

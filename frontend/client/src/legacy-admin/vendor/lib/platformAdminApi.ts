@@ -196,6 +196,20 @@ export function deletePlan(input: { id?: string; key?: string }) {
   return request<BootstrapPayload>("/plans/delete", { method: "POST", bodyJson: input });
 }
 
+export function saveRole(input: {
+  id?: string;
+  name: string;
+  slug: string;
+  displayOrder?: number;
+  capabilityKeys: string[];
+}) {
+  return request<BootstrapPayload>("/roles", { method: "POST", bodyJson: input });
+}
+
+export function deleteRole(input: { id?: string; slug?: string }) {
+  return request<BootstrapPayload>("/roles/delete", { method: "POST", bodyJson: input });
+}
+
 export function saveUser(input: {
   id?: number | null;
   email: string;

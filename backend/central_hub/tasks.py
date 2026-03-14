@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 from celery import shared_task
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
@@ -35,7 +36,7 @@ def _enqueue_next(task_callable, *args) -> None:
     task_callable.delay(*args)
 
 
-@shared_task(bind=True, name="central_hub.tasks.create_tenant_for_provisioning")
+@shared_task(bind=True, name="central_hub.tasks.create_tenant_for_provisioning", queue=settings.MEDIUM_PRIORITY_Q)
 def create_tenant_for_provisioning(
     self,
     job_id: str,
@@ -91,7 +92,7 @@ def create_tenant_for_provisioning(
         raise
 
 
-@shared_task(bind=True, name="central_hub.tasks.seed_tenant_for_provisioning")
+@shared_task(bind=True, name="central_hub.tasks.seed_tenant_for_provisioning", queue=settings.MEDIUM_PRIORITY_Q)
 def seed_tenant_for_provisioning(
     self,
     job_id: str,
@@ -138,7 +139,7 @@ def seed_tenant_for_provisioning(
         raise
 
 
-@shared_task(bind=True, name="central_hub.tasks.create_primary_user_for_provisioning")
+@shared_task(bind=True, name="central_hub.tasks.create_primary_user_for_provisioning", queue=settings.MEDIUM_PRIORITY_Q)
 def create_primary_user_for_provisioning(
     self,
     job_id: str,

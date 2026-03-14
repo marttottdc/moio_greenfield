@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from celery import shared_task
+from django.conf import settings
 
 from moio_platform.core.events import emit_event
 from central_hub.integrations.v1.models import EmailAccount
@@ -21,7 +22,7 @@ def _select_fetcher(provider: str):
     raise ValueError(f"Unsupported provider: {provider}")
 
 
-@shared_task(bind=True, name="integrations.email_ingest")
+@shared_task(bind=True, name="integrations.email_ingest", queue=settings.LOW_PRIORITY_Q)
 def email_ingest(self, email_account_id: str):
     account = EmailAccount.objects.select_related("external_account", "tenant").get(id=email_account_id)
     external = account.external_account

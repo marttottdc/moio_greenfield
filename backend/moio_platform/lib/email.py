@@ -65,7 +65,7 @@ def process_emails(emails):
         print("-" * 50)
 
 
-@shared_task
+@shared_task(queue=settings.LOW_PRIORITY_Q)
 def fetch_and_process_emails():
     server = "imap.titan.email"
     email = "crm@andressa.com.uy"

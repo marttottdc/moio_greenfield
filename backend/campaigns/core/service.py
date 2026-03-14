@@ -102,7 +102,7 @@ def ensure_static(audience: Audience):
         raise ValidationError("Manual membership edits are only allowed for STATIC audiences.")
 
 
-@shared_task
+@shared_task(queue=settings.LOW_PRIORITY_Q)
 def rebuild_dynamic_audience(audience_id):
     """Celery task to rebuild a dynamic audience"""
     aud = Audience.objects.get(pk=audience_id, kind=AudienceKind.DYNAMIC)

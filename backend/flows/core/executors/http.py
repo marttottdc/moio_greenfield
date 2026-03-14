@@ -14,6 +14,8 @@ import logging
 from typing import Any, Dict, Optional
 from celery import shared_task
 
+from moio_platform.settings import FLOWS_Q
+
 from .base import (
     ExecutorResult,
     ExecutorContext,
@@ -24,7 +26,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="executors.http_request")
+@shared_task(bind=True, name="executors.http_request", queue=FLOWS_Q)
 def http_request_task(
     self,
     url: str,

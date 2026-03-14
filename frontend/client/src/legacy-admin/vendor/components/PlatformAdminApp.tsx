@@ -7,6 +7,7 @@ import {
   deleteGlobalSkill,
   deleteIntegration,
   deletePlan,
+  deleteRole,
   deleteTenant,
   deleteUser,
   logout,
@@ -19,6 +20,7 @@ import {
   saveNotificationSettings,
   savePlan,
   savePlatformConfiguration,
+  saveRole,
   saveTenant,
   saveTenantIntegration,
   saveUser,
@@ -27,6 +29,7 @@ import {
 import { showBrowserNotification } from "../lib/pwa";
 import type {
   BootstrapPayload,
+  Capability as CapabilityType,
   CurrentUser,
   FlashTone,
   IntegrationDefinition,
@@ -37,6 +40,7 @@ import type {
   PluginAdminState,
   PluginRegistryEntry,
   PluginSyncState,
+  Role as RoleType,
   SkillDefinition,
   Tenant,
   TenantIntegration,
@@ -194,6 +198,14 @@ type PlanFormState = {
   entitlementModuleEnablements: ModuleEnablements;
 };
 
+type RoleFormState = {
+  id: string | null;
+  name: string;
+  slug: string;
+  displayOrder: number;
+  capabilityKeys: string[];
+};
+
 type UserFormState = {
   id: number | null;
   email: string;
@@ -235,6 +247,7 @@ type NavSection =
   | "overview"
   | "tenants"
   | "plans"
+  | "roles"
   | "users"
   | "integrations"
   | "plugins"
@@ -277,6 +290,15 @@ const NAV_ITEMS: Array<{ key: NavSection; label: string; icon: React.ReactNode }
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
         <path d="M3 9h18M9 21V9M3 21l6-12 6 12 6-12" />
+      </svg>
+    ),
+  },
+  {
+    key: "roles",
+    label: "Roles",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 4.35l6 3.08v5.14l-6 3.08-6-3.08V7.43l6-3.08zM4 17.65v-5.14l6 3.08 6-3.08v5.14l-6 3.08-6-3.08z" />
       </svg>
     ),
   },
@@ -375,6 +397,14 @@ const DEFAULT_PLAN_FORM: PlanFormState = {
   entitlementModuleEnablements: { ...DEFAULT_MODULE_ENABLEMENTS },
 };
 
+const DEFAULT_ROLE_FORM: RoleFormState = {
+  id: null,
+  name: "",
+  slug: "",
+  displayOrder: 0,
+  capabilityKeys: [],
+};
+
 const DEFAULT_USER_FORM: UserFormState = {
   id: null,
   email: "",
@@ -452,6 +482,8 @@ export default function PlatformAdminApp() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [plans, setPlans] = useState<PlanType[]>([]);
+  const [capabilities, setCapabilities] = useState<CapabilityType[]>([]);
+  const [roles, setRoles] = useState<RoleType[]>([]);
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationDefinition[]>([]);
   const [globalSkills, setGlobalSkills] = useState<SkillDefinition[]>([]);
@@ -468,6 +500,7 @@ export default function PlatformAdminApp() {
 
   const [tenantForm, setTenantForm] = useState<TenantFormState>(DEFAULT_TENANT_FORM);
   const [planForm, setPlanForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
+  const [roleForm, setRoleForm] = useState<RoleFormState>(DEFAULT_ROLE_FORM);
   const [userForm, setUserForm] = useState<UserFormState>(DEFAULT_USER_FORM);
   const [integrationForm, setIntegrationForm] = useState<IntegrationFormState>(DEFAULT_INTEGRATION_FORM);
   const [skillForm, setSkillForm] = useState<SkillFormState>(DEFAULT_SKILL_FORM);
@@ -476,6 +509,7 @@ export default function PlatformAdminApp() {
 
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [integrationModalOpen, setIntegrationModalOpen] = useState(false);
   const [skillModalOpen, setSkillModalOpen] = useState(false);
@@ -538,6 +572,8 @@ export default function PlatformAdminApp() {
     setCurrentUser(payload.currentUser ?? null);
     setTenants(Array.isArray(payload.tenants) ? payload.tenants : []);
     setPlans(Array.isArray(payload.plans) ? payload.plans : []);
+    setCapabilities(Array.isArray(payload.capabilities) ? payload.capabilities : []);
+    setRoles(Array.isArray(payload.roles) ? payload.roles : []);
     setUsers(Array.isArray(payload.users) ? payload.users : []);
     setIntegrations(Array.isArray(payload.integrations) ? payload.integrations : []);
     setGlobalSkills(Array.isArray(payload.globalSkills) ? payload.globalSkills : []);
@@ -763,6 +799,64 @@ export default function PlatformAdminApp() {
       setPlanForm(DEFAULT_PLAN_FORM);
       setPlanModalOpen(false);
       setFlash("Plan deleted.", "ok");
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  function newRoleForm() {
+    setRoleForm(DEFAULT_ROLE_FORM);
+    setRoleModalOpen(true);
+  }
+
+  function editRoleForm(row: RoleType) {
+    setRoleForm({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      displayOrder: row.displayOrder ?? 0,
+      capabilityKeys: Array.isArray(row.capabilityKeys) ? [...row.capabilityKeys] : [],
+    });
+    setRoleModalOpen(true);
+  }
+
+  async function onSubmitRole(event: FormEvent) {
+    event.preventDefault();
+    const slug = (roleForm.slug || roleForm.name).trim().toLowerCase().replace(/\s+/g, "_");
+    if (!slug) {
+      setFlash("Slug or name is required.", "error");
+      return;
+    }
+    try {
+      await saveRole({
+        id: roleForm.id ?? undefined,
+        name: roleForm.name.trim() || slug,
+        slug,
+        displayOrder: roleForm.displayOrder,
+        capabilityKeys: roleForm.capabilityKeys,
+      });
+      const payload = await bootstrap();
+      applyPayload(payload);
+      setRoleModalOpen(false);
+      setFlash("Role saved.", "ok");
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : String(error), "error");
+    }
+  }
+
+  async function onDeleteRole() {
+    if (!roleForm.id && !roleForm.slug) {
+      setFlash("Select a role first.", "error");
+      return;
+    }
+    if (!window.confirm(`Delete role "${roleForm.name || roleForm.slug}"? Users with this role will keep the group but capabilities will fall back to defaults.`)) return;
+    try {
+      await deleteRole({ id: roleForm.id ?? undefined, slug: roleForm.slug || undefined });
+      const payload = await bootstrap();
+      applyPayload(payload);
+      setRoleForm(DEFAULT_ROLE_FORM);
+      setRoleModalOpen(false);
+      setFlash("Role deleted.", "ok");
     } catch (error) {
       setFlash(error instanceof Error ? error.message : String(error), "error");
     }
@@ -1256,7 +1350,7 @@ export default function PlatformAdminApp() {
                 {activeSection !== "overview" ? (
                 <div
                   className={
-                    activeSection === "tenants" || activeSection === "plans" || activeSection === "users"
+                    activeSection === "tenants" || activeSection === "plans" || activeSection === "roles" || activeSection === "users"
                       ? "flex min-h-0 flex-1 flex-col gap-3"
                       : "space-y-3"
                   }
@@ -1363,6 +1457,53 @@ export default function PlatformAdminApp() {
                                   <td className="px-2 py-1.5">
                                     <button
                                       onClick={() => editPlanForm(row)}
+                                      className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                      type="button"
+                                    >
+                                      Edit
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </TableWrap>
+                    </SectionCard>
+                  ) : null}
+
+                  {sectionVisible("roles") ? (
+                    <SectionCard fillHeight title="Roles" subtitle="Combinations of capabilities. Tenant admins assign one role per user (via group)." actionLabel="New Role" onAction={newRoleForm}>
+                      <TableWrap>
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">Slug</th>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Order</th>
+                              <th className="px-2 py-1.5">Capabilities</th>
+                              <th className="w-14 px-2 py-1.5" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {roles.length === 0 ? (
+                              <tr>
+                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                  No roles yet. Run seed_roles_and_capabilities or create roles.
+                                </td>
+                              </tr>
+                            ) : (
+                              roles.map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50/80">
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.slug}</td>
+                                  <td className="px-2 py-1.5 font-medium text-slate-900">{row.name}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.displayOrder ?? 0}</td>
+                                  <td className="px-2 py-1.5 text-slate-500 max-w-[200px] truncate" title={(row.capabilityKeys || []).join(", ")}>
+                                    {(row.capabilityKeys || []).length} caps
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <button
+                                      onClick={() => editRoleForm(row)}
                                       className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                                       type="button"
                                     >
@@ -2632,6 +2773,81 @@ export default function PlatformAdminApp() {
               </button>
             ) : null}
             <button type="button" onClick={() => setPlanModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={roleModalOpen} onClose={() => setRoleModalOpen(false)} title={roleForm.id ? "Edit role" : "New role"} size="lg">
+        <form onSubmit={onSubmitRole} className="flex flex-col min-h-0">
+          <div className="p-4 space-y-4 overflow-y-auto min-h-0">
+            <Field label="Name" hint="Display name for this role (e.g. Manager, Viewer).">
+              <input
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                value={roleForm.name}
+                onChange={(e) => setRoleForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Manager"
+              />
+            </Field>
+            <Field label="Slug" hint="Unique key used as Django Group name. Tenant admins assign users to this group.">
+              <input
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                value={roleForm.slug}
+                onChange={(e) => setRoleForm((p) => ({ ...p, slug: e.target.value.trim().toLowerCase().replace(/\s+/g, "_") }))}
+                placeholder="e.g. manager"
+                readOnly={!!roleForm.id}
+              />
+            </Field>
+            <Field label="Display order" hint="Order in lists (lower = first).">
+              <input
+                type="number"
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm w-24"
+                value={roleForm.displayOrder}
+                onChange={(e) => setRoleForm((p) => ({ ...p, displayOrder: parseInt(e.target.value, 10) || 0 }))}
+              />
+            </Field>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-slate-700">Capabilities</div>
+              <div className="rounded border border-slate-200 bg-slate-50 p-2 max-h-[40vh] overflow-y-auto flex flex-col gap-1 text-xs text-slate-700">
+                {capabilities.length === 0 ? (
+                  <p className="text-slate-500">No capabilities. Run seed_roles_and_capabilities.</p>
+                ) : (
+                  capabilities.map((cap) => (
+                    <label key={cap.key} className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={roleForm.capabilityKeys.includes(cap.key)}
+                        onChange={(e) =>
+                          setRoleForm((p) => ({
+                            ...p,
+                            capabilityKeys: e.target.checked
+                              ? [...p.capabilityKeys, cap.key]
+                              : p.capabilityKeys.filter((k) => k !== cap.key),
+                          }))
+                        }
+                      />
+                      <span className="font-mono truncate" title={cap.description || cap.label}>{cap.label || cap.key}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 flex flex-wrap gap-2 border-t border-slate-200 p-4 bg-slate-50">
+            <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
+              Save Role
+            </button>
+            {roleForm.id ? (
+              <button
+                type="button"
+                className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                onClick={() => void onDeleteRole()}
+              >
+                Delete
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setRoleModalOpen(false)} className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
               Cancel
             </button>
           </div>
