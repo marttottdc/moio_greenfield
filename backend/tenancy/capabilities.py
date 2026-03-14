@@ -7,6 +7,8 @@ from typing import Any, Dict, Set
 from central_hub.plan_policy import get_default_entitlements_for_plan, get_self_provision_default_plan
 from tenancy.rbac import ROLE_ORDER, _user_group_names, _role_rank
 
+# Only these keys are used for permission checks (eff.can()). Plan form may show more "features"
+# (e.g. crm, campaigns, flows, chatbot, datalab) which are module/UI flags only, not enforced here.
 CAPABILITY_KEYS = frozenset({
     "crm_contacts_read", "crm_contacts_write",
     "campaigns_read", "campaigns_send",

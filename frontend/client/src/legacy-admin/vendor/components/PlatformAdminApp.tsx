@@ -61,6 +61,10 @@ type TenantFormState = {
   };
 };
 
+/**
+ * Claves de permisos (capabilities). No se editan en el formulario de planes; se usarán en roles.
+ * Se mantienen en el estado del plan y en el payload al guardar por compatibilidad con el backend.
+ */
 const ENTITLEMENT_FEATURE_KEYS = [
   "crm",
   "crm_contacts_read",
@@ -2340,9 +2344,10 @@ export default function PlatformAdminApp() {
 
       <Modal open={planModalOpen} onClose={() => setPlanModalOpen(false)} title={planForm.id ? "Edit plan" : "New plan"} size="2xl">
         <form onSubmit={onSubmitPlan} className="flex flex-col min-h-0">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr,minmax(240px,320px)] gap-6 overflow-y-auto min-h-0 p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr,minmax(200px,280px),minmax(220px,300px)] gap-6 overflow-y-auto min-h-0 p-4">
+            {/* Col 1: General info + Entitlements limits */}
             <div className="space-y-4">
-              <Field label="Key (slug)">
+              <Field label="Key (slug)" hint="Identificador único del plan en la API y en la configuración. No se puede cambiar después de crear el plan.">
                 <input
                   className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
                   value={planForm.key}
@@ -2351,7 +2356,7 @@ export default function PlatformAdminApp() {
                   readOnly={!!planForm.id}
                 />
               </Field>
-              <Field label="Name">
+              <Field label="Name" hint="Nombre visible del plan para los usuarios (ej. en el selector de planes).">
                 <input
                   className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
                   value={planForm.name}
@@ -2359,7 +2364,7 @@ export default function PlatformAdminApp() {
                   placeholder="e.g. Pro"
                 />
               </Field>
-              <Field label="Display order">
+              <Field label="Display order" hint="Orden en el que aparece este plan en listas y desplegables (menor número = más arriba).">
                 <input
                   type="number"
                   className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
@@ -2367,7 +2372,7 @@ export default function PlatformAdminApp() {
                   onChange={(e) => setPlanForm((p) => ({ ...p, displayOrder: parseInt(e.target.value, 10) || 0 }))}
                 />
               </Field>
-              <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
+              <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600" title="Si está activo, el plan aparece en el desplegable de planes al crear o editar tenants.">
                 <input
                   type="checkbox"
                   checked={planForm.isActive}
@@ -2375,7 +2380,7 @@ export default function PlatformAdminApp() {
                 />
                 Plan active (show in tenant dropdown)
               </label>
-              <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
+              <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600" title="Plan que se asigna por defecto cuando un tenant se auto-provisiona (registro self-serve).">
                 <input
                   type="checkbox"
                   checked={planForm.isSelfProvisionDefault}
@@ -2384,117 +2389,12 @@ export default function PlatformAdminApp() {
                 Use as default plan for self-provision
               </label>
               <div className="space-y-2">
-                <div className="text-xs font-medium text-slate-700">Pricing policy</div>
-                <div className="rounded border border-slate-200 bg-slate-50 p-2 space-y-2">
-                  <Field label="Currency">
-                    <input
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
-                      value={planForm.pricing.currency}
-                      onChange={(e) => setPlanForm((p) => ({ ...p, pricing: { ...p.pricing, currency: e.target.value.trim() || "USD" } }))}
-                      placeholder="USD"
-                    />
-                  </Field>
-                  <Field label="Base fee">
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-                      value={planForm.pricing.baseFee}
-                      onChange={(e) => setPlanForm((p) => ({ ...p, pricing: { ...p.pricing, baseFee: parseFloat(e.target.value) || 0 } }))}
-                    />
-                  </Field>
-                  <div className="text-[11px] font-medium text-slate-600 pt-1">Units (e.g. usuarios, agents, flows, módulos)</div>
-                  <div className="space-y-2">
-                    {planForm.pricing.units.map((unit, idx) => (
-                      <div key={idx} className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-white p-2">
-                        <div className="min-w-[100px] flex-1">
-                          <label className="mb-0.5 block text-[10px] font-medium text-slate-500">Unit key</label>
-                          <input
-                            className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
-                            value={unit.key}
-                            onChange={(e) =>
-                              setPlanForm((p) => ({
-                                ...p,
-                                pricing: {
-                                  ...p.pricing,
-                                  units: p.pricing.units.map((u, i) => (i === idx ? { ...u, key: e.target.value } : u)),
-                                },
-                              }))
-                            }
-                            placeholder="e.g. basic_user, agents, flows"
-                          />
-                        </div>
-                        <div className="w-16">
-                          <label className="mb-0.5 block text-[10px] font-medium text-slate-500">Incl.</label>
-                          <input
-                            type="number"
-                            min={0}
-                            className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs"
-                            value={unit.included}
-                            onChange={(e) =>
-                              setPlanForm((p) => ({
-                                ...p,
-                                pricing: {
-                                  ...p.pricing,
-                                  units: p.pricing.units.map((u, i) => (i === idx ? { ...u, included: parseInt(e.target.value, 10) || 0 } : u)),
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="w-20">
-                          <label className="mb-0.5 block text-[10px] font-medium text-slate-500">Price</label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs"
-                            value={unit.unitPrice}
-                            onChange={(e) =>
-                              setPlanForm((p) => ({
-                                ...p,
-                                pricing: {
-                                  ...p.pricing,
-                                  units: p.pricing.units.map((u, i) => (i === idx ? { ...u, unitPrice: parseFloat(e.target.value) || 0 } : u)),
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPlanForm((p) => ({
-                              ...p,
-                              pricing: { ...p.pricing, units: p.pricing.units.filter((_, i) => i !== idx) },
-                            }))
-                          }
-                          className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPlanForm((p) => ({
-                          ...p,
-                          pricing: { ...p.pricing, units: [...p.pricing.units, { key: "", included: 0, unitPrice: 0 }] },
-                        }))
-                      }
-                      className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      + Add unit
-                    </button>
-                  </div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                  Entitlements – Limits
+                  <span className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-300 text-[10px] font-normal text-white" title="Límites máximos que este plan permite: asientos de usuario, agentes y flujos. Se usan para control de uso y facturación.">?</span>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-slate-700">Entitlements – Limits</div>
                 <div className="flex flex-wrap gap-4">
-                  <Field label="Seats">
+                  <Field label="Seats" hint="Número máximo de usuarios (asientos) que puede tener un tenant con este plan.">
                     <input
                       type="number"
                       min={0}
@@ -2508,7 +2408,7 @@ export default function PlatformAdminApp() {
                       }
                     />
                   </Field>
-                  <Field label="Agents">
+                  <Field label="Agents" hint="Número máximo de agentes que puede crear un tenant con este plan.">
                     <input
                       type="number"
                       min={0}
@@ -2522,7 +2422,7 @@ export default function PlatformAdminApp() {
                       }
                     />
                   </Field>
-                  <Field label="Flows">
+                  <Field label="Flows" hint="Número máximo de flujos que puede tener un tenant con este plan.">
                     <input
                       type="number"
                       min={0}
@@ -2538,14 +2438,20 @@ export default function PlatformAdminApp() {
                   </Field>
                 </div>
               </div>
+            </div>
+            {/* Col 2: Module enablements (licencias = qué módulos tiene el plan; permisos van en roles) */}
+            <div className="space-y-4 border-l border-slate-200 pl-4 lg:pl-6">
               <div className="space-y-2">
-                <div className="text-xs font-medium text-slate-700">Module enablements</div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                  Module enablements
+                  <span className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-300 text-[10px] font-normal text-white" title="Módulos de producto que este plan habilita (CRM, Flows, Chatbot, Agent Console). CRM va siempre incluido. Los permisos granulares se configuran en roles.">?</span>
+                </div>
                 <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-                  <label className="mb-1.5 flex items-center gap-2">
+                  <label className="mb-1.5 flex items-center gap-2" title="Módulo base de CRM; siempre activo en todos los planes.">
                     <input type="checkbox" checked disabled />
                     CRM (base, always on)
                   </label>
-                  <label className="mb-1.5 flex items-center gap-2">
+                  <label className="mb-1.5 flex items-center gap-2" title="Habilita el módulo de Flows y Data Lab para este plan.">
                     <input
                       type="checkbox"
                       checked={planForm.entitlementModuleEnablements.flowsDatalab}
@@ -2558,7 +2464,7 @@ export default function PlatformAdminApp() {
                     />
                     Flows + Data Lab
                   </label>
-                  <label className="mb-1.5 flex items-center gap-2">
+                  <label className="mb-1.5 flex items-center gap-2" title="Habilita el módulo de Chatbot para este plan.">
                     <input
                       type="checkbox"
                       checked={planForm.entitlementModuleEnablements.chatbot}
@@ -2571,7 +2477,7 @@ export default function PlatformAdminApp() {
                     />
                     Chatbot
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2" title="Habilita el módulo Agent Console para este plan.">
                     <input
                       type="checkbox"
                       checked={planForm.entitlementModuleEnablements.agentConsole}
@@ -2587,24 +2493,128 @@ export default function PlatformAdminApp() {
                 </div>
               </div>
             </div>
-            <div className="space-y-2 border-l border-slate-200 pl-4 lg:pl-6">
-              <div className="text-xs font-medium text-slate-700 sticky top-0 bg-white py-1">Features (capabilities)</div>
-              <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-                {ENTITLEMENT_FEATURE_KEYS.map((key) => (
-                  <label key={key} className="flex items-center gap-2 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={planForm.entitlementFeatures[key]}
-                      onChange={(e) =>
-                        setPlanForm((p) => ({
-                          ...p,
-                          entitlementFeatures: { ...p.entitlementFeatures, [key]: e.target.checked },
-                        }))
-                      }
-                    />
-                    <span className="font-mono truncate" title={key}>{key}</span>
-                  </label>
-                ))}
+            {/* Col 3: Pricing policy (own column so it can grow vertically) */}
+            <div className="space-y-2 border-l border-slate-200 pl-4 lg:pl-6 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 sticky top-0 bg-white py-1 z-10">
+                Pricing policy
+                <span className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-300 text-[10px] font-normal text-white" title="Moneda, cuota base y unidades facturables (ej. usuarios, agentes). Puedes añadir varias unidades con cantidad incluida y precio por unidad extra.">?</span>
+              </div>
+              <div className="rounded border border-slate-200 bg-slate-50 p-2 space-y-2">
+                <Field label="Currency" hint="Código ISO de la moneda (ej. USD, EUR) para los precios de este plan.">
+                  <input
+                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+                    value={planForm.pricing.currency}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, pricing: { ...p.pricing, currency: e.target.value.trim() || "USD" } }))}
+                    placeholder="USD"
+                  />
+                </Field>
+                <Field label="Base fee" hint="Cuota fija mensual o única del plan, independiente de las unidades.">
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    value={planForm.pricing.baseFee}
+                    onChange={(e) => setPlanForm((p) => ({ ...p, pricing: { ...p.pricing, baseFee: parseFloat(e.target.value) || 0 } }))}
+                  />
+                </Field>
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 pt-1">
+                  Units (e.g. usuarios, agents, flows, módulos)
+                  <span className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-300 text-[10px] font-normal text-white" title="Cada unidad define: clave (ej. basic_user), cantidad incluida en el plan, y precio por unidad adicional.">?</span>
+                </div>
+                <div className="space-y-2">
+                  {planForm.pricing.units.map((unit, idx) => (
+                    <div key={idx} className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-white p-2">
+                      <div className="min-w-[100px] flex-1">
+                        <label className="mb-0.5 flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                          Unit key
+                          <span className="inline-flex h-3 w-3 cursor-help items-center justify-center rounded-full bg-slate-300 text-[9px] font-normal text-white" title="Identificador de la unidad facturable (ej. basic_user, agents, flows).">?</span>
+                        </label>
+                        <input
+                          className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
+                          value={unit.key}
+                          onChange={(e) =>
+                            setPlanForm((p) => ({
+                              ...p,
+                              pricing: {
+                                ...p.pricing,
+                                units: p.pricing.units.map((u, i) => (i === idx ? { ...u, key: e.target.value } : u)),
+                              },
+                            }))
+                          }
+                          placeholder="e.g. basic_user, agents, flows"
+                        />
+                      </div>
+                      <div className="w-16">
+                        <label className="mb-0.5 flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                          Incl.
+                          <span className="inline-flex h-3 w-3 cursor-help items-center justify-center rounded-full bg-slate-300 text-[9px] font-normal text-white" title="Cantidad incluida en el plan sin coste adicional.">?</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs"
+                          value={unit.included}
+                          onChange={(e) =>
+                            setPlanForm((p) => ({
+                              ...p,
+                              pricing: {
+                                ...p.pricing,
+                                units: p.pricing.units.map((u, i) => (i === idx ? { ...u, included: parseInt(e.target.value, 10) || 0 } : u)),
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="w-20">
+                        <label className="mb-0.5 flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                          Price
+                          <span className="inline-flex h-3 w-3 cursor-help items-center justify-center rounded-full bg-slate-300 text-[9px] font-normal text-white" title="Precio por unidad por encima del número incluido.">?</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs"
+                          value={unit.unitPrice}
+                          onChange={(e) =>
+                            setPlanForm((p) => ({
+                              ...p,
+                              pricing: {
+                                ...p.pricing,
+                                units: p.pricing.units.map((u, i) => (i === idx ? { ...u, unitPrice: parseFloat(e.target.value) || 0 } : u)),
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPlanForm((p) => ({
+                            ...p,
+                            pricing: { ...p.pricing, units: p.pricing.units.filter((_, i) => i !== idx) },
+                          }))
+                        }
+                        className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPlanForm((p) => ({
+                        ...p,
+                        pricing: { ...p.pricing, units: [...p.pricing.units, { key: "", included: 0, unitPrice: 0 }] },
+                      }))
+                    }
+                    className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    + Add unit
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2932,11 +2942,16 @@ function TableWrap(props: { children: React.ReactNode; fillHeight?: boolean }) {
   );
 }
 
-function Field(props: { label: string; children: React.ReactNode }) {
+function Field(props: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="mb-1.5">
-      <label className="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <label className="mb-0.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {props.label}
+        {props.hint ? (
+          <span className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-300 text-[10px] font-normal normal-case text-white" title={props.hint}>
+            ?
+          </span>
+        ) : null}
       </label>
       {props.children}
     </div>
