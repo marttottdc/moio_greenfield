@@ -55,9 +55,29 @@ jobs:
         uses: azure/setup-helm@v3
 
       - name: Set up kubeconfig
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
         run: |
           mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" > $HOME/.kube/config
+          python3 << 'PYEOF'
+          import os, base64, sys
+          data = os.environ.get("KUBECONFIG_DATA", "")
+          if not data:
+              print("::error::KUBECONFIG_DATA secret is empty")
+              sys.exit(1)
+          out = data
+          try:
+              decoded = base64.b64decode(data).decode("utf-8")
+              if "apiVersion" in decoded and "kind" in decoded:
+                  out = decoded
+          except Exception:
+              pass
+          out = out.replace("\r\n", "\n").replace("\r", "\n")
+          path = os.path.expanduser("~/.kube/config")
+          with open(path, "w") as f:
+              f.write(out)
+          os.chmod(path, 0o600)
+          PYEOF
 
       - name: Deploy frontend to Preprod
         run: |

@@ -65,7 +65,7 @@ Ajustar `ingress.host`, `ingress.tlsSecret` e `image.repository`/`image.tag` seg
 
 **Secrets necesarios en el repo:**
 
-- `KUBECONFIG_DATA`: contenido del kubeconfig (base64 o texto) para que Helm pueda desplegar en el cluster.
+- `KUBECONFIG_DATA`: kubeconfig para Helm/kubectl. Acepta **texto plano** o **base64** (se detecta solo). Recomendado base64 para evitar problemas con newlines: `kubectl config view --minify --raw | base64 -w 0` (macOS: sin `-w 0`). Pegar en Settings → Secrets → KUBECONFIG_DATA.
 - `GITHUB_TOKEN`: lo proporciona GitHub; solo hace falta que el workflow tenga permisos para escribir en el registry (por defecto en push).
 
 **Dockerfiles:**
