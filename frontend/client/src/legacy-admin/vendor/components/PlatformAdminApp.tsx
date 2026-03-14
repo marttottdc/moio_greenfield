@@ -61,6 +61,88 @@ type TenantFormState = {
   };
 };
 
+const ENTITLEMENT_FEATURE_KEYS = [
+  "crm",
+  "crm_contacts_read",
+  "crm_contacts_write",
+  "campaigns",
+  "campaigns_read",
+  "campaigns_send",
+  "flows",
+  "flows_read",
+  "flows_run",
+  "flows_edit",
+  "chatbot",
+  "datalab",
+  "settings_integrations_manage",
+  "users_manage",
+] as const;
+
+type EntitlementFeatures = Record<(typeof ENTITLEMENT_FEATURE_KEYS)[number], boolean>;
+type ModuleEnablements = { crm: boolean; flowsDatalab: boolean; chatbot: boolean; agentConsole: boolean };
+
+const DEFAULT_ENTITLEMENT_FEATURES: EntitlementFeatures = {
+  crm: true,
+  crm_contacts_read: true,
+  crm_contacts_write: true,
+  campaigns: false,
+  campaigns_read: false,
+  campaigns_send: false,
+  flows: false,
+  flows_read: false,
+  flows_run: false,
+  flows_edit: false,
+  chatbot: false,
+  datalab: false,
+  settings_integrations_manage: false,
+  users_manage: false,
+};
+
+const DEFAULT_MODULE_ENABLEMENTS: ModuleEnablements = {
+  crm: true,
+  flowsDatalab: false,
+  chatbot: false,
+  agentConsole: false,
+};
+
+function parseEntitlementPolicyFromPayload(policy: Record<string, unknown> | undefined): {
+  features: EntitlementFeatures;
+  limits: { seats: number; agents: number; flows: number };
+  moduleEnablements: ModuleEnablements;
+} {
+  const raw = policy || {};
+  const features = (raw.features as Record<string, boolean>) || {};
+  const limits = (raw.limits as Record<string, number>) || {};
+  const ui = (raw.ui as Record<string, unknown>) || {};
+  const moduleEnablements = (ui.module_enablements as Record<string, boolean>) || {};
+  return {
+    features: { ...DEFAULT_ENTITLEMENT_FEATURES, ...Object.fromEntries(ENTITLEMENT_FEATURE_KEYS.map((k) => [k, !!features[k]])) } as EntitlementFeatures,
+    limits: {
+      seats: typeof limits.seats === "number" ? limits.seats : 5,
+      agents: typeof limits.agents === "number" ? limits.agents : 0,
+      flows: typeof limits.flows === "number" ? limits.flows : 0,
+    },
+    moduleEnablements: {
+      crm: true,
+      flowsDatalab: !!moduleEnablements.flowsDatalab,
+      chatbot: !!moduleEnablements.chatbot,
+      agentConsole: !!moduleEnablements.agentConsole,
+    },
+  };
+}
+
+function buildEntitlementPolicyPayload(form: {
+  features: EntitlementFeatures;
+  limits: { seats: number; agents: number; flows: number };
+  moduleEnablements: ModuleEnablements;
+}): Record<string, unknown> {
+  return {
+    features: form.features,
+    limits: form.limits,
+    ui: { module_enablements: form.moduleEnablements },
+  };
+}
+
 type PlanFormState = {
   id: string | null;
   key: string;
@@ -68,8 +150,10 @@ type PlanFormState = {
   displayOrder: number;
   isActive: boolean;
   isSelfProvisionDefault: boolean;
-  pricingPolicyText: string;
-  entitlementPolicyText: string;
+  pricingCurrency: string;
+  entitlementFeatures: EntitlementFeatures;
+  entitlementLimits: { seats: number; agents: number; flows: number };
+  entitlementModuleEnablements: ModuleEnablements;
 };
 
 type UserFormState = {
@@ -247,8 +331,10 @@ const DEFAULT_PLAN_FORM: PlanFormState = {
   displayOrder: 0,
   isActive: true,
   isSelfProvisionDefault: false,
-  pricingPolicyText: "{}",
-  entitlementPolicyText: "{}",
+  pricingCurrency: "USD",
+  entitlementFeatures: { ...DEFAULT_ENTITLEMENT_FEATURES },
+  entitlementLimits: { seats: 5, agents: 0, flows: 0 },
+  entitlementModuleEnablements: { ...DEFAULT_MODULE_ENABLEMENTS },
 };
 
 const DEFAULT_USER_FORM: UserFormState = {
@@ -582,6 +668,8 @@ export default function PlatformAdminApp() {
   }
 
   function editPlanForm(row: PlanType) {
+    const pricing = (row.pricingPolicy || {}) as Record<string, unknown>;
+    const entitlement = parseEntitlementPolicyFromPayload(row.entitlementPolicy as Record<string, unknown> | undefined);
     setPlanForm({
       id: row.id,
       key: row.key,
@@ -589,33 +677,22 @@ export default function PlatformAdminApp() {
       displayOrder: row.displayOrder ?? 0,
       isActive: row.isActive ?? true,
       isSelfProvisionDefault: row.isSelfProvisionDefault ?? false,
-      pricingPolicyText: JSON.stringify(row.pricingPolicy || {}, null, 2),
-      entitlementPolicyText: JSON.stringify(row.entitlementPolicy || {}, null, 2),
+      pricingCurrency: typeof pricing.currency === "string" ? pricing.currency : "USD",
+      entitlementFeatures: entitlement.features,
+      entitlementLimits: entitlement.limits,
+      entitlementModuleEnablements: entitlement.moduleEnablements,
     });
     setPlanModalOpen(true);
   }
 
   async function onSubmitPlan(event: FormEvent) {
     event.preventDefault();
-    let pricingPolicy: Record<string, unknown> = {};
-    let entitlementPolicy: Record<string, unknown> = {};
-    try {
-      const parsedPricing = JSON.parse(planForm.pricingPolicyText || "{}");
-      const parsedEntitlement = JSON.parse(planForm.entitlementPolicyText || "{}");
-      if (parsedPricing && typeof parsedPricing === "object" && !Array.isArray(parsedPricing)) {
-        pricingPolicy = parsedPricing as Record<string, unknown>;
-      } else {
-        throw new Error("Pricing policy must be a JSON object.");
-      }
-      if (parsedEntitlement && typeof parsedEntitlement === "object" && !Array.isArray(parsedEntitlement)) {
-        entitlementPolicy = parsedEntitlement as Record<string, unknown>;
-      } else {
-        throw new Error("Entitlement policy must be a JSON object.");
-      }
-    } catch (error) {
-      setFlash(error instanceof Error ? error.message : "Invalid plan JSON payload.", "error");
-      return;
-    }
+    const pricingPolicy: Record<string, unknown> = planForm.pricingCurrency ? { currency: planForm.pricingCurrency } : {};
+    const entitlementPolicy = buildEntitlementPolicyPayload({
+      features: planForm.entitlementFeatures,
+      limits: planForm.entitlementLimits,
+      moduleEnablements: planForm.entitlementModuleEnablements,
+    });
     try {
       await savePlan({
         id: planForm.id,
@@ -2271,22 +2348,125 @@ export default function PlatformAdminApp() {
             />
             Use as default plan for self-provision
           </label>
-          <Field label="Pricing policy (JSON)">
-            <textarea
-              className="h-28 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
-              value={planForm.pricingPolicyText}
-              onChange={(e) => setPlanForm((p) => ({ ...p, pricingPolicyText: e.target.value }))}
-              placeholder='{"currency":"USD","units":{"basic_user":{"included":5,"unitPrice":0}}}'
+          <Field label="Pricing – Currency">
+            <input
+              className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-mono"
+              value={planForm.pricingCurrency}
+              onChange={(e) => setPlanForm((p) => ({ ...p, pricingCurrency: e.target.value.trim() || "USD" }))}
+              placeholder="USD"
             />
           </Field>
-          <Field label="Entitlement policy (JSON)">
-            <textarea
-              className="h-36 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono"
-              value={planForm.entitlementPolicyText}
-              onChange={(e) => setPlanForm((p) => ({ ...p, entitlementPolicyText: e.target.value }))}
-              placeholder='{"trialMonthsFromTenantCreation":6,"assignmentCaps":{"flowsDatalabUsers":2,"chatbotTenantInstances":1}}'
-            />
-          </Field>
+          <div className="space-y-3">
+            <div className="text-xs font-medium text-slate-700">Entitlements – Limits</div>
+            <div className="flex flex-wrap gap-4">
+              <Field label="Seats">
+                <input
+                  type="number"
+                  min={0}
+                  className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  value={planForm.entitlementLimits.seats}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementLimits: { ...p.entitlementLimits, seats: parseInt(e.target.value, 10) || 0 },
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Agents">
+                <input
+                  type="number"
+                  min={0}
+                  className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  value={planForm.entitlementLimits.agents}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementLimits: { ...p.entitlementLimits, agents: parseInt(e.target.value, 10) || 0 },
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Flows">
+                <input
+                  type="number"
+                  min={0}
+                  className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  value={planForm.entitlementLimits.flows}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementLimits: { ...p.entitlementLimits, flows: parseInt(e.target.value, 10) || 0 },
+                    }))
+                  }
+                />
+              </Field>
+            </div>
+            <div className="text-xs font-medium text-slate-700">Module enablements</div>
+            <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+              <label className="mb-1.5 flex items-center gap-2">
+                <input type="checkbox" checked disabled />
+                CRM (base, always on)
+              </label>
+              <label className="mb-1.5 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={planForm.entitlementModuleEnablements.flowsDatalab}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementModuleEnablements: { ...p.entitlementModuleEnablements, flowsDatalab: e.target.checked },
+                    }))
+                  }
+                />
+                Flows + Data Lab
+              </label>
+              <label className="mb-1.5 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={planForm.entitlementModuleEnablements.chatbot}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementModuleEnablements: { ...p.entitlementModuleEnablements, chatbot: e.target.checked },
+                    }))
+                  }
+                />
+                Chatbot
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={planForm.entitlementModuleEnablements.agentConsole}
+                  onChange={(e) =>
+                    setPlanForm((p) => ({
+                      ...p,
+                      entitlementModuleEnablements: { ...p.entitlementModuleEnablements, agentConsole: e.target.checked },
+                    }))
+                  }
+                />
+                Agent Console
+              </label>
+            </div>
+            <div className="text-xs font-medium text-slate-700">Features (capabilities)</div>
+            <div className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-1 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700 sm:grid-cols-3">
+              {ENTITLEMENT_FEATURE_KEYS.map((key) => (
+                <label key={key} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={planForm.entitlementFeatures[key]}
+                    onChange={(e) =>
+                      setPlanForm((p) => ({
+                        ...p,
+                        entitlementFeatures: { ...p.entitlementFeatures, [key]: e.target.checked },
+                      }))
+                    }
+                  />
+                  <span className="font-mono">{key}</span>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="submit" className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
               Save Plan
