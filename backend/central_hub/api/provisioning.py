@@ -145,7 +145,7 @@ class ProvisionStatusView(APIView):
         if job.status == "failure":
             return Response(
                 {**payload, "error": job.error_message or "Provisioning failed"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status=status.HTTP_200_OK,
             )
 
         if job.status != "success" or job.user is None:
