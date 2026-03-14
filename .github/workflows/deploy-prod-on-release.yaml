@@ -11,6 +11,9 @@ on:
         description: 'Release tag to deploy (must be a published GitHub release)'
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
