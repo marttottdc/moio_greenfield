@@ -1,6 +1,7 @@
 """Authentication: UserApiKey, JWT with tenant claims."""
 import hashlib
 import logging
+from typing import Any
 
 from django.utils import timezone
 from rest_framework import authentication
@@ -34,6 +35,17 @@ def _resolve_request_tenant(request, fallback=None):
     if tenant is not None and schema_name and schema_name != "public":
         return tenant
     return fallback
+
+
+def _apply_tenant_claims(token, tenant) -> None:
+    if tenant:
+        token["tenant_id"] = str(tenant.id)
+        token["tenant_schema"] = str(getattr(tenant, "schema_name", "") or "")
+        token["tenant_code"] = str(getattr(tenant, "tenant_code", "") or "")
+    else:
+        token["tenant_id"] = None
+        token["tenant_schema"] = None
+        token["tenant_code"] = None
 
 
 class UserApiKeyAuthentication(authentication.BaseAuthentication):
@@ -147,15 +159,19 @@ class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom JWT serializer that includes tenant_id in the token claims."""
 
     @classmethod
-    def get_token(cls, user):
+    def get_token(
+        cls,
+        user,
+        *,
+        tenant=None,
+        session_mode: str | None = None,
+        platform_actor: dict[str, Any] | None = None,
+    ):
         token = super().get_token(user)
-        tenant = getattr(user, "tenant", None)
-        if tenant:
-            token["tenant_id"] = str(tenant.id)
-            token["tenant_schema"] = str(getattr(tenant, "schema_name", "") or "")
-            token["tenant_code"] = str(getattr(tenant, "tenant_code", "") or "")
-        else:
-            token["tenant_id"] = None
-            token["tenant_schema"] = None
-            token["tenant_code"] = None
+        effective_tenant = tenant if tenant is not None else getattr(user, "tenant", None)
+        _apply_tenant_claims(token, effective_tenant)
+        if session_mode:
+            token["session_mode"] = session_mode
+        if platform_actor:
+            token["platform_actor"] = platform_actor
         return token

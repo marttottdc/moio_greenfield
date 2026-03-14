@@ -19,6 +19,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import type { Tenant } from "@/legacy-admin/vendor/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,24 @@ interface RolesResponse {
   roles?: Role[];
 }
 
+interface PlatformBootstrapResponse {
+  ok?: boolean;
+  payload?: {
+    tenants?: Tenant[];
+  };
+}
+
+interface ConsoleEmbedTokenResponse {
+  token: string;
+  embed_url: string;
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    primary_domain: string;
+  };
+}
+
 const userSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email"),
@@ -94,6 +113,9 @@ export default function AdminConsole() {
   const [docContent, setDocContent] = useState("");
   const [templateType, setTemplateType] = useState("guide");
   const [validationResult, setValidationResult] = useState<any | null>(null);
+  const [selectedConsoleTenantId, setSelectedConsoleTenantId] = useState("");
+  const [consoleEmbedUrl, setConsoleEmbedUrl] = useState<string | null>(null);
+  const [consoleTenantLabel, setConsoleTenantLabel] = useState<string | null>(null);
   const normalizedRole = normalizeAppRole(currentUser?.role);
   const isPlatformAdmin = isPlatformAdminRole(currentUser?.role);
   const canOpenPlatformAdmin = canAccessPlatformAdmin(currentUser?.role);
@@ -139,6 +161,27 @@ export default function AdminConsole() {
     staleTime: 10_000,
   });
 
+  const { data: platformBootstrap, isLoading: platformBootstrapLoading } = useQuery<PlatformBootstrapResponse, ApiError>({
+    queryKey: ["/api/platform/bootstrap/"],
+    queryFn: () => fetchJson<PlatformBootstrapResponse>("/api/platform/bootstrap/"),
+    enabled: canOpenPlatformAdmin && Boolean(currentUser?.is_superuser),
+    staleTime: 60_000,
+  });
+
+  const consoleTenants = useMemo(
+    () =>
+      (platformBootstrap?.payload?.tenants ?? []).filter(
+        (tenant) => tenant.isActive && Boolean(tenant.primaryDomain),
+      ),
+    [platformBootstrap],
+  );
+
+  useEffect(() => {
+    if (!selectedConsoleTenantId && consoleTenants.length > 0) {
+      setSelectedConsoleTenantId(consoleTenants[0].id);
+    }
+  }, [consoleTenants, selectedConsoleTenantId]);
+
   const templateMutation = useMutation({
     mutationFn: async (type: string) => fetchJson<any>("/api/docs/template/", { type }),
     onSuccess: (data) => {
@@ -171,6 +214,46 @@ export default function AdminConsole() {
       toast({
         title: "Validation failed",
         description: error.message || "Unable to validate document",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const consoleEmbedMutation = useMutation({
+    mutationFn: async (tenantId: string) => {
+      const res = await apiRequest("POST", apiV1("/auth/console-embed-token/"), {
+        data: { tenant_id: tenantId },
+      });
+      return (await res.json()) as ConsoleEmbedTokenResponse;
+    },
+    onSuccess: (payload) => {
+      try {
+        const embedOrigin = new URL(payload.embed_url).origin;
+        if (embedOrigin === window.location.origin) {
+          setConsoleEmbedUrl(null);
+          setConsoleTenantLabel(null);
+          toast({
+            title: "Embed blocked on same origin",
+            description:
+              "This tenant resolves to the same origin as Platform Admin. A dedicated tenant origin is required to avoid session storage collisions.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch {
+        // Ignore URL parsing issues and let the iframe attempt to load.
+      }
+      setConsoleEmbedUrl(payload.embed_url);
+      setConsoleTenantLabel(payload.tenant.name || payload.tenant.slug || payload.tenant.primary_domain);
+      toast({
+        title: "Tenant console ready",
+        description: "The embedded tenant workspace is now running inside Platform Admin.",
+      });
+    },
+    onError: (error: ApiError) => {
+      toast({
+        title: "Unable to open tenant console",
+        description: error.message || "The tenant embed token could not be issued.",
         variant: "destructive",
       });
     },
@@ -457,6 +540,97 @@ export default function AdminConsole() {
           </p>
         </GlassPanel>
       </div>
+
+      {currentUser?.is_superuser ? (
+        <GlassPanel className="mb-6 p-5 space-y-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <Shield className="h-4 w-4 text-[#58a6ff]" />
+                Supervised tenant access
+              </div>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                This shell keeps you in Platform Admin while the tenant runs below in an isolated frame. The
+                target tenant gets its own scoped JWT, but you remain the platform actor supervising that session.
+              </p>
+            </div>
+            <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+              Platform Admin context remains active
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <select
+              value={selectedConsoleTenantId}
+              onChange={(event) => setSelectedConsoleTenantId(event.target.value)}
+              className="h-10 min-w-[280px] rounded-md border border-input bg-background px-3 text-sm"
+              disabled={platformBootstrapLoading || consoleTenants.length === 0}
+              data-testid="select-console-tenant"
+            >
+              {consoleTenants.length === 0 ? (
+                <option value="">
+                  {platformBootstrapLoading ? "Loading tenants..." : "No active tenants with primary domain"}
+                </option>
+              ) : (
+                consoleTenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name} ({tenant.slug})
+                  </option>
+                ))
+              )}
+            </select>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => selectedConsoleTenantId && consoleEmbedMutation.mutate(selectedConsoleTenantId)}
+                disabled={!selectedConsoleTenantId || consoleEmbedMutation.isPending}
+                data-testid="button-open-console-tenant"
+              >
+                {consoleEmbedMutation.isPending ? "Opening tenant..." : "Open tenant frame"}
+              </Button>
+              {consoleEmbedUrl ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setConsoleEmbedUrl(null);
+                    setConsoleTenantLabel(null);
+                  }}
+                >
+                  Close frame
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {consoleEmbedUrl ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-950 px-4 py-3 text-slate-100 shadow-inner">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Supervision banner</div>
+                <div className="mt-1 text-sm">
+                  You are operating as <span className="font-semibold">Platform Admin</span> inside{" "}
+                  <span className="font-semibold">{consoleTenantLabel ?? "selected tenant"}</span>. Closing this
+                  frame returns you to the control plane without changing your admin context.
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                <iframe
+                  key={consoleEmbedUrl}
+                  src={consoleEmbedUrl}
+                  title={`Tenant console ${consoleTenantLabel ?? ""}`.trim()}
+                  className="h-[78vh] w-full bg-white"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-downloads"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/50 px-4 py-6 text-sm text-muted-foreground">
+              Pick a tenant and open the frame to inspect that workspace without leaving Platform Admin.
+            </div>
+          )}
+        </GlassPanel>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTab)} className="space-y-6">
         <TabsList>

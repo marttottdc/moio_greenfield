@@ -150,7 +150,7 @@ function ModuleAccessBlocked({
 }
 
 function RootRedirect() {
-  const { isAuthenticated, isLoading, hasTenantAccess } = useAuth();
+  const { isAuthenticated, isLoading, hasTenantAccess, isSuperuser, isEmbeddedAdminConsole } = useAuth();
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -162,6 +162,7 @@ function RootRedirect() {
     );
   }
   if (!isAuthenticated) return <Redirect to="/login" />;
+  if (isSuperuser && !isEmbeddedAdminConsole) return <Redirect to="/platform-admin" />;
   if (hasTenantAccess) return <Redirect to="/dashboard" />;
   return <Redirect to="/platform-router" />;
 }

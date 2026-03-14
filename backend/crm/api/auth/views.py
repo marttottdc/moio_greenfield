@@ -16,6 +16,8 @@ from rest_framework.authtoken.models import Token
 from central_hub.authentication import TenantTokenObtainPairSerializer
 from central_hub.authentication import TenantJWTAAuthentication
 from central_hub.models import UserApiKey
+from tenancy.models import Tenant
+from tenancy.tenant_support import public_schema_context
 
 try:
     from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -31,9 +33,33 @@ class AuthViewSet(viewsets.ViewSet):
     def get_permissions(self):
         # login and refresh must allow unauthenticated requests so clients can obtain a token.
         # All other actions (me, logout, etc.) require IsAuthenticated.
-        if getattr(self, "action", None) in ("login", "refresh"):
+        if getattr(self, "action", None) in ("login", "refresh", "console_embed_exchange"):
             return [AllowAny()]
         return [IsAuthenticated()]
+
+    @staticmethod
+    def _platform_actor_payload(user) -> dict:
+        display_name = (
+            f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+            or getattr(user, "username", "")
+            or getattr(user, "email", "")
+            or "Platform Admin"
+        )
+        return {
+            "id": str(getattr(user, "pk", "")),
+            "email": getattr(user, "email", "") or "",
+            "display_name": display_name,
+        }
+
+    @staticmethod
+    def _resolve_tenant(*, tenant_id=None, tenant_slug=None):
+        with public_schema_context("public"):
+            qs = Tenant.objects.all()
+            if tenant_id:
+                return qs.filter(pk=tenant_id).first()
+            if tenant_slug:
+                return qs.filter(schema_name=tenant_slug).first()
+        return None
 
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
@@ -128,11 +154,110 @@ class AuthViewSet(viewsets.ViewSet):
         if not user:
             return Response({"error": "invalid_refresh_token"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        refresh = TenantTokenObtainPairSerializer.get_token(user)
+        tenant = None
+        tenant_id = old.get("tenant_id")
+        if tenant_id:
+            tenant = self._resolve_tenant(tenant_id=tenant_id)
+        refresh = TenantTokenObtainPairSerializer.get_token(
+            user,
+            tenant=tenant,
+            session_mode=old.get("session_mode"),
+            platform_actor=old.get("platform_actor"),
+        )
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], url_path="console-embed-token")
+    def console_embed_token(self, request):
+        if not getattr(request.user, "is_superuser", False):
+            return Response({"error": "forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        tenant_id = request.data.get("tenant_id")
+        tenant_slug = (request.data.get("tenant_slug") or "").strip()
+        tenant = self._resolve_tenant(tenant_id=tenant_id, tenant_slug=tenant_slug)
+        if tenant is None:
+            return Response({"error": "tenant_not_found"}, status=status.HTTP_404_NOT_FOUND)
+
+        token = AccessToken()
+        token["session_mode"] = "admin_console_bootstrap"
+        token["target_tenant_id"] = str(tenant.pk)
+        token["target_tenant_schema"] = str(getattr(tenant, "schema_name", "") or "")
+        token["platform_actor"] = self._platform_actor_payload(request.user)
+        token.set_exp(lifetime=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"])
+
+        tenant_host = str(getattr(tenant, "primary_domain", "") or "").strip()
+        if tenant_host and "://" not in tenant_host:
+            tenant_origin = f"{request.scheme}://{tenant_host}"
+        else:
+            tenant_origin = tenant_host or request.build_absolute_uri("/").rstrip("/")
+
+        return Response(
+            {
+                "token": str(token),
+                "tenant": {
+                    "id": str(tenant.pk),
+                    "name": getattr(tenant, "nombre", "") or "",
+                    "slug": getattr(tenant, "schema_name", "") or "",
+                    "primary_domain": tenant_host,
+                },
+                "embed_url": f"{tenant_origin}/#console_embed_token={token}",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="console-embed-exchange",
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+    )
+    def console_embed_exchange(self, request):
+        raw = (request.data.get("token") or "").strip()
+        if not raw:
+            return Response({"error": "invalid_request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            bootstrap_token = AccessToken(raw)
+        except TokenError:
+            return Response({"error": "invalid_token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if bootstrap_token.get("session_mode") != "admin_console_bootstrap":
+            return Response({"error": "invalid_token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        actor = bootstrap_token.get("platform_actor") or {}
+        actor_id = actor.get("id")
+        target_tenant_id = bootstrap_token.get("target_tenant_id")
+        if not actor_id or not target_tenant_id:
+            return Response({"error": "invalid_token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        UserModel = get_user_model()
+        user = UserModel.objects.filter(pk=actor_id, is_active=True, is_superuser=True).first()
+        tenant = self._resolve_tenant(tenant_id=target_tenant_id)
+        if user is None or tenant is None:
+            return Response({"error": "invalid_token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        refresh = TenantTokenObtainPairSerializer.get_token(
+            user,
+            tenant=tenant,
+            session_mode="admin_console_embedded",
+            platform_actor=self._platform_actor_payload(user),
+        )
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "tenant": {
+                    "id": str(tenant.pk),
+                    "name": getattr(tenant, "nombre", "") or "",
+                    "slug": getattr(tenant, "schema_name", "") or "",
+                    "primary_domain": getattr(tenant, "primary_domain", "") or "",
+                },
             },
             status=status.HTTP_200_OK,
         )

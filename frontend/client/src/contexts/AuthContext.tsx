@@ -35,6 +35,7 @@ interface User {
     primary_domain?: string;
     schema_name?: string;
   } | null;
+  session_mode?: string;
 }
 
 interface AuthContextType {
@@ -49,6 +50,8 @@ interface AuthContextType {
   isSuperuser: boolean;
   /** True if user has a real tenant (not null, not public schema). Enables CRM / tenant app. */
   hasTenantAccess: boolean;
+  /** True when a platform admin is browsing a tenant inside the embedded admin console flow. */
+  isEmbeddedAdminConsole: boolean;
   login: (email: string, password: string, options?: { redirectTo?: string | null }) => Promise<void>;
   logout: (options?: { redirectTo?: string }) => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
@@ -67,7 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("GET", apiV1("/auth/me/"));
       const data = await res.json();
       setUser(data);
-      applyTenantConnectionTarget(data.organization);
+      if (data.organization) {
+        applyTenantConnectionTarget(data.organization);
+      } else {
+        clearTenantConnectionTarget();
+      }
       return true;
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
@@ -77,13 +84,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getConsoleEmbedToken = (): string | null => {
+    if (typeof window === "undefined") return null;
+
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+    if (!hash) return null;
+    const params = new URLSearchParams(hash);
+    const token = params.get("console_embed_token");
+    return token && token.trim().length > 0 ? token.trim() : null;
+  };
+
+  const clearConsoleEmbedTokenFromUrl = () => {
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+    const params = new URLSearchParams(hash);
+    params.delete("console_embed_token");
+    const nextHash = params.toString();
+    url.hash = nextHash ? `#${nextHash}` : "";
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const exchangeConsoleEmbedToken = async (token: string): Promise<boolean> => {
+    clearStoredTokens();
+    clearTenantConnectionTarget();
+    clearQueryCacheWithLogging("console embed - resetting previous tenant session");
+
+    const res = await apiRequest("POST", apiV1("/auth/console-embed-exchange/"), {
+      data: { token },
+    });
+    const data = await res.json();
+    const access = data.access ?? data.access_token;
+    const refresh = data.refresh ?? data.refresh_token;
+    if (!access || !refresh) {
+      throw new Error("Console embed exchange did not return access and refresh tokens");
+    }
+    setAccessToken(access);
+    setRefreshToken(refresh);
+    clearConsoleEmbedTokenFromUrl();
+    return fetchCurrentUser();
+  };
+
   // Refresh access token using refresh token
   const refreshAccessToken = async (): Promise<boolean> => {
     const refreshed = await refreshTokens();
     if (!refreshed) {
       setUser(null);
     }
-    return refreshed;
+    return Boolean(refreshed);
   };
 
   // Login function (each step logged so we can see where login fails)
@@ -146,7 +195,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const meRes = await apiRequest("GET", apiV1("/auth/me/"), { authTokenOverride: access });
       const meData = await meRes.json();
       setUser(meData);
-      applyTenantConnectionTarget(meData.organization);
+      if (meData.organization) {
+        applyTenantConnectionTarget(meData.organization);
+      } else {
+        clearTenantConnectionTarget();
+      }
       logLoginStep("fetch_profile", "ok");
 
       if (options && Object.prototype.hasOwnProperty.call(options, "redirectTo")) {
@@ -183,6 +236,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check authentication on mount
   useEffect(() => {
     const initAuth = async () => {
+      const consoleEmbedToken = getConsoleEmbedToken();
+      if (consoleEmbedToken) {
+        try {
+          await exchangeConsoleEmbedToken(consoleEmbedToken);
+        } catch (error) {
+          clearStoredTokens();
+          clearTenantConnectionTarget();
+          setUser(null);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       const hasToken = !!getAccessToken();
 
       if (!hasToken) {
@@ -215,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (user?.is_staff || user?.is_superuser) && (!org || schemaName === publicSchema)
   );
   const isSuperuser = Boolean(user?.is_superuser);
+  const isEmbeddedAdminConsole = user?.session_mode === "admin_console_embedded";
 
   const value: AuthContextType = {
     user,
@@ -224,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     canAccessPlatformAdmin,
     isSuperuser,
     hasTenantAccess,
+    isEmbeddedAdminConsole,
     login,
     logout,
     refreshAccessToken,
@@ -240,6 +309,7 @@ const FALLBACK_AUTH: AuthContextType = {
   canAccessPlatformAdmin: false,
   isSuperuser: false,
   hasTenantAccess: false,
+  isEmbeddedAdminConsole: false,
   login: async (_email: string, _password: string, _options?: { redirectTo?: string | null }) => {
     console.warn("[Auth] login() called outside AuthProvider – no-op");
   },

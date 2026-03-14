@@ -18,6 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
     organization = serializers.SerializerMethodField()
     preferences = serializers.SerializerMethodField()
+    session_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = UserModel
@@ -32,6 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
             "avatar_url",
             "organization",
             "preferences",
+            "session_mode",
         )
 
     def get_full_name(self, obj: UserModel) -> str:
@@ -81,3 +83,14 @@ class UserSerializer(serializers.ModelSerializer):
         tenant = getattr(obj, "tenant", None)
         config = get_tenant_config(tenant) if tenant else None
         return build_user_preferences(obj, config)
+
+    def get_session_mode(self, obj: UserModel) -> str:
+        request = self.context.get("request")
+        auth = getattr(request, "auth", None)
+        session_mode = None
+        if auth is not None:
+            try:
+                session_mode = auth.get("session_mode")
+            except Exception:
+                session_mode = None
+        return str(session_mode or "default")

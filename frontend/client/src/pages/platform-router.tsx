@@ -1,6 +1,5 @@
 /**
- * Post-login gate: redirects to CRM when user has tenant access.
- * No destination chooser; Tenant Admin remains in-app by role, Platform Admin via direct URL.
+ * Post-login gate: superusers always enter Platform Admin; tenant users enter CRM.
  */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,7 +43,7 @@ const DASHBOARD_PATH = "/dashboard";
 
 export default function PlatformRouter() {
   const { t } = useTranslation();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, isEmbeddedAdminConsole } = useAuth();
   const [, navigate] = useLocation();
   const { data: me, isLoading, error } = useMe();
 
@@ -57,13 +56,18 @@ export default function PlatformRouter() {
   const org = me?.organization;
   const schemaName = (org?.schema_name ?? "").trim().toLowerCase();
   const publicSchema = "public";
+  const isSuperuser = Boolean(me?.is_superuser);
   const hasTenantAccess = Boolean(org && schemaName && schemaName !== publicSchema);
 
   useEffect(() => {
+    if (me && isSuperuser && !isEmbeddedAdminConsole) {
+      navigate("/platform-admin");
+      return;
+    }
     if (me && hasTenantAccess) {
       navigate(DASHBOARD_PATH);
     }
-  }, [me, hasTenantAccess, navigate]);
+  }, [me, isSuperuser, hasTenantAccess, navigate, isEmbeddedAdminConsole]);
 
   if (!isAuthenticated || isLoading) {
     return (
@@ -93,12 +97,18 @@ export default function PlatformRouter() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e0ecff)] px-4">
         <p className="text-slate-600 text-center max-w-sm">
-          You don’t have access to the CRM. Platform admins can use the platform admin URL directly.
+          {isSuperuser
+            ? isEmbeddedAdminConsole
+              ? "Preparing embedded tenant workspace..."
+              : "Redirecting to Platform Admin..."
+            : "You don’t have access to the CRM. Platform admins can use the platform admin URL directly."}
         </p>
-        <Button variant="outline" className="mt-4 gap-2" onClick={() => logout()}>
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out
-        </Button>
+        {!isSuperuser ? (
+          <Button variant="outline" className="mt-4 gap-2" onClick={() => logout()}>
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </Button>
+        ) : null}
       </div>
     );
   }
