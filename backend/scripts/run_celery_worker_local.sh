@@ -19,7 +19,7 @@ fi
 
 cd "${BACKEND_DIR}"
 
-export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-moio_platform.dev_local_settings}"
+export APP_ENV="${APP_ENV:-dev}"
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
 
 QUEUE_LIST="${CELERY_QUEUES_OVERRIDE:-$("${PYTHON_BIN}" - <<'PY'
@@ -28,10 +28,7 @@ import io
 import os
 import sys
 
-os.environ.setdefault(
-    "DJANGO_SETTINGS_MODULE",
-    os.environ.get("DJANGO_SETTINGS_MODULE", "moio_platform.dev_local_settings"),
-)
+os.environ.setdefault("APP_ENV", os.environ.get("APP_ENV", "dev"))
 
 stdout_buffer = io.StringIO()
 with contextlib.redirect_stdout(stdout_buffer):

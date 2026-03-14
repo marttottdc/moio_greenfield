@@ -6,12 +6,13 @@ import os
 import sys
 
 from moio_platform.asgi import application
+from moio_platform.env import configure_django_settings_module
 
 app = application
 
 
 def main() -> None:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.settings")
+    configure_django_settings_module()
     from django.core.management import execute_from_command_line
 
     argv = sys.argv[1:] or ["runserver", "127.0.0.1:8000"]

@@ -1,7 +1,7 @@
 """Hypercorn dev config. Run: hypercorn -c file:hypercorn_dev.py moio_platform.asgi:application"""
 import os
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.dev_local_settings")
+os.environ.setdefault("APP_ENV", "dev")
 
 bind = [f"127.0.0.1:{os.getenv('BACKEND_PORT', '8093')}"]
 worker_class = "uvloop"

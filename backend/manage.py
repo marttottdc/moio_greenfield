@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
-import os
 import sys
-from pathlib import Path
+
+from moio_platform.env import configure_django_settings_module
 
 
 def main():
     """Run administrative tasks."""
-    project_root = Path(__file__).resolve().parent
-    if (project_root / ".env.dev.local").exists():
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.dev_local_settings")
-    else:
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.settings")
+    configure_django_settings_module()
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

@@ -61,7 +61,7 @@ def sync_tenant_tools(
                         tenant=tenant,
                         tool_name=tool_name,
                         defaults={
-                            "tool_type": "builtin",
+                            "tool_type": "custom",
                             "enabled": tool_enabled,
                             "custom_display_name": tool_display_name,
                             "custom_description": tool_description,
@@ -83,6 +83,10 @@ def sync_tenant_tools(
                     if obj.enabled != tool_enabled:
                         obj.enabled = tool_enabled
                         fields_to_update.append("enabled")
+
+                    if obj.tool_type != "custom":
+                        obj.tool_type = "custom"
+                        fields_to_update.append("tool_type")
 
                     if resync:
                         # HARD overwrite

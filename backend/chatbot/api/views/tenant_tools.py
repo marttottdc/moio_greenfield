@@ -4,10 +4,11 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from chatbot.agents.moio_agents_loader import get_available_tools
 from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
 from chatbot.api.serializers.tenant_tool_config import TenantToolConfigurationSerializer
 from central_hub.context_utils import current_tenant
-from resources.api.views import BUILTIN_TOOLS
+from resources.api.views import BUILTIN_TOOLS, TOOL_CATEGORIES, ToolCategory
 from tenancy.resolution import activate_tenant
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,49 @@ def _builtin_tool_list_items():
         }
         for b in BUILTIN_TOOLS
     ]
+
+
+def _custom_tool_list_items():
+    """Return tool list items derived from the runtime tool repository."""
+    items = []
+    for tool in get_available_tools():
+        tool_name = tool.name
+        items.append(
+            {
+                "tool_name": tool_name,
+                "tool_type": "custom",
+                "enabled": getattr(tool, "is_enabled", True),
+                "custom_description": tool.description or "",
+                "custom_display_name": tool_name.replace("_", " ").title(),
+                "default_params": tool.params_json_schema or {},
+                "defaults": {
+                    "name": tool_name,
+                    "display_name": tool_name.replace("_", " ").title(),
+                    "description": tool.description or "",
+                    "category": TOOL_CATEGORIES.get(tool_name, ToolCategory.CUSTOM),
+                    "type": "custom",
+                },
+                "created_at": None,
+                "updated_at": None,
+            }
+        )
+    return items
+
+
+def _merge_tool_overrides(base_item, override_item):
+    """Merge persisted tenant overrides on top of runtime-derived defaults."""
+    merged = dict(base_item)
+    for key in (
+        "enabled",
+        "custom_description",
+        "custom_display_name",
+        "default_params",
+        "created_at",
+        "updated_at",
+    ):
+        if key in override_item:
+            merged[key] = override_item[key]
+    return merged
 
 
 class TenantToolConfigurationViewSet(viewsets.ModelViewSet):
@@ -90,26 +134,48 @@ class TenantToolConfigurationViewSet(viewsets.ModelViewSet):
 
             # Support both raw list and paginated {"results": [...]}
             if isinstance(response.data, list):
-                items = response.data
-                existing_names = {item.get("tool_name") for item in items if isinstance(item, dict)}
-                extra = [item for item in _builtin_tool_list_items() if item["tool_name"] not in existing_names]
-                if extra:
-                    response.data = list(items) + extra
+                response.data = self._merge_available_tools(list(response.data))
             else:
                 if not isinstance(response.data, dict):
                     return response
                 response.data = dict(response.data)
                 results = response.data.get("results")
                 if isinstance(results, list):
-                    existing_names = {item.get("tool_name") for item in results if isinstance(item, dict)}
-                    extra = [item for item in _builtin_tool_list_items() if item["tool_name"] not in existing_names]
-                    if extra:
-                        response.data["results"] = list(results) + extra
+                    response.data["results"] = self._merge_available_tools(list(results))
             return response
         except Exception as e:
             logger.error(f"Error listing tenant tools: {e}")
-            # Degrade gracefully so settings screens can still render builtins.
-            return Response(_builtin_tool_list_items(), status=status.HTTP_200_OK)
+            # Degrade gracefully so settings screens can still render repo tools and builtins.
+            fallback_items = _custom_tool_list_items() + _builtin_tool_list_items()
+            fallback_items.sort(key=lambda item: item["tool_name"])
+            return Response(fallback_items, status=status.HTTP_200_OK)
+
+    def _merge_available_tools(self, persisted_items):
+        """Return runtime-derived tools with tenant overrides applied."""
+        runtime_items = {
+            item["tool_name"]: item
+            for item in (_custom_tool_list_items() + _builtin_tool_list_items())
+        }
+        merged_items = {}
+
+        for name, runtime_item in runtime_items.items():
+            merged_items[name] = dict(runtime_item)
+
+        for item in persisted_items:
+            if not isinstance(item, dict):
+                continue
+
+            tool_name = item.get("tool_name")
+            if not tool_name:
+                continue
+
+            runtime_item = runtime_items.get(tool_name)
+            if runtime_item is not None:
+                merged_items[tool_name] = _merge_tool_overrides(runtime_item, item)
+            else:
+                merged_items[tool_name] = item
+
+        return sorted(merged_items.values(), key=lambda item: item["tool_name"])
 
     def retrieve(self, request, *args, **kwargs):
         """Get a specific tool configuration."""

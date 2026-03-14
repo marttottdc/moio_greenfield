@@ -4,4 +4,5 @@ metadata:
   name: moio-greenfield-config
   namespace: {{ .Release.Namespace }}
 data:
+  APP_ENV: {{ .Values.config.app_env | default "prod" | quote }}
   APP_NAME: {{ .Values.config.app_name | default "moio_greenfield" | quote }}

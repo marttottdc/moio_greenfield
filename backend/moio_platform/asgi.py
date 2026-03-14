@@ -7,14 +7,11 @@ For more information on this file, see
 https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 import os
-from pathlib import Path
+
+from moio_platform.env import configure_django_settings_module
 
 # Must set DJANGO_SETTINGS_MODULE before any Django imports
-_project_root = Path(__file__).resolve().parents[2]
-if (_project_root / ".env.dev.local").exists():
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.dev_local_settings")
-else:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "moio_platform.settings")
+configure_django_settings_module()
 
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter

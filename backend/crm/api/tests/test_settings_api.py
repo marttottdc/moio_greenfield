@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from chatbot.models.agent_configuration import AgentConfiguration
+from chatbot.models.tenant_tool_configuration import TenantToolConfiguration
 from crm.models import WebhookConfig
 from central_hub.integrations.models import IntegrationConfig
 from central_hub.models import Tenant
@@ -297,6 +298,42 @@ class SettingsApiTests(APITestCase):
         self.assertEqual(code_interpreter.get("tool_type"), "builtin")
         self.assertIn("defaults", code_interpreter)
         self.assertEqual(code_interpreter["defaults"].get("display_name"), "Code Interpreter")
+
+    def test_agent_tools_list_includes_repo_custom_tools_without_sync_rows(self) -> None:
+        """Runtime repo tools should be listed even when the tenant has no persisted tool rows."""
+        response = self.client.get("/api/v1/settings/agents/tools/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        tool_names = [item["tool_name"] for item in response.data if isinstance(item, dict)]
+        self.assertIn("search_product", tool_names)
+
+        search_product = next(i for i in response.data if i.get("tool_name") == "search_product")
+        self.assertEqual(search_product.get("tool_type"), "custom")
+        self.assertTrue(search_product.get("enabled"))
+        self.assertIn("defaults", search_product)
+        self.assertEqual(search_product["defaults"].get("type"), "custom")
+
+    def test_agent_tools_list_normalizes_legacy_repo_tool_type(self) -> None:
+        """Persisted repo tools incorrectly marked as builtin should still be exposed as custom."""
+        TenantToolConfiguration.objects.create(
+            tenant=self.tenant,
+            tool_name="search_product",
+            tool_type="builtin",
+            enabled=False,
+            custom_display_name="Buscar producto",
+            custom_description="Custom repo tool description",
+            default_params={"foo": "bar"},
+        )
+
+        response = self.client.get("/api/v1/settings/agents/tools/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        search_product = next(i for i in response.data if i.get("tool_name") == "search_product")
+        self.assertEqual(search_product.get("tool_type"), "custom")
+        self.assertFalse(search_product.get("enabled"))
+        self.assertEqual(search_product.get("custom_display_name"), "Buscar producto")
+        self.assertEqual(search_product.get("custom_description"), "Custom repo tool description")
+        self.assertEqual(search_product.get("default_params"), {"foo": "bar"})
 
     def test_preferences_get_and_patch(self) -> None:
         get_url = "/api/v1/settings/preferences/"

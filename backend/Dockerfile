@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # =====================================================
 # Base image with system dependencies (cached)
 # =====================================================
@@ -30,7 +31,8 @@ FROM base AS builder
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip==24.3.1 \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip==24.3.1 \
  && pip install -r requirements.txt
 
 

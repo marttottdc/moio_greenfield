@@ -48,6 +48,7 @@ pushpin:
 # Non-sensitive app config only. Put DB/Redis/PgBouncer connection values in
 # the existing `moio-greenfield-secrets` Secret instead.
 config:
+  app_env: prod
   app_name: moio_greenfield
 
 # Optional in-cluster PgBouncer (connects to external Postgres)

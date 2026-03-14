@@ -32,4 +32,8 @@ ingress:
 
 # Non-sensitive config only. Connection secrets live in `moio-greenfield-secrets`.
 config:
+  app_env: prod
   app_name: moio_greenfield
+
+pgbouncer:
+  enabled: true
