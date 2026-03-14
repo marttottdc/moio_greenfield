@@ -12,13 +12,20 @@ from django.apps import apps  # noqa: E402
 from django.db import connection  # noqa: E402
 
 
+def _optional_model(app_label: str, model_name: str):
+    try:
+        return apps.get_model(app_label, model_name)
+    except LookupError:
+        return None
+
+
 MODELS_TO_CREATE = [
     apps.get_model("contenttypes", "ContentType"),
     apps.get_model("auth", "Permission"),
     apps.get_model("auth", "Group"),
     apps.get_model("authtoken", "Token"),
     apps.get_model("tenancy", "Tenant"),
-    apps.get_model("central_hub", "TenantConfiguration"),
+    _optional_model("central_hub", "TenantConfiguration"),
     apps.get_model("tenancy", "MoioUser"),
     apps.get_model("tenancy", "AuthSession"),
     apps.get_model("chatbot", "AgentConfiguration"),
@@ -38,6 +45,8 @@ def ensure_schema() -> None:
     existing_tables = set(connection.introspection.table_names())
     with connection.schema_editor() as schema_editor:
         for model in MODELS_TO_CREATE:
+            if model is None:
+                continue
             if model._meta.db_table in existing_tables:
                 continue
             schema_editor.create_model(model)

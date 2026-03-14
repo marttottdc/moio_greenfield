@@ -8,9 +8,16 @@ Prerequisites:
   2. Backend running (e.g. hypercorn -c file:hypercorn_dev.py moio_platform.asgi:application)
 
 Usage:
-  cd backend && BASE_URL=http://127.0.0.1:8093 python tests/demo/populate_demo_data.py
+  cd backend && python tests/demo/populate_demo_data.py
+  BASE_URL=http://127.0.0.1:8093 DEMO_SLUG=demo python tests/demo/populate_demo_data.py
+  BASE_URL=https://moio.ai DEMO_SLUG=demostracion DEMO_HOST=demostracion.moio.ai python tests/demo/populate_demo_data.py
 
 Env:
+  DEMO_SLUG: tenant/data namespace (default demo)
+  DEMO_HOST: tenant host header (default <slug>.<domain>)
+  DEMO_DOMAIN: base domain for DEMO_HOST defaults (default 127.0.0.1)
+  DEMO_ADMIN_EMAIL: primary login user (default <slug>@moio.ai)
+  DEMO_ADMIN_PASS: primary login password (default <slug>123)
   POPULATE_CONCURRENCY: max concurrent requests (default 8)
   POPULATE_DELAY_MS: min delay between batches, ms (default 50)
 """
@@ -29,16 +36,26 @@ except ImportError:
     print("pip install httpx")
     sys.exit(1)
 
-# Users from setup_demo_tenant (alternate when creating)
-DEMO_USERS = [
-    ("demo@moio.ai", "demo123"),
-    ("admin2@demo.moio.ai", "admin2123"),
-    ("manager@demo.moio.ai", "manager123"),
-    ("member@demo.moio.ai", "member123"),
-    ("member2@demo.moio.ai", "member2123"),
-    ("member3@demo.moio.ai", "member3123"),
-    ("viewer@demo.moio.ai", "viewer123"),  # viewer may get 403 on creates - realistic
-]
+DEMO_SLUG = os.environ.get("DEMO_SLUG", "demo").strip() or "demo"
+DEMO_DOMAIN = os.environ.get("DEMO_DOMAIN", "127.0.0.1").strip() or "127.0.0.1"
+DEMO_HOST = os.environ.get("DEMO_HOST", f"{DEMO_SLUG}.{DEMO_DOMAIN}").strip() or f"{DEMO_SLUG}.{DEMO_DOMAIN}"
+DEMO_ADMIN_EMAIL = os.environ.get("DEMO_ADMIN_EMAIL", f"{DEMO_SLUG}@moio.ai").strip() or f"{DEMO_SLUG}@moio.ai"
+DEMO_ADMIN_PASS = os.environ.get("DEMO_ADMIN_PASS", f"{DEMO_SLUG}123").strip() or f"{DEMO_SLUG}123"
+DEMO_CONTACT_EMAIL_DOMAIN = (
+    os.environ.get("DEMO_CONTACT_EMAIL_DOMAIN", f"{DEMO_SLUG}.example.com").strip() or f"{DEMO_SLUG}.example.com"
+)
+
+
+def _demo_users() -> list[tuple[str, str]]:
+    return [
+        (DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASS),
+        (f"admin2@{DEMO_SLUG}.moio.ai", "admin2123"),
+        (f"manager@{DEMO_SLUG}.moio.ai", "manager123"),
+        (f"member@{DEMO_SLUG}.moio.ai", "member123"),
+        (f"member2@{DEMO_SLUG}.moio.ai", "member2123"),
+        (f"member3@{DEMO_SLUG}.moio.ai", "member3123"),
+        (f"viewer@{DEMO_SLUG}.moio.ai", "viewer123"),  # viewer may get 403 on creates - realistic
+    ]
 
 COMPANY_NAMES = [
     "Tienda Inglesa", "Ta-Ta", "Geant", "Devoto", "Disco",
@@ -114,12 +131,12 @@ async def run(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         client.headers["Content-Type"] = "application/json"
-        client.headers["Host"] = host
 
         # 1. Login all users
         print("Logging in users...")
         tokens: list[str | None] = []
-        for email, password in DEMO_USERS:
+        demo_users = _demo_users()
+        for email, password in demo_users:
             tok = await _login_user(client, base, email, password)
             tokens.append(tok)
             status = "ok" if tok else "failed"
@@ -129,7 +146,7 @@ async def run(
         if not valid:
             print("No users could log in.")
             return 1
-        print(f"  {len(valid)}/{len(DEMO_USERS)} users ready")
+        print(f"  {len(valid)}/{len(demo_users)} users ready")
 
         async def post_as_user(idx: int, url: str, json: dict[str, Any]) -> tuple[int, dict | None]:
             user_idx, token = valid[idx % len(valid)]
@@ -180,10 +197,10 @@ async def run(
             first = random.choice(FIRST_NAMES)
             last = random.choice(LAST_NAMES)
             fullname = f"{first} {last}"
-            email_val = f"{first.lower()}.{last.lower()}.{i}@demo.example.com"
+            email_val = f"{first.lower()}.{last.lower()}.{i}@{DEMO_CONTACT_EMAIL_DOMAIN}"
             phone = f"+5989{random.randint(1000000, 9999999)}"
             while email_val in used_emails:
-                email_val = f"{first.lower()}.{last.lower()}.{i}.{random.randint(100, 999)}@demo.example.com"
+                email_val = f"{first.lower()}.{last.lower()}.{i}.{random.randint(100, 999)}@{DEMO_CONTACT_EMAIL_DOMAIN}"
             while phone in used_phones:
                 phone = f"+5989{random.randint(1000000, 9999999)}"
             used_emails.add(email_val)
@@ -194,7 +211,7 @@ async def run(
                 "email": email_val,
                 "phone": phone,
                 "company": "",
-                "source": "populate_demo",
+                "source": f"populate_{DEMO_SLUG}",
             }
             if i < with_count and company_ids:
                 cust = random.choice(companies)
@@ -232,7 +249,7 @@ async def run(
             status = random.choice(statuses)
             title = random.choice(ACTIVITY_TITLES)
             occurred = _random_iso_in_last_90_days()
-            content: dict[str, Any] = {"body": f"Actividad demo #{i + 1}"}
+            content: dict[str, Any] = {"body": f"Actividad {DEMO_SLUG} #{i + 1}"}
             if kind == "task":
                 content = {"description": content["body"], "status": "done" if status == "completed" else "open"}
             elif kind == "event":
@@ -270,7 +287,7 @@ async def run(
 
 if __name__ == "__main__":
     base_url = os.environ.get("BASE_URL", "http://127.0.0.1:8093")
-    host = os.environ.get("DEMO_HOST", "demo.127.0.0.1")
+    host = DEMO_HOST
     concurrency = int(os.environ.get("POPULATE_CONCURRENCY", "8"))
     delay_ms = float(os.environ.get("POPULATE_DELAY_MS", "50"))
     exit_code = asyncio.run(

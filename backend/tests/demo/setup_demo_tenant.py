@@ -1,7 +1,7 @@
 """
-Create demo tenant and 5 users with different roles via API.
+Create demo tenant and users with different roles via API.
 
-- Tenant: subdomain=demo, domain=127.0.0.1
+- Tenant defaults: subdomain=demo, domain=127.0.0.1
 - User 1: demo@moio.ai (tenant_admin) - creado por self-provision
 - User 2: admin2@demo.moio.ai (tenant_admin)
 - User 3: manager@demo.moio.ai (manager)
@@ -15,6 +15,7 @@ Prerequisites: backend running (DB migrated).
 Usage:
   cd backend && python tests/demo/setup_demo_tenant.py
   BASE_URL=http://127.0.0.1:8093 python tests/demo/setup_demo_tenant.py
+  BASE_URL=https://moio.ai DEMO_HOST=demo.moio.ai DEMO_DOMAIN=moio.ai python tests/demo/setup_demo_tenant.py
 """
 from __future__ import annotations
 
@@ -28,18 +29,23 @@ except ImportError:
     sys.exit(1)
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8093").rstrip("/")
-HOST = "demo.127.0.0.1"
-DEMO_EMAIL = os.environ.get("DEMO_EMAIL", "demo@moio.ai")
-DEMO_PASS = os.environ.get("DEMO_PASS", "demo123")
+DEMO_SUBDOMAIN = os.environ.get("DEMO_SUBDOMAIN", "demo").strip() or "demo"
+DEMO_DOMAIN = os.environ.get("DEMO_DOMAIN", "127.0.0.1").strip() or "127.0.0.1"
+HOST = os.environ.get("DEMO_HOST", f"{DEMO_SUBDOMAIN}.{DEMO_DOMAIN}").strip() or f"{DEMO_SUBDOMAIN}.{DEMO_DOMAIN}"
+DEMO_TENANT_NAME = os.environ.get("DEMO_TENANT_NAME", "Demo").strip() or "Demo"
+DEMO_EMAIL = os.environ.get("DEMO_EMAIL", f"{DEMO_SUBDOMAIN}@moio.ai").strip() or f"{DEMO_SUBDOMAIN}@moio.ai"
+DEMO_PASS = os.environ.get("DEMO_PASS", f"{DEMO_SUBDOMAIN}123").strip() or f"{DEMO_SUBDOMAIN}123"
 
-USERS = [
-    {"email": "admin2@demo.moio.ai", "password": "admin2123", "first_name": "Admin", "last_name": "Dos", "role": "tenant_admin"},
-    {"email": "manager@demo.moio.ai", "password": "manager123", "first_name": "Manager", "last_name": "Demo", "role": "manager"},
-    {"email": "member@demo.moio.ai", "password": "member123", "first_name": "Member", "last_name": "Demo", "role": "member"},
-    {"email": "member2@demo.moio.ai", "password": "member2123", "first_name": "Member", "last_name": "Dos", "role": "member"},
-    {"email": "member3@demo.moio.ai", "password": "member3123", "first_name": "Member", "last_name": "Tres", "role": "member"},
-    {"email": "viewer@demo.moio.ai", "password": "viewer123", "first_name": "Viewer", "last_name": "Demo", "role": "viewer"},
-]
+
+def _demo_users() -> list[dict[str, str]]:
+    return [
+        {"email": f"admin2@{DEMO_SUBDOMAIN}.moio.ai", "password": "admin2123", "first_name": "Admin", "last_name": "Dos", "role": "tenant_admin"},
+        {"email": f"manager@{DEMO_SUBDOMAIN}.moio.ai", "password": "manager123", "first_name": "Manager", "last_name": DEMO_TENANT_NAME, "role": "manager"},
+        {"email": f"member@{DEMO_SUBDOMAIN}.moio.ai", "password": "member123", "first_name": "Member", "last_name": DEMO_TENANT_NAME, "role": "member"},
+        {"email": f"member2@{DEMO_SUBDOMAIN}.moio.ai", "password": "member2123", "first_name": "Member", "last_name": "Dos", "role": "member"},
+        {"email": f"member3@{DEMO_SUBDOMAIN}.moio.ai", "password": "member3123", "first_name": "Member", "last_name": "Tres", "role": "member"},
+        {"email": f"viewer@{DEMO_SUBDOMAIN}.moio.ai", "password": "viewer123", "first_name": "Viewer", "last_name": DEMO_TENANT_NAME, "role": "viewer"},
+    ]
 
 
 def main() -> int:
@@ -54,9 +60,9 @@ def main() -> int:
         f"{BASE_URL}/api/v1/tenants/self-provision/",
         params={"sync": "1"},
         json={
-            "nombre": "Demo",
-            "subdomain": "demo",
-            "domain": "127.0.0.1",
+            "nombre": DEMO_TENANT_NAME,
+            "subdomain": DEMO_SUBDOMAIN,
+            "domain": DEMO_DOMAIN,
             "plan": "pro",  # pro/business enable users_manage for tenant_admin
             "email": DEMO_EMAIL,
             "username": DEMO_EMAIL,
@@ -100,7 +106,8 @@ def main() -> int:
     # 2. Create 6 additional users
     print("Creating users...")
     created = 0
-    for u in USERS:
+    users = _demo_users()
+    for u in users:
         resp = session.post(
             f"{BASE_URL}/api/v1/users/",
             json={
@@ -122,10 +129,10 @@ def main() -> int:
             else:
                 print(f"  {u['email']} failed: {resp.status_code} {resp.text[:150]}")
 
-    print(f"\nDone. Tenant demo, 7 users (1 from provision + {created} created).")
+    print(f"\nDone. Tenant {DEMO_SUBDOMAIN}, 7 users (1 from provision + {created} created).")
     print("Credentials:")
     print(f"  {DEMO_EMAIL} / {DEMO_PASS} (tenant_admin)")
-    for u in USERS:
+    for u in users:
         print(f"  {u['email']} / {u['password']} ({u['role']})")
     return 0
 

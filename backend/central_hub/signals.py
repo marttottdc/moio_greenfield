@@ -12,11 +12,27 @@ try:
 except Exception:  # pragma: no cover - package/config may be unavailable in tests
     schema_context = None
 
-from crm.models import Contact, ContactType
+from crm.models import Contact, ContactType, ContactTypeChoices
 from tenancy.models import Tenant
+from tenancy.tenant_support import tenant_schema_context
+
+
+DEFAULT_CONTACT_TYPES = (
+    (ContactTypeChoices.LEAD, True),
+    (ContactTypeChoices.RECURRENT, False),
+    (ContactTypeChoices.EXPERT, False),
+    (ContactTypeChoices.CUSTOMER, False),
+    (ContactTypeChoices.VIP, False),
+    (ContactTypeChoices.ADMIN, False),
+    (ContactTypeChoices.INTERNAL, False),
+    (ContactTypeChoices.USER, False),
+)
 
 
 def _tenant_schema_context(tenant):
+    slug = getattr(tenant, "rls_slug", None) if tenant is not None else None
+    if slug:
+        return tenant_schema_context(slug)
     if (
         tenant is not None
         and getattr(settings, "DJANGO_TENANTS_ENABLED", False)
@@ -25,6 +41,24 @@ def _tenant_schema_context(tenant):
     ):
         return schema_context(tenant.schema_name)
     return nullcontext()
+
+
+@receiver(post_save, sender=Tenant)
+def seed_tenant_crm_defaults(sender, instance, created, **kwargs):
+    """Seed CRM defaults required by user/contact flows for every new tenant."""
+    if not created:
+        return
+
+    with _tenant_schema_context(instance):
+        for contact_type_name, is_default in DEFAULT_CONTACT_TYPES:
+            contact_type, was_created = ContactType.objects.get_or_create(
+                tenant=instance,
+                name=contact_type_name,
+                defaults={"is_default": is_default},
+            )
+            if not was_created and is_default and not contact_type.is_default:
+                contact_type.is_default = True
+                contact_type.save(update_fields=["is_default"])
 
 
 @receiver(post_save, sender=get_user_model())

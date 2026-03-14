@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from crm.models import Customer, Address
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 from tenancy.resolution import ensure_request_tenant_context
+from tenancy.tenant_support import tenant_schema_context
 from tenancy.rbac import user_has_role
 
 try:
@@ -155,24 +156,25 @@ class CustomersView(PaginationMixin, ProtectedAPIView):
             return _error("invalid_request", "name is required", status.HTTP_400_BAD_REQUEST)
 
         try:
-            customer = Customer.objects.create(
-                tenant=tenant,
-                name=name,
-                legal_name=payload.get("legal_name") or name,
-                type=payload.get("type", Customer.PERSON),
-                status=payload.get("status", ""),
-                enabled=payload.get("enabled", True),
-                tax_id=payload.get("tax_id"),
-                first_name=payload.get("first_name", ""),
-                last_name=payload.get("last_name", ""),
-                date_of_birth=payload.get("date_of_birth"),
-                national_document=payload.get("national_document"),
-                passport=payload.get("passport"),
-                gender=payload.get("gender"),
-                phone=payload.get("phone"),
-                email=payload.get("email"),
-                external_id=payload.get("external_id"),
-            )
+            with transaction.atomic(), tenant_schema_context(getattr(tenant, "rls_slug", None)):
+                customer = Customer.objects.create(
+                    tenant=tenant,
+                    name=name,
+                    legal_name=payload.get("legal_name") or name,
+                    type=payload.get("type", Customer.PERSON),
+                    status=payload.get("status", ""),
+                    enabled=payload.get("enabled", True),
+                    tax_id=payload.get("tax_id"),
+                    first_name=payload.get("first_name", ""),
+                    last_name=payload.get("last_name", ""),
+                    date_of_birth=payload.get("date_of_birth"),
+                    national_document=payload.get("national_document"),
+                    passport=payload.get("passport"),
+                    gender=payload.get("gender"),
+                    phone=payload.get("phone"),
+                    email=payload.get("email"),
+                    external_id=payload.get("external_id"),
+                )
         except IntegrityError as e:
             err = str(e).lower()
             if "phone" in err:
@@ -256,7 +258,8 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
             if field in payload:
                 setattr(customer, field, payload[field])
 
-        customer.save()
+        with transaction.atomic(), tenant_schema_context(getattr(customer, "tenant", None) and getattr(customer.tenant, "rls_slug", None)):
+            customer.save()
         return Response(self._serialize_customer(customer))
 
     def delete(self, request, customer_id):
@@ -268,5 +271,6 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
         customer = self._get_customer(request, customer_id)
         if not customer:
             return _error("customer_not_found", "Customer not found", status.HTTP_404_NOT_FOUND)
-        customer.delete()
+        with transaction.atomic(), tenant_schema_context(getattr(customer, "tenant", None) and getattr(customer.tenant, "rls_slug", None)):
+            customer.delete()
         return Response({"message": "Customer deleted successfully"})
