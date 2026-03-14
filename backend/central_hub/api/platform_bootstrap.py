@@ -113,6 +113,7 @@ def _plan_payload(p: Plan) -> dict:
         "name": getattr(p, "name", "") or "",
         "displayOrder": getattr(p, "display_order", 0),
         "isActive": bool(getattr(p, "is_active", True)),
+        "isSelfProvisionDefault": bool(getattr(p, "is_self_provision_default", False)),
         "pricingPolicy": getattr(p, "pricing_policy", None) or {},
         "entitlementPolicy": getattr(p, "entitlement_policy", None) or {},
     }
@@ -127,7 +128,7 @@ def _tenant_payload(t: Tenant) -> dict:
         "schemaName": getattr(t, "schema_name", "") or "",
         "isActive": bool(getattr(t, "enabled", True)),
         "primaryDomain": getattr(t, "primary_domain", "") or "",
-        "plan": str(getattr(t, "plan", "free") or "free"),
+        "plan": str(getattr(t, "plan", "") or ""),
         "moduleEnablements": _tenant_module_enablements(t),
     }
 

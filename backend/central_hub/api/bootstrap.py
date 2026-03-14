@@ -53,16 +53,16 @@ def _serialize_tenant(user) -> Dict[str, Any] | None:
     return {
         "id": str(tenant.pk),
         "nombre": tenant.nombre,
-        "plan": getattr(tenant, "plan", "free"),
+        "plan": getattr(tenant, "plan", "") or "",
         "enabled": getattr(tenant, "enabled", True),
     }
 
 
 def _serialize_entitlements(tenant) -> Dict[str, Any]:
     if tenant is None:
-        return {"features": {}, "limits": {}, "plan": "free", "ui": {}}
+        return {"features": {}, "limits": {}, "plan": "", "ui": {}}
     return {
-        "plan": getattr(tenant, "plan", "free") or "free",
+        "plan": getattr(tenant, "plan", "") or "",
         "features": getattr(tenant, "features", None) or {},
         "limits": getattr(tenant, "limits", None) or {},
         "ui": getattr(tenant, "ui", None) or {},

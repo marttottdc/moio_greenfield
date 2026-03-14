@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Set
 
+from central_hub.plan_policy import get_default_entitlements_for_plan, get_self_provision_default_plan
 from tenancy.rbac import ROLE_ORDER, _user_group_names, _role_rank
-from tenancy.entitlements_defaults import get_default_features_for_plan, get_default_limits_for_plan
 
 CAPABILITY_KEYS = frozenset({
     "crm_contacts_read", "crm_contacts_write",
@@ -81,14 +81,16 @@ def get_effective_capabilities(user, tenant_entitlements) -> EffectiveCapabiliti
             features = dict(tenant_entitlements.features or {})
             if not features:
                 plan = getattr(tenant_entitlements, "plan", None)
-                features = get_default_features_for_plan(str(plan or "free").lower())
+                defaults = get_default_entitlements_for_plan(str(plan or get_self_provision_default_plan().key).lower())
+                features = dict(defaults.get("features") or {})
         else:
             features = dict((tenant_entitlements.get("features") or {}))
         if hasattr(tenant_entitlements, "limits"):
             limits = dict(tenant_entitlements.limits or {})
             if not limits:
                 plan = getattr(tenant_entitlements, "plan", None)
-                limits = get_default_limits_for_plan(str(plan or "free").lower())
+                defaults = get_default_entitlements_for_plan(str(plan or get_self_provision_default_plan().key).lower())
+                limits = dict(defaults.get("limits") or {})
         else:
             limits = dict((tenant_entitlements.get("limits") or {}))
 
@@ -98,10 +100,11 @@ def get_effective_capabilities(user, tenant_entitlements) -> EffectiveCapabiliti
         full_features = {k: (k in role_caps) for k in CAPABILITY_KEYS}
         for ui_key in ("crm", "campaigns", "flows"):
             full_features[ui_key] = True
+        plan_key = getattr(tenant_entitlements, "plan", None) or get_self_provision_default_plan().key
         return EffectiveCapabilities(
             allowed_capabilities=role_caps,
             effective_features=full_features,
-            limits=get_default_limits_for_plan("business"),
+            limits=dict(get_default_entitlements_for_plan(str(plan_key).lower()).get("limits") or {}),
         )
 
     tenant_allowed = _tenant_allowed_capabilities(features)

@@ -46,6 +46,7 @@ from central_hub.integrations.models import (
     ShopifyShopLinkStatus,
 )
 from central_hub.models import PlatformConfiguration
+from central_hub.plan_policy import get_self_provision_default_plan
 from central_hub.rbac import user_has_role
 from security.authentication import ServiceJWTAuthentication
 from tenancy.models import Tenant, UserProfile
@@ -318,11 +319,12 @@ def _ensure_user_has_tenant(user, shop: str) -> tuple[Tenant, bool]:
         return tenant, False
 
     shop_name = shop.replace(".myshopify.com", "").replace("-", " ").strip() or "Shopify Store"
+    default_plan = get_self_provision_default_plan()
     tenant = Tenant.objects.create(
         nombre=shop_name.title(),
         domain="moio.local",
         subdomain=_build_unique_subdomain(shop_name),
-        plan=Tenant.Plan.FREE,
+        plan=default_plan.key,
         enabled=True,
     )
     user.tenant = tenant

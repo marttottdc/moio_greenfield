@@ -72,7 +72,7 @@ class UserSerializer(serializers.ModelSerializer):
         return {
             "id": str(tenant.pk),
             "name": tenant.nombre,
-            "plan": str(getattr(tenant, "plan", "free") or "free"),
+            "plan": str(getattr(tenant, "plan", "") or ""),
             "domain": str(getattr(tenant, "domain", "") or ""),
             "subdomain": str(getattr(tenant, "subdomain", "") or ""),
             "primary_domain": str(getattr(tenant, "primary_domain", "") or ""),

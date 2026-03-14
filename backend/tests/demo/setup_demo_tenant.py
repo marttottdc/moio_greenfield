@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 try:
     import requests
@@ -58,12 +59,10 @@ def main() -> int:
     print("Creating tenant (self-provision)...")
     prov = session.post(
         f"{BASE_URL}/api/v1/tenants/self-provision/",
-        params={"sync": "1"},
         json={
             "nombre": DEMO_TENANT_NAME,
             "subdomain": DEMO_SUBDOMAIN,
             "domain": DEMO_DOMAIN,
-            "plan": "pro",  # pro/business enable users_manage for tenant_admin
             "email": DEMO_EMAIL,
             "username": DEMO_EMAIL,
             "password": DEMO_PASS,
@@ -72,10 +71,30 @@ def main() -> int:
         },
     )
 
-    if prov.status_code == 201:
+    if prov.status_code == 202:
         data = prov.json()
-        token = data.get("access_token") or data.get("access")
-        print(f"  Tenant created. User: {DEMO_EMAIL}")
+        task_id = data.get("task_id")
+        if not task_id:
+            print(f"  Provision queued without task id: {prov.text[:300]}")
+            return 1
+        print(f"  Provision queued ({task_id}). Polling...")
+        for _ in range(90):
+            status_resp = session.get(f"{BASE_URL}/api/v1/tenants/provision-status/{task_id}/")
+            payload = status_resp.json() if status_resp.headers.get("content-type", "").startswith("application/json") else {}
+            state = payload.get("status")
+            if state == "success":
+                token = payload.get("access_token") or payload.get("access")
+                print(f"  Tenant created. User: {DEMO_EMAIL}")
+                break
+            if state == "failure":
+                print(f"  Provision failed: {payload.get('error') or status_resp.text[:300]}")
+                return 1
+            current_stage = payload.get("current_stage") or "pending"
+            print(f"  Waiting... stage={current_stage} status={state}")
+            time.sleep(2)
+        else:
+            print("  Provision timeout.")
+            return 1
     elif prov.status_code in (400, 409):
         err = prov.json() if prov.headers.get("content-type", "").startswith("application/json") else {}
         msg = err.get("subdomain") or err.get("email") or err.get("detail") or prov.text

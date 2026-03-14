@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - package/config may be unavailable in tes
     public_schema_context = None
 
 from crm.models import Contact, ContactType, ContactTypeChoices
+from tenancy.bootstrap_context import should_skip_tenant_bootstrap_signals
 from tenancy.models import Tenant
 from tenancy.tenant_support import tenant_rls_context
 
@@ -43,12 +44,7 @@ def _tenant_rls_context(tenant):
     return nullcontext()
 
 
-@receiver(post_save, sender=Tenant)
-def seed_tenant_crm_defaults(sender, instance, created, **kwargs):
-    """Seed CRM defaults required by user/contact flows for every new tenant."""
-    if not created:
-        return
-
+def ensure_tenant_crm_defaults(instance: Tenant) -> None:
     with _tenant_rls_context(instance):
         for contact_type_name, is_default in DEFAULT_CONTACT_TYPES:
             contact_type, was_created = ContactType.objects.get_or_create(
@@ -59,6 +55,14 @@ def seed_tenant_crm_defaults(sender, instance, created, **kwargs):
             if not was_created and is_default and not contact_type.is_default:
                 contact_type.is_default = True
                 contact_type.save(update_fields=["is_default"])
+
+
+@receiver(post_save, sender=Tenant)
+def seed_tenant_crm_defaults(sender, instance, created, **kwargs):
+    """Seed CRM defaults required by user/contact flows for every new tenant."""
+    if not created or should_skip_tenant_bootstrap_signals():
+        return
+    ensure_tenant_crm_defaults(instance)
 
 
 @receiver(post_save, sender=get_user_model())

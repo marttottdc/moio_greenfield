@@ -13,6 +13,7 @@ except Exception:
     public_schema_context = None
 
 from tenancy.entitlements_defaults import get_default_entitlements_for_plan
+from tenancy.bootstrap_context import should_skip_tenant_bootstrap_signals
 from tenancy.models import Tenant, TenantDomain, UserProfile
 
 
@@ -27,11 +28,8 @@ def _tenant_rls_context(tenant):
     return nullcontext()
 
 
-@receiver(post_save, sender=Tenant)
-def seed_tenant_entitlements(sender, instance, created, **kwargs):
-    if not created:
-        return
-    defaults = get_default_entitlements_for_plan(getattr(instance, "plan", "free"))
+def apply_tenant_entitlements(instance: Tenant) -> None:
+    defaults = get_default_entitlements_for_plan(getattr(instance, "plan", "") or "")
     instance.features = defaults["features"]
     instance.limits = defaults["limits"]
     instance.ui = defaults.get("ui", {})
@@ -42,6 +40,13 @@ def seed_tenant_entitlements(sender, instance, created, **kwargs):
         ui=instance.ui,
         entitlements_updated_at=instance.entitlements_updated_at,
     )
+
+
+@receiver(post_save, sender=Tenant)
+def seed_tenant_entitlements(sender, instance, created, **kwargs):
+    if not created or should_skip_tenant_bootstrap_signals():
+        return
+    apply_tenant_entitlements(instance)
 
 
 @receiver(post_save, sender=Tenant)

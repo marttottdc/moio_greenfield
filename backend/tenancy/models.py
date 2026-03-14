@@ -51,8 +51,8 @@ class Tenant(models.Model):
     enabled = models.BooleanField(default=True)
     domain = models.CharField(max_length=150, null=False)
     subdomain = models.CharField(max_length=100, null=False, blank=False, unique=True, db_index=True)
-    # Plan key (e.g. free, pro, business). Define plans in Platform Admin; defaults above for backward compat.
-    plan = models.CharField(max_length=40, default=Plan.FREE)
+    # Plan key managed from Platform Admin / platform_plan.
+    plan = models.CharField(max_length=40, default="", blank=True)
     tenant_code = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
     created = models.DateTimeField(default=timezone.now)
 

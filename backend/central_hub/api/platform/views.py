@@ -40,8 +40,6 @@ def _is_known_plan_key(plan_key: str) -> bool:
     key = (plan_key or "").strip().lower()
     if not key:
         return False
-    if key in {"free", "pro", "business"}:
-        return True
     return Plan.objects.filter(key=key).exists()
 
 
@@ -156,6 +154,7 @@ class PlatformPlansSaveView(PlatformAdminMixin, APIView):
         name = (data.get("name") or "").strip()
         display_order = data.get("displayOrder")
         is_active = data.get("isActive") if data.get("isActive") is not None else True
+        is_self_provision_default = bool(data.get("isSelfProvisionDefault")) if data.get("isSelfProvisionDefault") is not None else False
         pricing_policy = data.get("pricingPolicy")
         entitlement_policy = data.get("entitlementPolicy")
 
@@ -193,10 +192,13 @@ class PlatformPlansSaveView(PlatformAdminMixin, APIView):
                 if display_order is not None:
                     plan.display_order = display_order
                 plan.is_active = bool(is_active)
+                plan.is_self_provision_default = is_self_provision_default
                 if pricing_policy is not None:
                     plan.pricing_policy = pricing_policy
                 if entitlement_policy is not None:
                     plan.entitlement_policy = entitlement_policy
+                if plan.is_self_provision_default:
+                    Plan.objects.exclude(pk=plan.pk).filter(is_self_provision_default=True).update(is_self_provision_default=False)
                 plan.save()
             else:
                 plan, _ = Plan.objects.update_or_create(
@@ -205,10 +207,13 @@ class PlatformPlansSaveView(PlatformAdminMixin, APIView):
                         "name": name,
                         "display_order": display_order if display_order is not None else 0,
                         "is_active": bool(is_active),
+                        "is_self_provision_default": is_self_provision_default,
                         "pricing_policy": pricing_policy if isinstance(pricing_policy, dict) else {},
                         "entitlement_policy": entitlement_policy if isinstance(entitlement_policy, dict) else {},
                     },
                 )
+                if is_self_provision_default:
+                    Plan.objects.exclude(pk=plan.pk).filter(is_self_provision_default=True).update(is_self_provision_default=False)
         except Plan.DoesNotExist:
             return Response(
                 {"ok": False, "error": {"message": "Plan not found.", "code": "not_found"}},
@@ -266,10 +271,8 @@ class PlatformTenantsCreateView(PlatformAdminMixin, APIView):
         schema_name = (data.get("schemaName") or slug or "").strip().lower()
         primary_domain = (data.get("primaryDomain") or "").strip()
         is_active = data.get("isActive", True)
-        plan = (data.get("plan") or "free").strip().lower()
+        plan = (data.get("plan") or "").strip().lower()
         module_enablements = data.get("moduleEnablements")
-        if not _is_known_plan_key(plan):
-            plan = "free"
         if not name:
             return Response(
                 {"ok": False, "error": {"message": "name is required", "code": "validation"}},
@@ -278,6 +281,16 @@ class PlatformTenantsCreateView(PlatformAdminMixin, APIView):
         if not schema_name:
             return Response(
                 {"ok": False, "error": {"message": "schemaName/slug is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not plan:
+            return Response(
+                {"ok": False, "error": {"message": "plan is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not _is_known_plan_key(plan):
+            return Response(
+                {"ok": False, "error": {"message": "Plan not found.", "code": "validation"}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         subdomain = (primary_domain.split(".")[0] if primary_domain else schema_name)

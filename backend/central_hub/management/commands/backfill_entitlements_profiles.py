@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from central_hub.entitlements_defaults import get_default_entitlements_for_plan
+from central_hub.plan_policy import get_plan_by_key, get_self_provision_default_plan
 from central_hub.models import Tenant, MoioUser, UserProfile
 
 
@@ -48,9 +49,10 @@ class Command(BaseCommand):
                 updated_tenants += 1
                 continue
             if full_access:
-                defaults = get_default_entitlements_for_plan("business")
+                defaults = get_default_entitlements_for_plan(get_plan_by_key("business").key)
             else:
-                defaults = get_default_entitlements_for_plan(getattr(tenant, "plan", "free"))
+                plan_key = getattr(tenant, "plan", "") or get_self_provision_default_plan().key
+                defaults = get_default_entitlements_for_plan(plan_key)
             tenant.features = defaults["features"]
             tenant.limits = defaults["limits"]
             tenant.ui = defaults.get("ui", {})

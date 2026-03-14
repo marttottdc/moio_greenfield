@@ -185,6 +185,7 @@ export function savePlan(input: {
   name: string;
   displayOrder?: number;
   isActive?: boolean;
+  isSelfProvisionDefault?: boolean;
   pricingPolicy?: Record<string, unknown>;
   entitlementPolicy?: Record<string, unknown>;
 }) {

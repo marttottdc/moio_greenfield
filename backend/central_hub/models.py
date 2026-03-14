@@ -1,5 +1,8 @@
+import uuid
+
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from tenancy.models import (
     AuthSession,
@@ -11,6 +14,28 @@ from tenancy.models import (
     UserApiKey,
     UserProfile,
 )
+
+
+PROVISIONING_STAGE_CHOICES = (
+    ("tenant_creation", "Tenant creation"),
+    ("tenant_seeding", "Tenant seeding"),
+    ("primary_user_creation", "Primary user creation"),
+)
+
+PROVISIONING_STATUS_CHOICES = (
+    ("pending", "Pending"),
+    ("running", "Running"),
+    ("success", "Success"),
+    ("failure", "Failure"),
+)
+
+
+def default_provisioning_stages():
+    return {
+        "tenant_creation": {"status": "pending", "started_at": None, "finished_at": None, "error": ""},
+        "tenant_seeding": {"status": "pending", "started_at": None, "finished_at": None, "error": ""},
+        "primary_user_creation": {"status": "pending", "started_at": None, "finished_at": None, "error": ""},
+    }
 
 
 class PlatformConfiguration(models.Model):
@@ -52,6 +77,7 @@ class Plan(models.Model):
     name = models.CharField(max_length=100)
     display_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    is_self_provision_default = models.BooleanField(default=False)
     pricing_policy = models.JSONField(
         default=dict,
         blank=True,
@@ -71,6 +97,68 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"{self.key}: {self.name}"
+
+
+class ProvisioningJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(max_length=20, choices=PROVISIONING_STATUS_CHOICES, default="pending")
+    current_stage = models.CharField(max_length=40, choices=PROVISIONING_STAGE_CHOICES, blank=True, default="")
+    stages = models.JSONField(default=default_provisioning_stages, blank=True)
+    requested_name = models.CharField(max_length=150)
+    requested_email = models.EmailField()
+    requested_username = models.CharField(max_length=150)
+    requested_subdomain = models.CharField(max_length=100, blank=True, default="")
+    requested_domain = models.CharField(max_length=150, blank=True, default="")
+    requested_locale = models.CharField(max_length=10, default="es")
+    tenant = models.ForeignKey(Tenant, null=True, blank=True, on_delete=models.SET_NULL, related_name="provisioning_jobs")
+    user = models.ForeignKey(MoioUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="provisioning_jobs")
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "platform_provisioning_job"
+        verbose_name = "Provisioning job"
+        verbose_name_plural = "Provisioning jobs"
+        ordering = ["-created_at"]
+
+    def _touch_stage(self, stage: str) -> dict:
+        stages = dict(self.stages or default_provisioning_stages())
+        payload = dict(stages.get(stage) or {})
+        stages[stage] = payload
+        self.stages = stages
+        return payload
+
+    def mark_stage_running(self, stage: str) -> None:
+        payload = self._touch_stage(stage)
+        payload["status"] = "running"
+        payload["started_at"] = timezone.now().isoformat()
+        payload["finished_at"] = None
+        payload["error"] = ""
+        self.current_stage = stage
+        self.status = "running"
+        self.error_message = ""
+        self.save(update_fields=["stages", "current_stage", "status", "error_message", "updated_at"])
+
+    def mark_stage_success(self, stage: str, *, final: bool = False) -> None:
+        payload = self._touch_stage(stage)
+        payload["status"] = "success"
+        payload["finished_at"] = timezone.now().isoformat()
+        payload["error"] = ""
+        self.current_stage = stage
+        self.status = "success" if final else "running"
+        self.error_message = ""
+        self.save(update_fields=["stages", "current_stage", "status", "error_message", "updated_at"])
+
+    def mark_stage_failure(self, stage: str, error_message: str) -> None:
+        payload = self._touch_stage(stage)
+        payload["status"] = "failure"
+        payload["finished_at"] = timezone.now().isoformat()
+        payload["error"] = str(error_message or "Provisioning failed")
+        self.current_stage = stage
+        self.status = "failure"
+        self.error_message = payload["error"]
+        self.save(update_fields=["stages", "current_stage", "status", "error_message", "updated_at"])
 
 
 class PlatformNotificationSettings(models.Model):

@@ -17,6 +17,22 @@ spec:
     spec:
       imagePullSecrets:
         - name: {{ .Values.image.pullSecret }}
+      initContainers:
+        - name: migrate
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command:
+            - python
+            - manage.py
+            - migrate
+            - --noinput
+          env:
+            - name: IMAGE_TAG
+              value: {{ .Values.image.tag | quote }}
+          envFrom:
+            - configMapRef:
+                name: moio-greenfield-config
+            - secretRef:
+                name: moio-greenfield-secrets
       containers:
         - name: web
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

@@ -42,6 +42,37 @@ import mobileSuggestions from "@assets/mobile_suggestions.png";
 import mobileActivities from "@assets/mobile_activities.png";
 import { setAccessToken, setRefreshToken, apiV1 } from "@/lib/api";
 
+type ProvisioningStageKey = "tenant_creation" | "tenant_seeding" | "primary_user_creation";
+
+type ProvisioningStageStatus = {
+  status?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string;
+};
+
+type ProvisioningProgress = {
+  task_id?: string;
+  status?: string;
+  current_stage?: ProvisioningStageKey;
+  stages?: Partial<Record<ProvisioningStageKey, ProvisioningStageStatus>>;
+  access_token?: string;
+  refresh_token?: string;
+  error?: string;
+};
+
+const PROVISIONING_STAGE_ORDER: ProvisioningStageKey[] = [
+  "tenant_creation",
+  "tenant_seeding",
+  "primary_user_creation",
+];
+
+const PROVISIONING_STAGE_LABELS: Record<ProvisioningStageKey, string> = {
+  tenant_creation: "Creando tenant",
+  tenant_seeding: "Ejecutando seeds",
+  primary_user_creation: "Creando usuario principal",
+};
+
 /* ─── animation variants ─── */
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -233,6 +264,7 @@ export default function LandingPage() {
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [provisioningProgress, setProvisioningProgress] = useState<ProvisioningProgress | null>(null);
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,10 +278,11 @@ export default function LandingPage() {
     const username = enrollForm.email.split("@")[0].replace(/[^a-zA-Z0-9._-]/g, "");
     const subdomain = slugify(enrollForm.company);
     setSubmitting(true);
+    setProvisioningProgress(null);
     try {
-      const res = await fetch(apiV1("/tenants/self-provision/?sync=1"), {
+      const res = await fetch(apiV1("/tenants/self-provision/"), {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: enrollForm.company.trim(), email: enrollForm.email.trim(), username, password: enrollForm.password, plan: "free", subdomain: subdomain || undefined, first_name: firstName, last_name: lastName }),
+        body: JSON.stringify({ nombre: enrollForm.company.trim(), email: enrollForm.email.trim(), username, password: enrollForm.password, subdomain: subdomain || undefined, first_name: firstName, last_name: lastName }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -261,9 +294,41 @@ export default function LandingPage() {
         } else { setFormError(data.detail || "Error al crear la cuenta. Intentá de nuevo."); }
         return;
       }
-      if (data.access_token) { setAccessToken(data.access_token); setRefreshToken(data.refresh_token); setSubmitted(true); setTimeout(() => setLocation("/dashboard"), 1500); }
-      else { setSubmitted(true); }
-    } catch { setFormError("Error de conexión. Verificá tu internet e intentá de nuevo."); }
+      const taskId = typeof data?.task_id === "string" ? data.task_id : null;
+      if (!taskId) {
+        setFormError("No se pudo iniciar el proceso de activación. Intentá de nuevo.");
+        return;
+      }
+      setSubmitted(true);
+      setProvisioningProgress(data as ProvisioningProgress);
+
+      for (let attempt = 0; attempt < 180; attempt += 1) {
+        const pollRes = await fetch(apiV1(`/tenants/provision-status/${taskId}/`));
+        const pollData = (await pollRes.json()) as ProvisioningProgress;
+        setProvisioningProgress(pollData);
+
+        if (pollData.status === "success" && pollData.access_token && pollData.refresh_token) {
+          setAccessToken(pollData.access_token);
+          setRefreshToken(pollData.refresh_token);
+          setTimeout(() => setLocation("/dashboard"), 1500);
+          return;
+        }
+
+        if (pollData.status === "failure") {
+          setSubmitted(false);
+          setFormError(pollData.error || "Error al activar la plataforma. Intentá de nuevo.");
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+
+      setSubmitted(false);
+      setFormError("La activación está tardando demasiado. Intentá nuevamente en unos minutos.");
+    } catch {
+      setSubmitted(false);
+      setFormError("Error de conexión. Verificá tu internet e intentá de nuevo.");
+    }
     finally { setSubmitting(false); }
   };
 
@@ -610,11 +675,57 @@ export default function LandingPage() {
           {submitted ? (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-14">
               <GradientBorder>
-                <div className="p-12 text-center">
-                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#2ecc71]/10"><Check className="h-8 w-8 text-[#2ecc71]" /></div>
-                  <h3 className="text-2xl font-bold text-white">¡Tu plataforma está lista!</h3>
-                  <p className="mt-3 text-gray-400">Redirigiendo al dashboard...</p>
-                  <Loader2 className="mx-auto mt-5 h-5 w-5 animate-spin text-[#2ecc71]" />
+                <div className="p-10 md:p-12">
+                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#2ecc71]/10">
+                    {provisioningProgress?.status === "success" ? (
+                      <Check className="h-8 w-8 text-[#2ecc71]" />
+                    ) : (
+                      <Loader2 className="h-8 w-8 animate-spin text-[#58a6ff]" />
+                    )}
+                  </div>
+                  <h3 className="text-center text-2xl font-bold text-white">
+                    {provisioningProgress?.status === "success" ? "¡Tu plataforma está lista!" : "Estamos activando tu plataforma"}
+                  </h3>
+                  <p className="mt-3 text-center text-gray-400">
+                    {provisioningProgress?.status === "success"
+                      ? "Redirigiendo al dashboard..."
+                      : "Vas a ver cada etapa apenas ocurra, sin esperar al final del proceso."}
+                  </p>
+
+                  <div className="mt-8 space-y-3">
+                    {PROVISIONING_STAGE_ORDER.map((stageKey) => {
+                      const stage = provisioningProgress?.stages?.[stageKey];
+                      const statusText = stage?.status || "pending";
+                      const isDone = statusText === "success";
+                      const isRunning = statusText === "running";
+                      const isFailed = statusText === "failure";
+                      return (
+                        <div
+                          key={stageKey}
+                          className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3"
+                        >
+                          <div>
+                            <div className="text-sm font-medium text-white">{PROVISIONING_STAGE_LABELS[stageKey]}</div>
+                            <div className="text-xs text-gray-500">
+                              {isFailed ? stage?.error || "Falló esta etapa" : statusText === "pending" ? "Pendiente" : isRunning ? "En progreso" : "Completada"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            {isDone ? (
+                              <Check className="h-4 w-4 text-[#2ecc71]" />
+                            ) : isRunning ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#58a6ff]" />
+                            ) : (
+                              <div className={`h-2.5 w-2.5 rounded-full ${isFailed ? "bg-[#ff6b6b]" : "bg-gray-700"}`} />
+                            )}
+                            <span className={`${isDone ? "text-[#2ecc71]" : isRunning ? "text-[#58a6ff]" : isFailed ? "text-[#ff6b6b]" : "text-gray-500"}`}>
+                              {statusText === "pending" ? "pending" : statusText}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </GradientBorder>
             </motion.div>

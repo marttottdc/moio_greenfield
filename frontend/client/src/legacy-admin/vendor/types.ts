@@ -209,6 +209,7 @@ export type Plan = {
   name: string;
   displayOrder: number;
   isActive: boolean;
+  isSelfProvisionDefault?: boolean;
   pricingPolicy?: Record<string, unknown>;
   entitlementPolicy?: Record<string, unknown>;
 };

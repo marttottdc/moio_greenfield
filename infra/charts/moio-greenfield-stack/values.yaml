@@ -1,5 +1,9 @@
 # Default values. Override in environments/*.yaml or via -f.
 # Database, Redis and PgBouncer are EXTERNAL - set connection URLs here.
+#
+# Migrations: The backend pod runs "manage.py migrate --noinput" in an init container
+# before the app starts. New migration files must be created locally (makemigrations)
+# and committed; deploy only applies existing migrations.
 
 image:
   repository: ghcr.io/your-org/moio-greenfield-backend

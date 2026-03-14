@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 
+from central_hub.plan_policy import PlanPolicyError, get_plan_by_key, get_self_provision_default_plan
 from tenancy.models import Tenant, TenantDomain
 from tenancy.validators import validate_subdomain_rfc
 
@@ -15,19 +16,23 @@ class Command(BaseCommand):
         parser.add_argument("--name", required=True, help="Tenant display name")
         parser.add_argument("--domain", default="", help="Base domain (e.g. moio.ai)")
         parser.add_argument("--subdomain", default="", help="Subdomain (e.g. acme -> acme.moio.ai)")
-        parser.add_argument("--plan", default="free", choices=["free", "pro", "business"])
+        parser.add_argument("--plan", default="", help="Plan key from Platform Admin")
 
     def handle(self, *args, **options) -> None:
         schema_name = str(options.get("schema", "")).strip().lower()
         name = str(options.get("name", "")).strip()
         domain = str(options.get("domain", "")).strip().lower()
         subdomain = str(options.get("subdomain", "")).strip().lower()
-        plan = str(options.get("plan", "free")).lower()
+        plan = str(options.get("plan", "")).strip().lower()
 
         if not schema_name:
             raise CommandError("--schema is required")
         if not name:
             raise CommandError("--name is required")
+        try:
+            effective_plan = get_plan_by_key(plan) if plan else get_self_provision_default_plan()
+        except PlanPolicyError as exc:
+            raise CommandError(str(exc)) from exc
 
         effective_subdomain = subdomain or schema_name
         if effective_subdomain:
@@ -42,7 +47,7 @@ class Command(BaseCommand):
                 "nombre": name,
                 "domain": domain or "localhost",
                 "subdomain": subdomain or schema_name,
-                "plan": plan,
+                "plan": effective_plan.key,
             },
         )
         changed = False
@@ -55,8 +60,11 @@ class Command(BaseCommand):
         if tenant.subdomain != (subdomain or schema_name):
             tenant.subdomain = subdomain or schema_name
             changed = True
+        if tenant.plan != effective_plan.key:
+            tenant.plan = effective_plan.key
+            changed = True
         if changed:
-            tenant.save(update_fields=["nombre", "domain", "subdomain"])
+            tenant.save(update_fields=["nombre", "domain", "subdomain", "plan"])
 
         self.stdout.write(
             self.style.SUCCESS(

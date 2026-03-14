@@ -67,6 +67,7 @@ type PlanFormState = {
   name: string;
   displayOrder: number;
   isActive: boolean;
+  isSelfProvisionDefault: boolean;
   pricingPolicyText: string;
   entitlementPolicyText: string;
 };
@@ -230,7 +231,7 @@ const DEFAULT_TENANT_FORM: TenantFormState = {
   schemaName: "",
   primaryDomain: "",
   isActive: true,
-  plan: "free",
+  plan: "",
   moduleEnablements: {
     crm: true,
     flowsDatalab: false,
@@ -245,6 +246,7 @@ const DEFAULT_PLAN_FORM: PlanFormState = {
   name: "",
   displayOrder: 0,
   isActive: true,
+  isSelfProvisionDefault: false,
   pricingPolicyText: "{}",
   entitlementPolicyText: "{}",
 };
@@ -546,7 +548,10 @@ export default function PlatformAdminApp() {
   }
 
   function newTenantForm() {
-    setTenantForm(DEFAULT_TENANT_FORM);
+    setTenantForm({
+      ...DEFAULT_TENANT_FORM,
+      plan: plans[0]?.key || "",
+    });
     setTenantModalOpen(true);
   }
 
@@ -559,7 +564,7 @@ export default function PlatformAdminApp() {
       schemaName: row.schemaName,
       primaryDomain: row.primaryDomain,
       isActive: row.isActive,
-      plan: row.plan || "free",
+      plan: row.plan || "",
       moduleEnablements: {
         crm: true,
         flowsDatalab: Boolean(enablements.flowsDatalab),
@@ -583,6 +588,7 @@ export default function PlatformAdminApp() {
       name: row.name,
       displayOrder: row.displayOrder ?? 0,
       isActive: row.isActive ?? true,
+      isSelfProvisionDefault: row.isSelfProvisionDefault ?? false,
       pricingPolicyText: JSON.stringify(row.pricingPolicy || {}, null, 2),
       entitlementPolicyText: JSON.stringify(row.entitlementPolicy || {}, null, 2),
     });
@@ -617,6 +623,7 @@ export default function PlatformAdminApp() {
         name: planForm.name,
         displayOrder: planForm.displayOrder,
         isActive: planForm.isActive,
+        isSelfProvisionDefault: planForm.isSelfProvisionDefault,
         pricingPolicy,
         entitlementPolicy,
       });
@@ -1167,7 +1174,7 @@ export default function PlatformAdminApp() {
                                 <tr key={row.id} className="hover:bg-slate-50/80">
                                   <td className="px-2 py-1.5 font-medium text-slate-900">{row.name || row.slug}</td>
                                   <td className="px-2 py-1.5 font-mono text-slate-600">{row.slug}</td>
-                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.plan || "free"}</td>
+                                  <td className="px-2 py-1.5 font-mono text-slate-600">{row.plan || "unassigned"}</td>
                                   <td className="px-2 py-1.5 text-[11px] text-slate-600">
                                     <div className="flex flex-wrap gap-1">
                                       <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
@@ -1220,13 +1227,14 @@ export default function PlatformAdminApp() {
                               <th className="px-2 py-1.5">Name</th>
                               <th className="px-2 py-1.5">Order</th>
                               <th className="px-2 py-1.5">Active</th>
+                              <th className="px-2 py-1.5">Self-provision</th>
                               <th className="w-14 px-2 py-1.5" />
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {plans.length === 0 ? (
                               <tr>
-                                <td className="px-2 py-2 text-slate-500" colSpan={5}>
+                                <td className="px-2 py-2 text-slate-500" colSpan={6}>
                                   No plans yet. Add Free, Pro, Business or custom plans.
                                 </td>
                               </tr>
@@ -1237,6 +1245,7 @@ export default function PlatformAdminApp() {
                                   <td className="px-2 py-1.5 font-medium text-slate-900">{row.name}</td>
                                   <td className="px-2 py-1.5 font-mono text-slate-600">{row.displayOrder ?? 0}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{row.isActive ? "yes" : "no"}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{row.isSelfProvisionDefault ? "yes" : "no"}</td>
                                   <td className="px-2 py-1.5">
                                     <button
                                       onClick={() => editPlanForm(row)}
@@ -2106,7 +2115,10 @@ export default function PlatformAdminApp() {
               value={tenantForm.plan}
               onChange={(e) => setTenantForm((p) => ({ ...p, plan: e.target.value }))}
             >
-              {(plans.length > 0 ? plans : [{ key: "free", name: "Free" }, { key: "pro", name: "Pro" }, { key: "business", name: "Business" }]).map((plan) => (
+              {plans.length === 0 ? (
+                <option value="">Create a plan first</option>
+              ) : null}
+              {plans.map((plan) => (
                 <option key={plan.key} value={plan.key}>
                   {plan.name}
                 </option>
@@ -2250,6 +2262,14 @@ export default function PlatformAdminApp() {
               onChange={(e) => setPlanForm((p) => ({ ...p, isActive: e.target.checked }))}
             />
             Plan active (show in tenant dropdown)
+          </label>
+          <label className="mb-1.5 flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={planForm.isSelfProvisionDefault}
+              onChange={(e) => setPlanForm((p) => ({ ...p, isSelfProvisionDefault: e.target.checked }))}
+            />
+            Use as default plan for self-provision
           </label>
           <Field label="Pricing policy (JSON)">
             <textarea
