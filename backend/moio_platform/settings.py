@@ -46,7 +46,29 @@ def _build_database_url_from_parts():
     return f'postgresql://{quote_plus(user)}:{encoded_password}@{host}:{port}/{name}'
 
 
-DATABASE_URL = get_config_value('DATABASE_URL') or _build_database_url_from_parts()
+def _build_redis_url_from_parts():
+    host = get_config_value('REDIS_HOST')
+    port = get_config_value('REDIS_PORT', '6379')
+    db = get_config_value('REDIS_DB', '0')
+    password = get_config_value('REDIS_PASSWORD')
+    username = get_config_value('REDIS_USERNAME')
+    scheme = get_config_value('REDIS_SCHEME', 'redis')
+
+    if not host:
+        return None
+
+    auth = ''
+    if username and password:
+        auth = f'{quote_plus(username)}:{quote_plus(password)}@'
+    elif password:
+        auth = f':{quote_plus(password)}@'
+    elif username:
+        auth = f'{quote_plus(username)}@'
+
+    return f'{scheme}://{auth}{host}:{port}/{db}'
+
+
+DATABASE_URL = _build_database_url_from_parts() or get_config_value('DATABASE_URL')
 USE_LOCAL_DEV_DEFAULTS = _env_bool('USE_LOCAL_DEV_DEFAULTS', default=not DATABASE_URL)
 # Single public schema + PostgreSQL RLS (tenant_uuid). Enforced at DB level when using Postgres.
 # Default True when DATABASE_URL is set (production); set USE_RLS_TENANCY=0 for local SQLite or to disable.
@@ -364,7 +386,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ========= Celery Configurations =======================
 
-REDIS_URL = get_config_value('REDIS_URL')
+REDIS_URL = _build_redis_url_from_parts() or get_config_value('REDIS_URL')
 
 # App name for queue prefixes
 APP_NAME = os.environ.get("APP_NAME", "default")

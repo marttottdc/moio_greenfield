@@ -4,10 +4,4 @@ metadata:
   name: moio-greenfield-config
   namespace: {{ .Release.Namespace }}
 data:
-  {{- if .Values.pgbouncer.enabled }}
-  DATABASE_URL: {{ printf "postgres://%s:%s@pgbouncer:6432/%s" .Values.pgbouncer.auth.user .Values.pgbouncer.auth.password .Values.pgbouncer.backend.dbname | quote }}
-  {{- else }}
-  DATABASE_URL: {{ .Values.config.database_url | quote }}
-  {{- end }}
-  REDIS_URL: {{ .Values.config.redis_url | quote }}
   APP_NAME: {{ .Values.config.app_name | default "moio_greenfield" | quote }}

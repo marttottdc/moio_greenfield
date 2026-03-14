@@ -27,7 +27,8 @@ spec:
               containerPort: 5561
           volumeMounts:
             - name: routes
-              mountPath: /etc/pushpin
+              mountPath: /etc/pushpin/routes
+              subPath: routes
               readOnly: true
       volumes:
         - name: routes

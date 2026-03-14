@@ -1,24 +1,5 @@
-{{- if .Values.pgbouncer.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: pgbouncer-config
-  namespace: {{ .Release.Namespace }}
-data:
-  pgbouncer.ini: |
-    [databases]
-    {{ .Values.pgbouncer.backend.dbname }} = host={{ .Values.pgbouncer.backend.host }} port={{ .Values.pgbouncer.backend.port }} dbname={{ .Values.pgbouncer.backend.dbname }}
-    [pgbouncer]
-    listen_addr = *
-    listen_port = 6432
-    auth_type = plain
-    auth_file = /etc/pgbouncer/userlist.txt
-    pool_mode = transaction
-    max_client_conn = 500
-    default_pool_size = 25
-    min_pool_size = 10
-    server_lifetime = 3600
-    server_idle_timeout = 600
-    log_connections = 1
-    log_disconnections = 1
-{{- end }}
+{{- /*
+PgBouncer is configured at container startup from environment variables sourced
+from the existing `moio-greenfield-secrets` Secret. No ConfigMap is rendered so
+connection settings are not exposed in plain config.
+*/ -}}

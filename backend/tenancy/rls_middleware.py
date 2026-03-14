@@ -11,12 +11,16 @@ from django.utils.deprecation import MiddlewareMixin
 
 # When no tenant, policy (slug = this) matches no row
 RLS_NO_TENANT_SLUG = "__none__"
+RLS_BYPASS_PATHS = {"/health", "/health/", "/api/v1/health/"}
 
 
 class TenantRLSMiddleware(MiddlewareMixin):
     """Set app.current_tenant_slug for RLS. Run after TenantMiddleware so request.tenant is set."""
 
     def process_request(self, request):
+        if getattr(request, "path_info", "") in RLS_BYPASS_PATHS:
+            return
+
         tenant = getattr(request, "tenant", None)
         if tenant is not None and getattr(tenant, "pk", None) is not None:
             slug = getattr(tenant, "rls_slug", None) or ""

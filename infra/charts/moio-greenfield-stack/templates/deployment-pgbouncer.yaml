@@ -20,19 +20,39 @@ spec:
         - name: pgbouncer
           image: {{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}
           imagePullPolicy: {{ .Values.pgbouncer.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              cat > /etc/pgbouncer/pgbouncer.ini <<EOF
+              [databases]
+              ${PGBOUNCER_BACKEND_DBNAME} = host=${PGBOUNCER_BACKEND_HOST} port=${PGBOUNCER_BACKEND_PORT:-5432} dbname=${PGBOUNCER_BACKEND_DBNAME}
+              [pgbouncer]
+              listen_addr = *
+              listen_port = 6432
+              auth_type = plain
+              auth_file = /etc/pgbouncer/userlist.txt
+              pool_mode = ${PGBOUNCER_POOL_MODE:-transaction}
+              max_client_conn = ${PGBOUNCER_MAX_CLIENT_CONN:-500}
+              default_pool_size = ${PGBOUNCER_DEFAULT_POOL_SIZE:-25}
+              min_pool_size = ${PGBOUNCER_MIN_POOL_SIZE:-10}
+              server_lifetime = ${PGBOUNCER_SERVER_LIFETIME:-3600}
+              server_idle_timeout = ${PGBOUNCER_SERVER_IDLE_TIMEOUT:-600}
+              log_connections = 1
+              log_disconnections = 1
+              EOF
+              printf '"%s" "%s"\n' "${PGBOUNCER_AUTH_USER}" "${PGBOUNCER_AUTH_PASSWORD}" > /etc/pgbouncer/userlist.txt
+              exec pgbouncer /etc/pgbouncer/pgbouncer.ini
           ports:
             - name: pgbouncer
               containerPort: 6432
+          envFrom:
+            - secretRef:
+                name: moio-greenfield-secrets
           volumeMounts:
             - name: config
               mountPath: /etc/pgbouncer
-              readOnly: true
       volumes:
         - name: config
-          projected:
-            sources:
-              - configMap:
-                  name: pgbouncer-config
-              - secret:
-                  name: pgbouncer-auth
+          emptyDir: {}
 {{- end }}

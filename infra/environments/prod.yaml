@@ -30,8 +30,6 @@ ingress:
   host: moio.ai
   tlsSecret: moio-ai-tls
 
-# External: PgBouncer (pooler) → Postgres, Redis
+# Non-sensitive config only. Connection secrets live in `moio-greenfield-secrets`.
 config:
-  database_url: postgres://user:password@prod-pgbouncer:6432/moio_greenfield
-  redis_url: redis://prod-redis:6379/1
   app_name: moio_greenfield
