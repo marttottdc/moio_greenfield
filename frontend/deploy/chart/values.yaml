@@ -43,14 +43,14 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-http
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   hosts:
-    - host: ui.moio.ai
+    - host: moio.ai
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: ui-moio-ai-tls
+    - secretName: moio-ai-tls
       hosts:
-        - ui.moio.ai
+        - moio.ai
 
 resources:
   limits:

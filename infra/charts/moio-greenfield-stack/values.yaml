@@ -30,8 +30,8 @@ scheduler:
 
 ingress:
   enabled: true
-  host: api.moio-greenfield.example.com
-  tlsSecret: api-moio-greenfield-tls
+  host: moio.ai
+  tlsSecret: moio-ai-tls
 
 # External services - no DB/Redis/PgBouncer inside the chart
 config:

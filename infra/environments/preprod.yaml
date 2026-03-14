@@ -27,8 +27,8 @@ scheduler:
 
 ingress:
   enabled: true
-  host: api-preprod.moio-greenfield.example.com
-  tlsSecret: api-preprod-moio-greenfield-tls
+  host: moio.ai
+  tlsSecret: moio-ai-tls
 
 # External: PgBouncer → Postgres, Redis
 config:
