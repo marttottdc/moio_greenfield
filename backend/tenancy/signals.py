@@ -8,22 +8,22 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 try:
-    from tenancy.tenant_support import schema_context
+    from tenancy.tenant_support import public_schema_context
 except Exception:
-    schema_context = None
+    public_schema_context = None
 
 from tenancy.entitlements_defaults import get_default_entitlements_for_plan
 from tenancy.models import Tenant, TenantDomain, UserProfile
 
 
-def _tenant_schema_context(tenant):
+def _tenant_rls_context(tenant):
     if (
         tenant is not None
         and getattr(settings, "DJANGO_TENANTS_ENABLED", False)
-        and schema_context is not None
+        and public_schema_context is not None
         and getattr(tenant, "schema_name", "")
     ):
-        return schema_context(tenant.schema_name)
+        return public_schema_context(tenant.schema_name)
     return nullcontext()
 
 

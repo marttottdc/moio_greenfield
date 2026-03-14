@@ -1,6 +1,6 @@
 """
 Database-backed session store for Agent Console. Uses AgentConsoleSession model;
-run inside tenant schema (e.g. via schema_context) when calling from runtime.
+run inside tenant schema (e.g. via public_schema_context) when calling from runtime.
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def _default_payload(session_key: str) -> dict[str, Any]:
 class DatabaseSessionStore:
     """
     Session store that persists to the database (AgentConsoleSession).
-    Use tenancy.tenant_support.schema_context(tenant_schema) when querying if needed (no-op for single schema).
+    Use tenancy.tenant_support.public_schema_context(tenant_schema) when querying if needed (no-op for single schema).
     """
 
     _database_store = True  # marker so backend skips sessions_dir.mkdir
@@ -50,9 +50,9 @@ class DatabaseSessionStore:
         self.tenant_schema = (tenant_schema or "public").strip() or "public"
         self.workspace_slug = (workspace_slug or "main").strip() or "main"
 
-    def _schema_context(self):
-        from tenancy.tenant_support import schema_context
-        return schema_context(self.tenant_schema)
+    def _public_schema_context(self):
+        from tenancy.tenant_support import public_schema_context
+        return public_schema_context(self.tenant_schema)
 
     def _is_missing_table_error(self, exc: Exception) -> bool:
         text = str(exc).lower()
@@ -63,7 +63,7 @@ class DatabaseSessionStore:
     def _get_or_create_payload(self, session_key: str) -> dict[str, Any]:
         key = (session_key or "main").strip() or "main"
         try:
-            with self._schema_context():
+            with self._public_schema_context():
                 row, _ = AgentConsoleSession.objects.get_or_create(
                     workspace_slug=self.workspace_slug,
                     session_key=key,
@@ -103,7 +103,7 @@ class DatabaseSessionStore:
         payload["sessionKey"] = key
         payload["updatedAtMs"] = int(time.time() * 1000)
         try:
-            with self._schema_context():
+            with self._public_schema_context():
                 row, _ = AgentConsoleSession.objects.get_or_create(
                     workspace_slug=self.workspace_slug,
                     session_key=key,
@@ -245,7 +245,7 @@ class DatabaseSessionStore:
     def list_sessions(self, limit: int = 200, actor: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         normalized_actor = normalize_session_author(actor)
         try:
-            with self._schema_context():
+            with self._public_schema_context():
                 qs = AgentConsoleSession.objects.filter(workspace_slug=self.workspace_slug).order_by("-updated_at")
                 rows = []
                 for row in qs[: max(1, min(limit, 2000))]:

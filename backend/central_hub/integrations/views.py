@@ -949,8 +949,8 @@ class OpenAIModelsView(IntegrationAPIView):
             stored = IntegrationConfig.get_for_tenant(tenant, "openai", "default")
             if not stored:
                 try:
-                    from tenancy.tenant_support import schema_context
-                    with schema_context("public"):
+                    from tenancy.tenant_support import public_schema_context
+                    with public_schema_context("public"):
                         stored = IntegrationConfig._base_manager.filter(
                             tenant_id=tenant.pk, slug="openai", instance_id="default"
                         ).first()

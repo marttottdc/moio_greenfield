@@ -43,10 +43,10 @@ class TenantAwareConsumer(AsyncJsonWebsocketConsumer):
 
     @contextmanager
     def tenant_db_context(self, *, use_public: bool = False):
-        from tenancy.tenant_support import tenant_schema_context, public_schema_name
+        from tenancy.tenant_support import tenant_rls_context, public_schema_name
 
         schema_name = public_schema_name() if use_public else (self.tenant_schema or None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             yield
     
     async def connect(self):

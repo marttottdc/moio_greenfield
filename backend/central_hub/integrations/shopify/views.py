@@ -49,7 +49,7 @@ from central_hub.models import PlatformConfiguration
 from central_hub.rbac import user_has_role
 from security.authentication import ServiceJWTAuthentication
 from tenancy.models import Tenant, UserProfile
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 
 logger = logging.getLogger(__name__)
 
@@ -706,7 +706,7 @@ class ShopifyOAuthCallbackView(APIView):
             tenant = link.tenant
             # RLS: callback is external (no request.tenant); set slug so IntegrationConfig write is allowed
             slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
-            with tenant_schema_context(slug):
+            with tenant_rls_context(slug):
                 _ensure_shopify_integration_config(tenant, shop, installation)
             logger.info("Shopify OAuth: refreshed Installation and IntegrationConfig for linked shop=%s", shop)
         else:
@@ -889,7 +889,7 @@ class ShopifyEmbedConfigView(ShopifyIntegrationAPIView):
         instance_id = _resolve_embed_instance_id(request, request.GET.get("instance_id", "default"))
         # RLS: with Shopify session token, request.tenant may not be set by middleware; set slug so we can read/write integration_config
         slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
-        with tenant_schema_context(slug):
+        with tenant_rls_context(slug):
             config_obj = IntegrationConfig.objects.filter(
                 tenant=tenant, slug="shopify", instance_id=instance_id
             ).first()
@@ -1337,7 +1337,7 @@ def _chat_widget_config_response_for_shop(shop: str) -> tuple[Response | None, R
     instance_id = _instance_id_for_shop(shop)
     tenant = link.tenant
     slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
-    with tenant_schema_context(slug):
+    with tenant_rls_context(slug):
         config_obj = IntegrationConfig.objects.filter(
             tenant=tenant,
             slug="shopify",

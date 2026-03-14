@@ -28,7 +28,7 @@ from central_hub.api.platform_bootstrap import (
 )
 from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from tenancy.models import Tenant
-from tenancy.tenant_support import public_schema_name, schema_context, tenant_schema_context, tenants_enabled
+from tenancy.tenant_support import public_schema_name, public_schema_context, tenant_rls_context, tenants_enabled
 from agent_console.models import AgentConsoleWorkspace, AgentConsoleWorkspaceSkill, AgentConsolePluginAssignment
 from agent_console.services.runtime_service import invalidate_runtime_backend_cache
 
@@ -72,7 +72,7 @@ def _display_name_for_frontend(user) -> str:
 def _workspace_payload_for_tenant_schema(tenant_schema: str) -> list[dict]:
     rows: list[dict] = []
     try:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             workspaces = list(AgentConsoleWorkspace.objects.all().order_by("slug"))
             if not workspaces:
                 ws = AgentConsoleWorkspace.objects.create(
@@ -203,7 +203,7 @@ class TenantBootstrapView(APIView):
             })
 
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 notif = get_platform_notification_settings()
         else:
             notif = get_platform_notification_settings()
@@ -507,7 +507,7 @@ class TenantWorkspacesSaveView(APIView):
             )
 
         tenant_schema = str(getattr(tenant, "schema_name", "") or "").strip().lower()
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             workspace = None
             if workspace_id:
                 workspace = AgentConsoleWorkspace.objects.filter(pk=workspace_id).first()
@@ -605,7 +605,7 @@ class TenantWorkspacesDeleteView(APIView):
             )
 
         tenant_schema = str(getattr(tenant, "schema_name", "") or "").strip().lower()
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             workspace = None
             if workspace_id:
                 workspace = AgentConsoleWorkspace.objects.filter(pk=workspace_id).first()
@@ -625,7 +625,7 @@ class TenantWorkspacesDeleteView(APIView):
 
 def _plugin_registry_entries_for_tenant(*, tenant_schema: str) -> list[dict]:
     # Platform plugin registry lives in public schema.
-    with schema_context(public_schema_name()):
+    with public_schema_context(public_schema_name()):
         state = platform_plugin_admin_state()
         platform_plugins = state.get("plugins", []) if isinstance(state, dict) else []
         if not isinstance(platform_plugins, list):
@@ -637,7 +637,7 @@ def _plugin_registry_entries_for_tenant(*, tenant_schema: str) -> list[dict]:
             tenant = Tenant.objects.filter(Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)).first()
             if tenant and getattr(tenant, "schema_name", None):
                 try:
-                    with tenant_schema_context(str(tenant.schema_name)):
+                    with tenant_rls_context(str(tenant.schema_name)):
                         tenant_state = platform_plugin_admin_state()
                         maybe_plugins = tenant_state.get("plugins", []) if isinstance(tenant_state, dict) else []
                         if isinstance(maybe_plugins, list):
@@ -662,7 +662,7 @@ def _plugin_registry_entries_for_tenant(*, tenant_schema: str) -> list[dict]:
 
 
 def _resolve_workspace_for_plugin_ops(tenant_schema: str, workspace_slug: str, workspace_id: str) -> AgentConsoleWorkspace:
-    with tenant_schema_context(tenant_schema):
+    with tenant_rls_context(tenant_schema):
         workspace = None
         if workspace_id:
             workspace = AgentConsoleWorkspace.objects.filter(pk=workspace_id).first()
@@ -682,7 +682,7 @@ def _tenant_plugin_state_payload(*, user, tenant_schema: str, workspace_slug: st
     assignment_rows: list[dict] = []
     registry_entries = _plugin_registry_entries_for_tenant(tenant_schema=tenant_schema)
     workspace = _resolve_workspace_for_plugin_ops(tenant_schema, workspace_slug, workspace_id)
-    with tenant_schema_context(tenant_schema):
+    with tenant_rls_context(tenant_schema):
         assignments = list(AgentConsolePluginAssignment.objects.filter(workspace=workspace).order_by("plugin_id"))
         for row in assignments:
             plugin_id = str(row.plugin_id or "").strip().lower()
@@ -826,7 +826,7 @@ class TenantPluginsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             assignment_tokens: list[str] = []
             raw_assignments = data.get("assignments")
             rows = raw_assignments if isinstance(raw_assignments, list) else []

@@ -29,7 +29,7 @@ from central_hub.tenant_config import (
 )
 from tenancy.context_utils import current_tenant
 from tenancy.models import Tenant
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 from chatbot.models.email_data import EmailMessage, EmailAccount
 from chatbot.models.wa_payloads import WaPayloads
 from moio_platform.lib.tools import check_elapsed_time, has_time_passed
@@ -672,7 +672,7 @@ def process_whatsapp_webhook_for_tenant(self, body: dict, tenant_id: int, instan
 
     tenant_token = current_tenant.set(tenant)
     try:
-        with tenant_schema_context(getattr(tenant, "schema_name", None)):
+        with tenant_rls_context(getattr(tenant, "schema_name", None)):
             try:
                 portal_config = PlatformConfiguration.objects.first()
             except PlatformConfiguration.DoesNotExist:

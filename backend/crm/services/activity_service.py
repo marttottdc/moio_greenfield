@@ -197,7 +197,7 @@ class ActivityManager:
         # Also emit via Moio events system (EventLog.tenant_id expects tenant_code UUID)
         # EventLog lives in tenant schema (flows is TENANT_APPS) - ensure we use it
         try:
-            from tenancy.tenant_support import schema_context
+            from tenancy.tenant_support import public_schema_context
             from moio_platform.core.events import emit_event
             tenant = getattr(activity, "tenant", None)
             tenant_uuid = str(tenant.tenant_code) if tenant and getattr(tenant, "tenant_code", None) else str(activity.tenant_id)
@@ -214,7 +214,7 @@ class ActivityManager:
                 },
             )
             if schema:
-                with schema_context(schema):
+                with public_schema_context(schema):
                     emit_event(**emit_kw)
             else:
                 emit_event(**emit_kw)

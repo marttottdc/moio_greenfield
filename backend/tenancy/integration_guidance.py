@@ -5,7 +5,7 @@ import re
 
 from tenancy.tenant_support import (
     public_schema_name,
-    tenant_schema_context,
+    tenant_rls_context,
     tenants_enabled,
 )
 
@@ -25,7 +25,7 @@ def build_tenant_integration_guidance_sync(
     if not schema or schema == public_schema_name():
         return ""
 
-    with tenant_schema_context(public_schema_name()):
+    with tenant_rls_context(public_schema_name()):
         tenant = Tenant.objects.filter(schema_name=schema).first()
         if tenant is None:
             return ""
@@ -77,7 +77,7 @@ def list_tenant_integrations_for_agent_sync(
     if not schema or schema == public_schema_name():
         return {"enabledCount": 0, "integrations": []}
 
-    with tenant_schema_context(public_schema_name()):
+    with tenant_rls_context(public_schema_name()):
         tenant = Tenant.objects.filter(schema_name=schema).first()
         if tenant is None:
             return {"enabledCount": 0, "integrations": []}

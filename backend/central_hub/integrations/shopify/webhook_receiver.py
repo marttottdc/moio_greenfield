@@ -64,12 +64,12 @@ def mark_shopify_shop_uninstalled(shop_domain: str) -> None:
     links = list(
         ShopifyShopLink.objects.filter(shop_domain=shop_domain).select_related("tenant")
     )
-    from tenancy.tenant_support import schema_context
+    from tenancy.tenant_support import public_schema_context
     for link in links:
         schema_name = getattr(link.tenant, "schema_name", None)
         if schema_name:
             try:
-                with schema_context(schema_name):
+                with public_schema_context(schema_name):
                     for cfg in IntegrationConfig.objects.filter(
                         tenant_id=link.tenant_id, slug="shopify", instance_id=instance_id
                     ):
@@ -88,8 +88,8 @@ def mark_shopify_shop_uninstalled(shop_domain: str) -> None:
                 )
     # Also update any config in public schema (shared table with tenant_id)
     try:
-        if schema_context is not None:
-            with schema_context("public"):
+        if public_schema_context is not None:
+            with public_schema_context("public"):
                 for cfg in IntegrationConfig._base_manager.filter(
                     slug="shopify", instance_id=instance_id
                 ):
@@ -110,7 +110,7 @@ def mark_shopify_shop_uninstalled(shop_domain: str) -> None:
                 cfg.config.pop("access_token", None)
                 cfg.save(update_fields=["enabled", "status", "config", "updated_at"])
                 logger.info(
-                    "mark_shopify_shop_uninstalled: disabled config (no schema_context) for shop=%s",
+                    "mark_shopify_shop_uninstalled: disabled config (no public_schema_context) for shop=%s",
                     shop_domain,
                 )
     except Exception as e:

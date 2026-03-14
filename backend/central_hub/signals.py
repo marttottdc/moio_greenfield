@@ -8,13 +8,13 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 try:
-    from tenancy.tenant_support import schema_context
+    from tenancy.tenant_support import public_schema_context
 except Exception:  # pragma: no cover - package/config may be unavailable in tests
-    schema_context = None
+    public_schema_context = None
 
 from crm.models import Contact, ContactType, ContactTypeChoices
 from tenancy.models import Tenant
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 
 
 DEFAULT_CONTACT_TYPES = (
@@ -29,17 +29,17 @@ DEFAULT_CONTACT_TYPES = (
 )
 
 
-def _tenant_schema_context(tenant):
+def _tenant_rls_context(tenant):
     slug = getattr(tenant, "rls_slug", None) if tenant is not None else None
     if slug:
-        return tenant_schema_context(slug)
+        return tenant_rls_context(slug)
     if (
         tenant is not None
         and getattr(settings, "DJANGO_TENANTS_ENABLED", False)
-        and schema_context is not None
+        and public_schema_context is not None
         and getattr(tenant, "schema_name", "")
     ):
-        return schema_context(tenant.schema_name)
+        return public_schema_context(tenant.schema_name)
     return nullcontext()
 
 
@@ -49,7 +49,7 @@ def seed_tenant_crm_defaults(sender, instance, created, **kwargs):
     if not created:
         return
 
-    with _tenant_schema_context(instance):
+    with _tenant_rls_context(instance):
         for contact_type_name, is_default in DEFAULT_CONTACT_TYPES:
             contact_type, was_created = ContactType.objects.get_or_create(
                 tenant=instance,
@@ -72,7 +72,7 @@ def create_internal_contact(sender, instance, **kwargs):
     if not instance.tenant:
         return
     
-    with _tenant_schema_context(instance.tenant):
+    with _tenant_rls_context(instance.tenant):
         ctype, _ = ContactType.objects.get_or_create(
             name="User",
             tenant=instance.tenant,

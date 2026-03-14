@@ -9,9 +9,9 @@ from central_hub.context_utils import current_tenant, set_current_tenant
 from central_hub.models import Tenant
 
 try:
-    from tenancy.tenant_support import schema_context
+    from tenancy.tenant_support import public_schema_context
 except Exception:  # pragma: no cover - package/config may be unavailable in tests
-    schema_context = None
+    public_schema_context = None
 
 
 class TenantScopedViewSet(viewsets.ModelViewSet):
@@ -35,9 +35,9 @@ class TenantAwareTask(Task):
             set_current_tenant(tenant)
             if (
                 getattr(settings, "DJANGO_TENANTS_ENABLED", False)
-                and schema_context is not None
+                and public_schema_context is not None
                 and getattr(tenant, "schema_name", "")
             ):
-                with schema_context(tenant.schema_name):
+                with public_schema_context(tenant.schema_name):
                     return super().__call__(*args, **kwargs)
         return super().__call__(*args, **kwargs)

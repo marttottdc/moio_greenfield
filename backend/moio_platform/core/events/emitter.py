@@ -158,14 +158,14 @@ def _dispatch_to_router(event_id: UUID, tenant_id: UUID):
         logger.warning("Event routing task not available, routing synchronously")
         from .router import route_event
         from central_hub.models import Tenant
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         tenant = Tenant.objects.filter(tenant_code=tenant_id).only("schema_name").first()
         if not tenant:
             logger.error("Unable to route event %s: tenant %s not found", event_id, tenant_id)
             return
 
-        with tenant_schema_context(getattr(tenant, "schema_name", None)):
+        with tenant_rls_context(getattr(tenant, "schema_name", None)):
             route_event(event_id)
 
 

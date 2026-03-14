@@ -123,8 +123,8 @@ def _tenant_has_schema(tenant) -> bool:
 
 
 def _run_in_public_schema(loader):
-    from tenancy.tenant_support import schema_context
-    with schema_context(public_schema_name()):
+    from tenancy.tenant_support import public_schema_context
+    with public_schema_context(public_schema_name()):
         return loader()
 
 

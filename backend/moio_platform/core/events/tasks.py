@@ -11,7 +11,7 @@ from django.db import ProgrammingError
 from central_hub.models import Tenant
 
 from moio_platform.settings import FLOWS_Q
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def _resolve_schema_name(event_uuid: UUID, tenant_id: str | None) -> str | None:
         if not schema_name:
             continue
         try:
-            with tenant_schema_context(schema_name):
+            with tenant_rls_context(schema_name):
                 from flows.models import EventLog
 
                 if EventLog.objects.filter(id=event_uuid).exists():
@@ -79,7 +79,7 @@ def route_event_task(self, event_id: str, tenant_id: str | None = None):
                 "status": "skipped_tenant_not_found",
             }
 
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             results = route_event(event_uuid)
         logger.info(f"Event {event_id} routed to {len(results)} flow(s)")
         # Best-effort: create ActivityRecords for contact-related events (never fail routing)

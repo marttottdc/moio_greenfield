@@ -24,7 +24,7 @@ from central_hub.models import UserProfile
 from central_hub.rbac import RequireHumanUser
 from central_hub.tenant_config import get_tenant_config
 from tenancy.rbac import RequireTenantAccess
-from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
+from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
 
 UserModel = get_user_model()
 
@@ -111,7 +111,7 @@ class BootstrapView(APIView):
         navigation_data = _filter_navigation(user)
 
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 notif = get_platform_notification_settings()
         else:
             notif = get_platform_notification_settings()

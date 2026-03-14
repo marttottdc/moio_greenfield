@@ -17,7 +17,7 @@ from central_hub.authentication import TenantJWTAAuthentication
 from central_hub.models import Plan, PlatformConfiguration, PlatformNotificationSettings
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantIntegration
-from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
+from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
 
 UserModel = get_user_model()
 
@@ -265,7 +265,7 @@ def build_bootstrap_payload(request_user, request=None) -> dict:
 
     plans_list = []
     if tenants_enabled():
-        with tenant_schema_context(public_schema_name()):
+        with tenant_rls_context(public_schema_name()):
             tenants_list = [_tenant_payload(t) for t in Tenant.objects.all().order_by("schema_name")]
             for u in UserModel.objects.all().select_related("tenant").order_by("id"):
                 users_list.append(_platform_user_payload(u))

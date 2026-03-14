@@ -23,7 +23,7 @@ from agent_console.services.runtime_service import invalidate_runtime_backend_ca
 from agent_console.services.plugin_installation_service import parse_plugin_bundle_zip
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantDomain, TenantIntegration
-from tenancy.tenant_support import public_schema_name, tenant_schema_context, tenants_enabled
+from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
 from tenancy.validators import validate_subdomain_rfc
 
 UserModel = get_user_model()
@@ -317,7 +317,7 @@ class PlatformTenantsCreateView(PlatformAdminMixin, APIView):
 
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     do_create()
             else:
                 do_create()
@@ -357,7 +357,7 @@ class PlatformTenantsUpdateView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     if slug:
                         tenant = Tenant.objects.get(schema_name=slug)
                     else:
@@ -408,7 +408,7 @@ class PlatformTenantsDeleteView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     if slug:
                         tenant = Tenant.objects.get(schema_name=slug)
                     else:
@@ -469,7 +469,7 @@ class PlatformUsersSaveView(PlatformAdminMixin, APIView):
         tenant = None
         if tenant_slug:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     tenant = Tenant.objects.filter(schema_name=tenant_slug).first()
             else:
                 tenant = Tenant.objects.filter(schema_name=tenant_slug).first()
@@ -480,7 +480,7 @@ class PlatformUsersSaveView(PlatformAdminMixin, APIView):
                 )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     user = self._save_user(
                         user_id, email, display_name, password, is_platform_admin, is_active, tenant, tenant_memberships
                     )
@@ -577,7 +577,7 @@ class PlatformUsersDeleteView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     if user_id:
                         user = UserModel.objects.get(pk=user_id)
                     else:
@@ -619,7 +619,7 @@ class PlatformIntegrationsSaveView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     obj, _ = IntegrationDefinition.objects.update_or_create(
                         key=key,
                         defaults={
@@ -678,7 +678,7 @@ class PlatformIntegrationsDeleteView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     IntegrationDefinition.objects.filter(key=key).delete()
             else:
                 IntegrationDefinition.objects.filter(key=key).delete()
@@ -713,7 +713,7 @@ class PlatformTenantIntegrationsSaveView(PlatformAdminMixin, APIView):
             )
         try:
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     tenant = Tenant.objects.get(schema_name=tenant_slug)
                     integration = IntegrationDefinition.objects.get(key=integration_key)
                     ti, _ = TenantIntegration.objects.update_or_create(
@@ -798,7 +798,7 @@ class PlatformConfigurationSaveView(PlatformAdminMixin, APIView):
             return build_bootstrap_payload(request.user, request=request)
 
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 payload = do_save()
         else:
             payload = do_save()
@@ -845,7 +845,7 @@ class PlatformNotificationsSaveView(PlatformAdminMixin, APIView):
             return build_bootstrap_payload(request.user, request=request)
 
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 payload = do_save()
         else:
             payload = do_save()
@@ -885,7 +885,7 @@ class PlatformPluginsView(PlatformAdminMixin, APIView):
     @staticmethod
     def _state_payload() -> dict:
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 return platform_plugin_admin_state()
         return platform_plugin_admin_state()
 
@@ -944,7 +944,7 @@ class PlatformPluginsView(PlatformAdminMixin, APIView):
                 )
 
             if tenants_enabled():
-                with tenant_schema_context(public_schema_name()):
+                with tenant_rls_context(public_schema_name()):
                     _upsert()
             else:
                 _upsert()
@@ -972,7 +972,7 @@ class PlatformPluginsView(PlatformAdminMixin, APIView):
             return bool(updated)
 
         if tenants_enabled():
-            with tenant_schema_context(public_schema_name()):
+            with tenant_rls_context(public_schema_name()):
                 updated = _toggle_approval()
         else:
             updated = _toggle_approval()

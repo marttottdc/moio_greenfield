@@ -14,7 +14,7 @@ from typing import Any
 
 from asgiref.sync import async_to_sync
 from celery import shared_task
-from tenancy.tenant_support import public_schema_name, schema_context
+from tenancy.tenant_support import public_schema_name, public_schema_context
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +39,14 @@ def run_agent_console_automation(
         Result dict from runtime run_once (runId, sessionKey, agentRuntime, etc.)
         or error dict with "error" key.
     """
-    from tenancy.tenant_support import tenant_schema_context
+    from tenancy.tenant_support import tenant_rls_context
     from agent_console.models import AgentConsoleAutomation
     from agent_console.services.runtime_service import (
         get_runtime_backend_for_user,
         runtime_initiator_from_user,
     )
 
-    with schema_context(public_schema_name()):
+    with public_schema_context(public_schema_name()):
         from django.db.models import Q
         from tenancy.models import Tenant
         from django.contrib.auth import get_user_model
@@ -62,7 +62,7 @@ def run_agent_console_automation(
             logger.warning("run_agent_console_automation: no user for tenant schema=%s", tenant_schema)
             return {"error": "no user for tenant", "tenant_schema": tenant_schema}
 
-    with tenant_schema_context(tenant_schema):
+    with tenant_rls_context(tenant_schema):
         try:
             automation = AgentConsoleAutomation.objects.get(pk=automation_id)
         except AgentConsoleAutomation.DoesNotExist:

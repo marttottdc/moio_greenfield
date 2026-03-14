@@ -147,8 +147,8 @@ class IntegrationConfig(TenantScopedModel):
         schema_name = getattr(tenant, "schema_name", None)
         if schema_name:
             try:
-                from tenancy.tenant_support import schema_context
-                with schema_context(schema_name):
+                from tenancy.tenant_support import public_schema_context
+                with public_schema_context(schema_name):
                     obj = cls._base_manager.filter(**qs_filter).first()
                     if obj is not None:
                         return obj
@@ -157,8 +157,8 @@ class IntegrationConfig(TenantScopedModel):
 
         # Fallback: public schema (single schema + RLS)
         try:
-            from tenancy.tenant_support import schema_context
-            with schema_context("public"):
+            from tenancy.tenant_support import public_schema_context
+            with public_schema_context("public"):
                 return cls._base_manager.filter(**qs_filter).first()
         except Exception:
             return cls._base_manager.filter(**qs_filter).first()

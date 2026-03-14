@@ -1,4 +1,4 @@
-"""Helpers for tenant/schema (public schema name, schema context no-op for single-schema RLS)."""
+"""Helpers for RLS tenant context in the single-schema runtime."""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -27,8 +27,8 @@ def get_public_schema_name() -> str:
 
 
 @contextmanager
-def schema_context(schema_name: str) -> Iterator[None]:
-    """No-op: single schema (public); all tables and RLS use app.current_tenant_slug."""
+def public_schema_context(schema_name: str) -> Iterator[None]:
+    """No-op compatibility helper for code paths that still conceptually target the public space."""
     yield
 
 
@@ -37,13 +37,20 @@ RLS_NO_TENANT_SLUG = "__none__"
 
 
 @contextmanager
-def tenant_schema_context(tenant_schema: str | None) -> Iterator[None]:
-    """Set app.current_tenant_slug for RLS so policies filter in this block (e.g. agent console, Celery)."""
-    slug = (str(tenant_schema or "").strip() or RLS_NO_TENANT_SLUG)
+def tenant_rls_context(tenant_slug: str | None) -> Iterator[None]:
+    """Set `app.current_tenant_slug` so RLS policies operate within this block."""
+    slug = (str(tenant_slug or "").strip() or RLS_NO_TENANT_SLUG)
     try:
         from django.db import connection
         with connection.cursor() as cursor:
             cursor.execute("SET LOCAL app.current_tenant_slug = %s", [slug])
-        yield
     except Exception:
-        yield
+        # If the RLS setup itself fails, continue without injecting tenant context.
+        # Do not swallow exceptions raised inside the wrapped block.
+        pass
+    yield
+
+
+# Backward-compatible aliases while the codebase migrates away from schema naming.
+schema_context = public_schema_context
+tenant_schema_context = tenant_rls_context

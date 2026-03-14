@@ -206,7 +206,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def resolve_tenant_and_contact(self, shop_domain: str, anonymous_id: str, customer_id: Any) -> Dict[str, Any]:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
         from central_hub.integrations.models import ShopifyShopLink, ShopifyShopLinkStatus
 
         link = ShopifyShopLink.objects.filter(
@@ -220,7 +220,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         schema_name = getattr(tenant, "schema_name", None)
         from crm.models import Contact
 
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             contact = None
             if customer_id is not None and str(customer_id).strip():
                 contact = Contact.objects.filter(
@@ -248,7 +248,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_agent_for_tenant(self, tenant_id) -> Dict[str, Any]:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
         from tenancy.models import Tenant
 
         try:
@@ -256,7 +256,7 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
             if not tenant:
                 return {"error": "Tenant not found"}
             schema_name = getattr(tenant, "schema_name", None)
-            with tenant_schema_context(schema_name):
+            with tenant_rls_context(schema_name):
                 tenant_config = get_tenant_config(tenant)
                 agent = AgentConfiguration.objects.filter(
                     tenant_id=tenant_id,
@@ -278,11 +278,11 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_or_create_session(self, contact, requested_session_id: str = "") -> Dict[str, Any]:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         try:
             schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
-            with tenant_schema_context(schema_name):
+            with tenant_rls_context(schema_name):
                 if requested_session_id:
                     session = AgentSession.objects.filter(
                         pk=requested_session_id,
@@ -423,14 +423,14 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def add_utterance(self, content: str, role: str, author: str = ""):
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         if not self.session:
             return
         if not author:
             author = role
         schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             try:
                 latest = SessionThread.objects.filter(session=self.session).latest("created")
                 if latest.role == "user" and role == "user":
@@ -451,11 +451,11 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_session_history(self, session_id: str) -> list:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         try:
             schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
-            with tenant_schema_context(schema_name):
+            with tenant_rls_context(schema_name):
                 messages = SessionThread.objects.filter(
                     session_id=session_id,
                 ).exclude(role="system").order_by("created")
@@ -483,12 +483,12 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_session_context(self) -> Optional[list]:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         if not self.session:
             return None
         schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             messages = SessionThread.objects.filter(
                 session=self.session,
             ).exclude(role="system").order_by("created")
@@ -506,9 +506,9 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
         session_context = await self.get_session_context()
 
         def run_agent():
-            from tenancy.tenant_support import tenant_schema_context
+            from tenancy.tenant_support import tenant_rls_context
 
-            with tenant_schema_context(schema_name):
+            with tenant_rls_context(schema_name):
                 openai_key = getattr(self.tenant_config, "openai_api_key", None) or ""
                 set_default_openai_key(openai_key)
                 agents_map = build_agents_for_tenant(self.session.tenant)
@@ -622,12 +622,12 @@ class ShopifyStorefrontChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def close_session(self):
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         if not self.session:
             return
         schema_name = getattr(self.tenant, "schema_name", None) if self.tenant else None
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             self.session.active = False
             self.session.end = timezone.now()
             self.session.save(update_fields=["active", "end"])

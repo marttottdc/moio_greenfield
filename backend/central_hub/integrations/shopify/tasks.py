@@ -4,7 +4,7 @@ Shopify Integration Tasks
 Celery tasks for Shopify synchronization.
 Handles scheduled and real-time data sync from Shopify to CRM.
 CRM models (ShopifySyncLog, ShopifyProduct, etc.) live in tenant schemas;
-tasks must run sync inside tenant_schema_context so the correct tables exist.
+tasks must run sync inside tenant_rls_context so the correct tables exist.
 """
 
 import logging
@@ -13,7 +13,7 @@ from celery import shared_task
 from django.conf import settings
 
 from tenancy.models import Tenant
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def sync_shopify_products(self, tenant_id: int, instance_id: str = "default"):
         last_product_id = (config_obj.metadata or {}).get("last_product_id") if config_obj else None
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             sync_service = ShopifySyncService(tenant, config)
             results = sync_service.sync_products(since_id=last_product_id)
 
@@ -117,7 +117,7 @@ def sync_shopify_customers(self, tenant_id: int, instance_id: str = "default"):
         last_customer_id = (config_obj.metadata or {}).get("last_customer_id") if config_obj else None
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             sync_service = ShopifySyncService(tenant, config)
             results = sync_service.sync_customers(since_id=last_customer_id)
 
@@ -166,7 +166,7 @@ def sync_shopify_orders(self, tenant_id: int, instance_id: str = "default", stat
         last_order_id = (config_obj.metadata or {}).get("last_order_id") if config_obj else None
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             sync_service = ShopifySyncService(tenant, config)
             results = sync_service.sync_orders(since_id=last_order_id, status=status_filter)
 
@@ -220,7 +220,7 @@ def sync_all_shopify_data(self, tenant_id: int, instance_id: str = "default"):
             return {"status": "skipped", "reason": "direction_send_not_receive"}
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             sync_service = ShopifySyncService(tenant, config)
             results = sync_service.sync_all_enabled_data()
 
@@ -345,7 +345,7 @@ def process_shopify_webhook(self, payload: dict, headers: dict, tenant_code: str
             return {"status": "skipped", "reason": "no_integration"}
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             sync_service = ShopifySyncService(tenant, config)
             if topic == 'products/create' or topic == 'products/update':
                 result = sync_service._sync_single_product(payload)

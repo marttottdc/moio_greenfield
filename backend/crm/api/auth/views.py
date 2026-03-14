@@ -66,9 +66,9 @@ class AuthViewSet(viewsets.ViewSet):
                 or UserModel.objects.filter(username__iexact=username).first()
             )
 
-        # Single schema: all tables in public; schema_context is no-op
-        from tenancy.tenant_support import schema_context
-        with schema_context("public"):
+        # Single schema: all tables in public; public_schema_context is no-op
+        from tenancy.tenant_support import public_schema_context
+        with public_schema_context("public"):
             user = _find_user()
 
         if not user:

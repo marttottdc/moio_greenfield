@@ -56,9 +56,9 @@ def _tenant_host_from_schema(schema_name: str | None) -> str | None:
         return None
     try:
         from tenancy.models import Tenant
-        from tenancy.tenant_support import schema_context
+        from tenancy.tenant_support import public_schema_context
 
-        with schema_context(public_schema_name()):
+        with public_schema_context(public_schema_name()):
             tenant = Tenant.objects.filter(schema_name=schema).first()
     except Exception:
         try:

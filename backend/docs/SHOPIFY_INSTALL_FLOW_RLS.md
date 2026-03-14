@@ -6,7 +6,7 @@ Tras la migración a RLS (Row-Level Security) por `tenant_slug` (`app.current_te
 
 1. **Tablas sin RLS** (globales por shop): `shopify_oauth_state`, `shopify_shop_installation`, `shopify_shop_link`. No tienen `tenant_id`; no están en `RLS_TABLES`. Lecturas/escrituras no dependen del slug.
 2. **Tabla con RLS**: `integration_config` tiene `tenant_id` y política por slug. Cualquier lectura/escritura requiere que `app.current_tenant_slug` coincida con el tenant de la fila.
-3. **OAuth callback** es ruta **external** (`/api/v1/integrations/shopify/oauth`). No hay usuario ni tenant en el request, por tanto el middleware no setea `app.current_tenant_slug`. Al refrescar un shop ya linkado, se llama a `_ensure_shopify_integration_config(tenant, shop, installation)` y se escribe en `integration_config`. **Sin contexto RLS ese INSERT/UPDATE falla.** Por eso se envuelve la llamada en `tenant_schema_context(tenant.rls_slug)` en el callback.
+3. **OAuth callback** es ruta **external** (`/api/v1/integrations/shopify/oauth`). No hay usuario ni tenant en el request, por tanto el middleware no setea `app.current_tenant_slug`. Al refrescar un shop ya linkado, se llama a `_ensure_shopify_integration_config(tenant, shop, installation)` y se escribe en `integration_config`. **Sin contexto RLS ese INSERT/UPDATE falla.** Por eso se envuelve la llamada en `tenant_rls_context(tenant.rls_slug)` en el callback.
 4. **Embed/link** va con JWT (usuario moio + tenant). El middleware setea `request.tenant` y el RLS middleware setea `app.current_tenant_slug`. Las escrituras a `IntegrationConfig` en ese request ya ven el slug correcto.
 
 ## Flujo paso a paso
@@ -27,9 +27,9 @@ Tras la migración a RLS (Row-Level Security) por `tenant_slug` (`app.current_te
   - `ShopifyShopInstallation.objects.update_or_create(shop_domain=shop, ...)` (sin RLS).
   - Si existe `ShopifyShopLink` para el shop con status LINKED:
     - **Antes (bug)**: `_ensure_shopify_integration_config(tenant, shop, installation)` corría sin contexto RLS → fallo al escribir en `integration_config`.
-    - **Después (fix)**: se ejecuta dentro de `tenant_schema_context(tenant.rls_slug)` para setear `app.current_tenant_slug` y permitir el write en `integration_config`.
+    - **Después (fix)**: se ejecuta dentro de `tenant_rls_context(tenant.rls_slug)` para setear `app.current_tenant_slug` y permitir el write en `integration_config`.
   - Redirect al embed app.
-- **RLS**: solo afecta a `integration_config`; el fix con `tenant_schema_context` lo cubre.
+- **RLS**: solo afecta a `integration_config`; el fix con `tenant_rls_context` lo cubre.
 
 ### 3. Embed Link (POST `/api/v1/integrations/shopify/embed/link/`)
 
@@ -44,7 +44,7 @@ Tras la migración a RLS (Row-Level Security) por `tenant_slug` (`app.current_te
 ### 4. Embed Config (GET `/api/v1/integrations/shopify/embed/config/`)
 
 - **Auth**: session token de Shopify **o** JWT moio.
-- Si es **session token**: el auth setea `request.user.tenant = link.tenant`, pero el middleware ya ejecutó antes (con request.user anónimo), así que `request.tenant` y `app.current_tenant_slug` no se setean. Las lecturas/escrituras a `integration_config` quedarían ocultas por RLS. **Fix**: en `ShopifyEmbedConfigView.get` toda la lógica que toca `IntegrationConfig` se ejecuta dentro de `tenant_schema_context(tenant.rls_slug)`.
+- Si es **session token**: el auth setea `request.user.tenant = link.tenant`, pero el middleware ya ejecutó antes (con request.user anónimo), así que `request.tenant` y `app.current_tenant_slug` no se setean. Las lecturas/escrituras a `integration_config` quedarían ocultas por RLS. **Fix**: en `ShopifyEmbedConfigView.get` toda la lógica que toca `IntegrationConfig` se ejecuta dentro de `tenant_rls_context(tenant.rls_slug)`.
 - Si es **JWT**: tenant y slug ya vienen del middleware. OK.
 
 ## Tablas y RLS
@@ -68,18 +68,18 @@ Al refrescar `IntegrationConfig` para un shop ya linkado, la escritura se ejecut
 if link:
     tenant = link.tenant
     slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
-    with tenant_schema_context(slug):
+    with tenant_rls_context(slug):
         _ensure_shopify_integration_config(tenant, shop, installation)
 ```
 
 ### 2. Embed config (GET) con session token
 
-Con auth por session token de Shopify, el middleware no setea `request.tenant` (el usuario se asigna después en DRF). Las lecturas/escrituras a `integration_config` se hacen dentro de `tenant_schema_context(tenant.rls_slug)`:
+Con auth por session token de Shopify, el middleware no setea `request.tenant` (el usuario se asigna después en DRF). Las lecturas/escrituras a `integration_config` se hacen dentro de `tenant_rls_context(tenant.rls_slug)`:
 
 ```python
 # ShopifyEmbedConfigView.get
 slug = getattr(tenant, "rls_slug", None) or getattr(tenant, "subdomain", "") or ""
-with tenant_schema_context(slug):
+with tenant_rls_context(slug):
     config_obj = IntegrationConfig.objects.filter(...).first()
     if config_obj and need_write:
         updated = ensure_shopify_config_persisted_from_link(tenant, instance_id)

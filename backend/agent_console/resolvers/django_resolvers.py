@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from django.db.models import Q
-from tenancy.tenant_support import tenant_schema_context
+from tenancy.tenant_support import tenant_rls_context
 
 from agent_console.models import (
     AgentConsoleInstalledPlugin,
@@ -25,7 +25,7 @@ def build_resolvers_for_backend(
     """Build resolver callables that close over tenant_schema and workspace_slug."""
 
     def workspace_profile_resolver() -> dict[str, Any]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if not ws:
                 return {}
@@ -59,7 +59,7 @@ def build_resolvers_for_backend(
             }
 
     def workspace_skills_resolver() -> list[dict[str, Any]]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if not ws:
                 return []
@@ -78,7 +78,7 @@ def build_resolvers_for_backend(
         initiator: dict[str, Any] | None,
         selected_profile: str | None,
     ) -> dict[str, Any]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if ws is not None:
                 profiles_qs = AgentConsoleProfile.objects.filter(workspace=ws).order_by("sort_order", "key")
@@ -118,7 +118,7 @@ def build_resolvers_for_backend(
             }
 
     def agent_profiles_catalog_resolver() -> dict[str, Any]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if ws is not None:
                 profiles_qs = AgentConsoleProfile.objects.filter(workspace=ws).order_by("sort_order", "key")
@@ -143,7 +143,7 @@ def build_resolvers_for_backend(
         payload: dict[str, Any],
         initiator: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             key = (payload.get("key") or "").strip() or "default"
             profile, _ = AgentConsoleProfile.objects.update_or_create(
@@ -171,7 +171,7 @@ def build_resolvers_for_backend(
             }
 
     def plugin_user_allowlist_resolver(initiator: dict[str, Any] | None) -> list[str]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if not ws:
                 return []
@@ -205,7 +205,7 @@ def build_resolvers_for_backend(
             return [p for p in allowed_plugins if p]
 
     def plugin_runtime_config_resolver() -> dict[str, dict[str, Any]]:
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             ws = AgentConsoleWorkspace.objects.filter(slug=workspace_slug).first()
             if not ws:
                 return {}
@@ -220,12 +220,12 @@ def build_resolvers_for_backend(
             return output
 
     def integration_status_resolver() -> dict[str, Any]:
-        from tenancy.tenant_support import public_schema_name, schema_context
+        from tenancy.tenant_support import public_schema_name, public_schema_context
         from tenancy.models import Tenant
 
         try:
-            with tenant_schema_context(tenant_schema):
-                with schema_context(public_schema_name()):
+            with tenant_rls_context(tenant_schema):
+                with public_schema_context(public_schema_name()):
                     tenant = Tenant.objects.filter(
                         Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)
                     ).first()
@@ -259,12 +259,12 @@ def build_resolvers_for_backend(
             return {"enabledCount": 0, "integrations": []}
 
     def integration_guidance_resolver() -> str:
-        from tenancy.tenant_support import public_schema_name, schema_context
+        from tenancy.tenant_support import public_schema_name, public_schema_context
         from tenancy.models import Tenant
 
         try:
-            with tenant_schema_context(tenant_schema):
-                with schema_context(public_schema_name()):
+            with tenant_rls_context(tenant_schema):
+                with public_schema_context(public_schema_name()):
                     tenant = Tenant.objects.filter(
                         Q(schema_name=tenant_schema) | Q(subdomain=tenant_schema)
                     ).first()
@@ -290,7 +290,7 @@ def build_resolvers_for_backend(
             return ""
 
     def installed_plugins_resolver() -> list[dict[str, Any]]:
-        from tenancy.tenant_support import public_schema_name, schema_context
+        from tenancy.tenant_support import public_schema_name, public_schema_context
 
         output: list[dict[str, Any]] = []
         seen_plugin_ids: set[str] = set()
@@ -317,7 +317,7 @@ def build_resolvers_for_backend(
                     }
                 )
 
-        with tenant_schema_context(tenant_schema):
+        with tenant_rls_context(tenant_schema):
             tenant_rows = AgentConsoleInstalledPlugin.objects.filter(
                 enabled=True,
                 is_platform_approved=True,
@@ -326,7 +326,7 @@ def build_resolvers_for_backend(
 
         # Global platform plugins live in public schema and are inherited by tenants.
         try:
-            with schema_context(public_schema_name()):
+            with public_schema_context(public_schema_name()):
                 platform_rows = AgentConsoleInstalledPlugin.objects.filter(
                     enabled=True,
                     is_platform_approved=True,

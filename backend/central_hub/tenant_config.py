@@ -151,9 +151,9 @@ def get_whatsapp_integration_by_asset_ids(waba_id: str, phone_id: str):
     outside any tenant context.
     """
     from central_hub.integrations.models import IntegrationConfig
-    from tenancy.tenant_support import public_schema_name, tenant_schema_context
+    from tenancy.tenant_support import public_schema_name, tenant_rls_context
 
-    with tenant_schema_context(public_schema_name()):
+    with tenant_rls_context(public_schema_name()):
         matches = [
             cfg
             for cfg in IntegrationConfig._base_manager.filter(slug="whatsapp", enabled=True).select_related("tenant")
@@ -172,12 +172,12 @@ def get_tenant_config_by_whatsapp_ids(waba_id: str, phone_id: str) -> SimpleName
     Find config for tenant that has WhatsApp integration with matching business_account_id and phone_id.
     Returns None if not found. Raises ValueError if multiple tenants match (ambiguous).
     """
-    from tenancy.tenant_support import tenant_schema_context
+    from tenancy.tenant_support import tenant_rls_context
 
     integration_config = get_whatsapp_integration_by_asset_ids(waba_id, phone_id)
     if integration_config is None:
         return None
-    with tenant_schema_context(getattr(integration_config.tenant, "schema_name", None)):
+    with tenant_rls_context(getattr(integration_config.tenant, "schema_name", None)):
         return get_tenant_config_for_integration_instance(
             integration_config.tenant,
             "whatsapp",

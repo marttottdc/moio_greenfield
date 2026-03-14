@@ -74,10 +74,10 @@ def _api_connection_resolver(connection_name: str, *, initiator: dict | None = N
             "protocol": "rest",
         }
     try:
-        from tenancy.tenant_support import public_schema_name, schema_context
+        from tenancy.tenant_support import public_schema_name, public_schema_context
         from central_hub.config import get_platform_configuration
 
-        with schema_context(public_schema_name()):
+        with public_schema_context(public_schema_name()):
             cfg = get_platform_configuration()
             if not cfg:
                 return {
@@ -135,7 +135,7 @@ def _get_tenant_openai_config(user) -> tuple[str | None, str | None]:
     if not tenant:
         return None, None
     try:
-        from tenancy.tenant_support import tenant_schema_context
+        from tenancy.tenant_support import tenant_rls_context
 
         from central_hub.integrations.models import IntegrationConfig
 
@@ -158,7 +158,7 @@ def _get_tenant_openai_config(user) -> tuple[str | None, str | None]:
                 return out
 
         schema_name = getattr(tenant, "schema_name", None)
-        with tenant_schema_context(schema_name):
+        with tenant_rls_context(schema_name):
             qs = IntegrationConfig._base_manager.filter(tenant=tenant, slug="openai")
             for cfg in qs:
                 if cfg.is_configured():
@@ -201,8 +201,8 @@ def runtime_scope_from_user(user, *, workspace_slug: str = "main") -> tuple[str,
     if not tenant:
         tenant_id = getattr(user, "tenant_id", None)
         if tenant_id:
-            from tenancy.tenant_support import public_schema_name, schema_context
-            with schema_context(public_schema_name()):
+            from tenancy.tenant_support import public_schema_name, public_schema_context
+            with public_schema_context(public_schema_name()):
                 from tenancy.models import Tenant
                 tenant = Tenant.objects.filter(pk=tenant_id).first()
     if not tenant:
