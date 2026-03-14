@@ -1,0 +1,11 @@
+{{- if .Values.pushpin.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pushpin-routes
+  namespace: {{ .Release.Namespace }}
+data:
+  # Routes: all requests to backend (HTTP + WebSocket). Format: path_pattern target
+  routes: |
+    * backend:{{ .Values.backend.servicePort }}
+{{- end }}

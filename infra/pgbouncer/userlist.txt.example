@@ -1,0 +1,12 @@
+# Lista de usuarios que pueden conectar vía PgBouncer.
+# Formato: "username" "password_hash"
+# Password hash MD5: echo -n "passwordusername" | md5sum
+# O en Docker/PgBouncer: usar "md5" + md5(password + username)
+#
+# Ejemplo para usuario 'moio' y password 'yourpassword':
+# "moio" "md5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#
+# Generar con:
+#   echo -n "yourpasswordmoio" | md5sum
+# y poner: "moio" "md5" + el hash (sin espacios)
+"POSTGRES_USER" "md5REPLACE_WITH_MD5_HASH"

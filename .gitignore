@@ -30,3 +30,12 @@ frontend/dist/
 *.crt
 scripts/local/
 .local/
+
+# Helm values con secretos (usar values-secrets.example.yaml como plantilla)
+infra/environments/values-secrets.yaml
+infra/environments/*-secrets.yaml
+# YAML con secretos para kubectl apply (usar k8s-secrets-manual.example.yaml como plantilla)
+infra/environments/k8s-secrets-manual.yaml
+# PgBouncer config con credenciales (usar .example como plantilla)
+infra/pgbouncer/pgbouncer.ini
+infra/pgbouncer/userlist.txt

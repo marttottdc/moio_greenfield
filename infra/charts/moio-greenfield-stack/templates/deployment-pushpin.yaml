@@ -1,0 +1,36 @@
+{{- if .Values.pushpin.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pushpin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: pushpin
+spec:
+  replicas: {{ .Values.pushpin.replicas }}
+  selector:
+    matchLabels:
+      app: pushpin
+  template:
+    metadata:
+      labels:
+        app: pushpin
+    spec:
+      containers:
+        - name: pushpin
+          image: {{ .Values.pushpin.image.repository }}:{{ .Values.pushpin.image.tag }}
+          imagePullPolicy: {{ .Values.pushpin.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+            - name: ctrl
+              containerPort: 5561
+          volumeMounts:
+            - name: routes
+              mountPath: /etc/pushpin
+              readOnly: true
+      volumes:
+        - name: routes
+          configMap:
+            name: pushpin-routes
+{{- end }}

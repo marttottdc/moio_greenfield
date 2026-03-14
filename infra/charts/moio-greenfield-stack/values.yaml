@@ -33,12 +33,43 @@ ingress:
   host: moio.ai
   tlsSecret: moio-ai-tls
 
-# External services - no DB/Redis/PgBouncer inside the chart
+# Pushpin: reverse proxy for HTTP + WebSockets (like moio_platform)
+# When enabled, ingress backend paths point to pushpin-service; Pushpin forwards to backend.
+pushpin:
+  enabled: true
+  replicas: 1
+  image:
+    repository: fanout/pushpin
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Pushpin listens on 80; routes file forwards to backend
+  servicePort: 80
+
+# External services (Redis always external; Postgres can be behind in-cluster PgBouncer)
 config:
-  # Use PgBouncer URL for connection pooling (recommended in prod)
+  # When pgbouncer.enabled: ignored; app uses postgres://...@pgbouncer:6432/...
+  # When pgbouncer.enabled false: direct URL to Postgres or external PgBouncer
   database_url: postgres://user:password@pgbouncer-host:6432/moio_greenfield
   redis_url: redis://redis-host:6379/0
   app_name: moio_greenfield
+
+# Optional in-cluster PgBouncer (connects to external Postgres)
+pgbouncer:
+  enabled: false
+  replicas: 1
+  image:
+    repository: edoburu/pgbouncer
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Backend Postgres (where PgBouncer connects)
+  backend:
+    host: ""       # e.g. my-postgres.example.com or postgres-service
+    port: 5432
+    dbname: moio_greenfield
+  # Same user/password as Postgres; app will connect to PgBouncer with these
+  auth:
+    user: ""
+    password: ""   # or set via --set pgbouncer.auth.password=xxx / secret
 
 secrets:
   secret_key: ""

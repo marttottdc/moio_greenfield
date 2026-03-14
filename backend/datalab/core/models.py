@@ -222,6 +222,7 @@ class ResultSet(TenantScopedModel):
     )
     
     class Meta:
+        app_label = 'datalab'
         db_table = 'datalab_result_set'
         verbose_name = 'Result Set'
         verbose_name_plural = 'Result Sets'
