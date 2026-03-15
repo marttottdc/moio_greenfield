@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -63,9 +64,19 @@ def _activity_author_display(user) -> str:
     return name or getattr(user, "email", "") or getattr(user, "username", "") or "Unknown"
 
 
+def _safe_related(instance, attr: str):
+    try:
+        return getattr(instance, attr)
+    except ObjectDoesNotExist:
+        return None
+
+
 def _serialize_activity_record(activity: ActivityRecord, isoformat) -> Dict[str, Any]:
     author_user = activity.created_by or activity.user or activity.owner
     author = _activity_author_display(author_user)
+    contact = _safe_related(activity, "contact") if activity.contact_id else None
+    customer = _safe_related(activity, "customer") if activity.customer_id else None
+    deal = _safe_related(activity, "deal") if activity.deal_id else None
     return {
         "id": str(activity.pk),
         "title": activity.title,
@@ -89,11 +100,11 @@ def _serialize_activity_record(activity: ActivityRecord, isoformat) -> Dict[str,
         "owner_id": activity.owner_id,
         "created_by_id": activity.created_by_id,
         "contact_id": activity.contact_id,
-        "contact_name": _related_display(activity.contact) if activity.contact else None,
+        "contact_name": _related_display(contact) if contact else None,
         "customer_id": str(activity.customer_id) if activity.customer_id else None,
-        "customer_name": _related_display(activity.customer) if activity.customer else None,
+        "customer_name": _related_display(customer) if customer else None,
         "deal_id": str(activity.deal_id) if activity.deal_id else None,
-        "deal_title": getattr(activity.deal, "title", None) or getattr(activity.deal, "name", None) if activity.deal else None,
+        "deal_title": getattr(deal, "title", None) or getattr(deal, "name", None) if deal else None,
         "ticket_id": str(activity.ticket_id) if activity.ticket_id else None,
         "tags": activity.tags or [],
         "reason": activity.reason or "",
@@ -284,9 +295,10 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
                     user=request.user if request.user.is_authenticated else None,
                     activity_type=activity_type
                 )
+                response_payload = self._serialize_activity(activity)
         except Exception as exc:
             return _error("creation_failed", f"Failed to create activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(self._serialize_activity(activity), status=status.HTTP_201_CREATED)
+        return Response(response_payload, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -405,7 +417,8 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
         try:
             with tenant_rls_context(activity.tenant):
                 updated_activity = activity_manager.update_activity(str(activity.id), updates)
-            return Response(self._serialize_activity(updated_activity))
+                response_payload = self._serialize_activity(updated_activity)
+            return Response(response_payload)
         except Exception as exc:
             return _error("update_failed", f"Failed to update activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 

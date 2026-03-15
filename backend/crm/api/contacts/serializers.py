@@ -42,7 +42,7 @@ class ContactCreateSerializer(ContactAPIMixin, serializers.ModelSerializer):
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         request = self.context.get("request")
-        tenant = getattr(getattr(request, "user", None), "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(getattr(request, "user", None), "tenant", None)
         if tenant is None:
             raise ValidationError({"tenant": "User must belong to a tenant"})
 

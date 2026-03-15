@@ -174,6 +174,7 @@ class CustomersView(PaginationMixin, ProtectedAPIView):
                     email=payload.get("email"),
                     external_id=payload.get("external_id"),
                 )
+                response_payload = self._serialize_customer(customer)
         except IntegrityError as e:
             err = str(e).lower()
             if "phone" in err:
@@ -183,7 +184,7 @@ class CustomersView(PaginationMixin, ProtectedAPIView):
             if "external_id" in err:
                 return _error("duplicate_external_id", "A customer with this external_id already exists.", status.HTTP_400_BAD_REQUEST)
             return _error("duplicate", "A customer with conflicting unique field already exists.", status.HTTP_400_BAD_REQUEST)
-        return Response(self._serialize_customer(customer), status=status.HTTP_201_CREATED)
+        return Response(response_payload, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -237,7 +238,9 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
         customer = self._get_customer(request, customer_id)
         if not customer:
             return _error("customer_not_found", "Customer not found", status.HTTP_404_NOT_FOUND)
-        return Response(self._serialize_customer(customer))
+        with tenant_rls_context(customer.tenant):
+            payload = self._serialize_customer(customer)
+        return Response(payload)
 
     def patch(self, request, customer_id):
         customer = self._get_customer(request, customer_id)
@@ -257,7 +260,8 @@ class CustomerDetailView(PaginationMixin, ProtectedAPIView):
 
         with transaction.atomic(), tenant_rls_context(getattr(customer, "tenant", None)):
             customer.save()
-        return Response(self._serialize_customer(customer))
+            response_payload = self._serialize_customer(customer)
+        return Response(response_payload)
 
     def delete(self, request, customer_id):
         user = getattr(request, "user", None)

@@ -5,6 +5,7 @@ from datetime import datetime, timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Callable
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, QuerySet
 from django.utils import timezone
@@ -470,9 +471,18 @@ class ContactAPIMixin:
         account_name = None
         if hasattr(contact, "customer_contacts"):
             for cc in contact.customer_contacts.all():
-                if getattr(cc, "customer", None) and getattr(cc.customer, "name", None):
-                    account_name = cc.customer.name
+                try:
+                    customer = getattr(cc, "customer", None)
+                except ObjectDoesNotExist:
+                    customer = None
+                if customer and getattr(customer, "name", None):
+                    account_name = customer.name
                     break
+
+        try:
+            contact_type = contact.ctype
+        except ObjectDoesNotExist:
+            contact_type = None
 
         return {
             "id": str(contact.pk),
@@ -481,7 +491,7 @@ class ContactAPIMixin:
             "phone": contact.phone or None,
             "company": contact.company or None,
             "account_name": account_name,
-            "type": contact.ctype.name if contact.ctype else None,
+            "type": contact_type.name if contact_type else None,
             "is_blacklisted": bool(getattr(contact, "is_blacklisted", False)),
             "do_not_contact": bool(getattr(contact, "do_not_contact", False)),
             "tags": tags,

@@ -200,6 +200,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
 
         with tenant_rls_context(tenant):
             contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
+            response_payload = serializer.data
 
         try:
             emit_event(
@@ -230,7 +231,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
             pass
         if contact.is_blacklisted:
             sync_whatsapp_blocklist(contact, enabled=True)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(response_payload, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -238,7 +239,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
     """Contact detail, update, and delete endpoint."""
 
     def _get_contact(self, request, contact_id) -> Optional[Contact]:
-        tenant = getattr(request.user, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
         if tenant is None:
             return None
         return (
@@ -257,7 +258,9 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
-        return Response(self._serialize_contact(contact))
+        with tenant_rls_context(contact.tenant):
+            payload = self._serialize_contact(contact)
+        return Response(payload)
 
     @extend_schema(
         summary="Update contact",
@@ -304,7 +307,8 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
             contact.do_not_contact = bool(payload.get("do_not_contact"))
             fields_to_update.append("do_not_contact")
         if "type" in payload:
-            contact_type, error = self._resolve_contact_type(getattr(request.user, "tenant", None), payload.get("type"))
+            tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
+            contact_type, error = self._resolve_contact_type(tenant, payload.get("type"))
             if error:
                 return _error("invalid_contact_type", error, status.HTTP_400_BAD_REQUEST)
             previous_values["ctype"] = str(contact.ctype_id) if contact.ctype_id else None
@@ -342,7 +346,9 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
         if fields_to_update:
             fields_to_update.append("updated")
-            contact.save(update_fields=fields_to_update)
+            with tenant_rls_context(contact.tenant):
+                contact.save(update_fields=fields_to_update)
+                response_payload = self._serialize_contact(contact)
 
             try:
                 new_values: dict[str, Any] = {}
@@ -373,7 +379,10 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
                 pass
             if "is_blacklisted" in fields_to_update:
                 sync_whatsapp_blocklist(contact, enabled=contact.is_blacklisted)
-        return Response(self._serialize_contact(contact))
+        else:
+            with tenant_rls_context(contact.tenant):
+                response_payload = self._serialize_contact(contact)
+        return Response(response_payload)
 
     @extend_schema(
         summary="Delete contact",
@@ -393,7 +402,8 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
-        contact.delete()
+        with tenant_rls_context(contact.tenant):
+            contact.delete()
         return Response({"message": "Contact deleted successfully"})
 
 

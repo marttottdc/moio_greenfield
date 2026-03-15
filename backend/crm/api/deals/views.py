@@ -164,6 +164,7 @@ class DealsView(PaginationMixin, ProtectedAPIView):
 
         with tenant_rls_context(tenant):
             deal = serializer.save(tenant=tenant, created_by=request.user)
+            response_payload = DealSerializer(deal).data
         
         emit_event(
             name="deal.created",
@@ -194,7 +195,7 @@ class DealsView(PaginationMixin, ProtectedAPIView):
             source="api",
         )
         
-        return Response(DealSerializer(deal).data, status=status.HTTP_201_CREATED)
+        return Response(response_payload, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["deals"])
@@ -209,7 +210,9 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
         except Deal.DoesNotExist:
             return Response({"error": "Deal not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(DealSerializer(deal).data)
+        with tenant_rls_context(tenant):
+            payload = DealSerializer(deal).data
+        return Response(payload)
 
     @extend_schema(summary="Partial update deal", request=DealUpdateSerializer, responses={200: DealSerializer})
     def patch(self, request, deal_id):
@@ -244,6 +247,7 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
 
         with tenant_rls_context(tenant):
             serializer.save()
+            response_payload = DealSerializer(deal).data
 
         new_values = {}
         changed_fields = []
@@ -280,7 +284,7 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
                 logging.getLogger(__name__).warning(
                     "deal.updated event emission failed (deal save succeeded): %s", e, exc_info=True
                 )
-        return Response(DealSerializer(deal).data)
+        return Response(response_payload)
 
     @extend_schema(summary="Delete deal", responses={204: OpenApiResponse(description="Deal deleted")})
     def delete(self, request, deal_id):
@@ -333,6 +337,7 @@ class DealMoveStageView(PaginationMixin, ProtectedAPIView):
         with tenant_rls_context(tenant):
             deal.stage = stage
             deal.save()
+            response_payload = DealSerializer(deal).data
         
         emit_event(
             name="deal.stage_changed",
@@ -414,7 +419,7 @@ class DealMoveStageView(PaginationMixin, ProtectedAPIView):
             # Never break the stage-change API due to event emission issues.
             pass
         
-        return Response(DealSerializer(deal).data)
+        return Response(response_payload)
 
 
 @extend_schema(tags=["deals"])
