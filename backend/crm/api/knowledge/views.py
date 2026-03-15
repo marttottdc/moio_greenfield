@@ -4,11 +4,7 @@ import logging
 from typing import Any, Dict
 
 from django.db.models import Q
-from tenancy.resolution import (
-    TenantResolutionError,
-    _current_connection_schema,
-    ensure_request_tenant_context,
-)
+from tenancy.resolution import _current_connection_schema
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
@@ -193,7 +189,7 @@ class KnowledgeListView(ProtectedAPIView):
     serializer_class = KnowledgeItemSerializer
 
     def _base_queryset(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
         if tenant is None:
             return KnowledgeItem.objects.none()
         return KnowledgeItem.objects.filter(tenant=tenant)
@@ -228,10 +224,8 @@ class KnowledgeListView(ProtectedAPIView):
         return {"items": serializer.data, "pagination": pagination}
 
     def get(self, request):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         queryset = self._base_queryset(request)
 
         search = (request.query_params.get("search") or "").strip()
@@ -285,10 +279,8 @@ class KnowledgeListView(ProtectedAPIView):
         tags=["Knowledge"],
     )
     def post(self, request):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         serializer = self.serializer_class(data=request.data, context={"request": request})
         try:
             serializer.is_valid(raise_exception=True)
@@ -307,7 +299,7 @@ class KnowledgeDetailView(ProtectedAPIView):
     serializer_class = KnowledgeItemSerializer
 
     def _get_item(self, request, item_id) -> KnowledgeItem | None:
-        tenant = getattr(request.user, "tenant", None)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
         if tenant is None:
             return None
         return KnowledgeItem.objects.filter(tenant=tenant, pk=item_id).first()
@@ -320,10 +312,8 @@ class KnowledgeDetailView(ProtectedAPIView):
         tags=["Knowledge"],
     )
     def get(self, request, item_id):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         item = self._get_item(request, item_id)
         if not item:
             return _error("not_found", "Knowledge item not found", status.HTTP_404_NOT_FOUND)
@@ -339,10 +329,8 @@ class KnowledgeDetailView(ProtectedAPIView):
         tags=["Knowledge"],
     )
     def patch(self, request, item_id):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         item = self._get_item(request, item_id)
         if not item:
             return _error("not_found", "Knowledge item not found", status.HTTP_404_NOT_FOUND)
@@ -365,10 +353,8 @@ class KnowledgeDetailView(ProtectedAPIView):
         tags=["Knowledge"],
     )
     def put(self, request, item_id):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         item = self._get_item(request, item_id)
         if not item:
             return _error("not_found", "Knowledge item not found", status.HTTP_404_NOT_FOUND)
@@ -389,10 +375,8 @@ class KnowledgeDetailView(ProtectedAPIView):
         tags=["Knowledge"],
     )
     def delete(self, request, item_id):
-        try:
-            ensure_request_tenant_context(request, user=request.user, require_tenant=True)
-        except TenantResolutionError as e:
-            return _error("tenant_required", str(e), status.HTTP_403_FORBIDDEN)
+        if getattr(request, "tenant", None) is None:
+            return _error("tenant_required", "Tenant context is required.", status.HTTP_403_FORBIDDEN)
         item = self._get_item(request, item_id)
         if not item:
             return _error("not_found", "Knowledge item not found", status.HTTP_404_NOT_FOUND)

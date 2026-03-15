@@ -32,7 +32,7 @@ from drf_spectacular.utils import extend_schema
 
 from moio_platform.authentication import BearerTokenAuthentication
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
-from tenancy.resolution import _current_connection_schema, ensure_request_tenant_context
+from tenancy.resolution import _current_connection_schema
 
 _tenancy_trace = logging.getLogger("tenancy_trace")
 
@@ -105,35 +105,15 @@ class CommunicationsAPIMixin:
     MAX_PAGE_SIZE = 100
 
     def _resolve_tenant_for_request(self, request):
-        """Resolve tenant using the canonical tenancy helper."""
-        try:
-            return ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            tenant = getattr(request, "tenant", None)
-            if tenant and getattr(tenant, "schema_name", None):
-                return tenant
-            tenant = getattr(request.user, "tenant", None)
-            if tenant and getattr(tenant, "schema_name", None):
-                return tenant
-            return None
+        """Tenant is set by TenantAndRLSMiddleware."""
+        return getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
 
     def _get_tenant_or_none(self, request):
         return self._resolve_tenant_for_request(request)
 
     def _ensure_tenant_schema(self, request):
-        """Ensure tenant DB schema is active before tenant-scoped communication queries."""
-        try:
-            ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            pass
+        """No-op: TenantAndRLSMiddleware sets request.tenant and app.current_tenant_slug."""
+        pass
 
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:
@@ -357,14 +337,8 @@ class ContactAPIMixin:
     }
 
     def _ensure_tenant_schema(self, request):
-        try:
-            ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            pass
+        """No-op: TenantAndRLSMiddleware sets request.tenant and app.current_tenant_slug."""
+        pass
 
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:
@@ -528,7 +502,6 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
     def get(self, request, contact_id):
         self._ensure_tenant_schema(request)
-        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
@@ -536,7 +509,6 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
 
     def patch(self, request, contact_id):
         self._ensure_tenant_schema(request)
-        ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
         contact = self._get_contact(request, contact_id)
         if not contact:
             return _error("contact_not_found", "Contact not found", status.HTTP_404_NOT_FOUND)
@@ -1635,14 +1607,8 @@ class TicketAPIMixin:
     MAX_PAGE_SIZE = 100
 
     def _ensure_tenant_schema(self, request):
-        try:
-            ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            pass
+        """No-op: TenantAndRLSMiddleware sets request.tenant and app.current_tenant_slug."""
+        pass
 
     def _isoformat(self, dt: Optional[timezone.datetime]) -> Optional[str]:
         if not dt:

@@ -221,6 +221,7 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
         responses={201: ActivityResponseSerializer},
     )
     def post(self, request):
+        self._ensure_tenant_schema(request)
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
             return _error("tenant_required", "User must belong to a tenant", status.HTTP_400_BAD_REQUEST)

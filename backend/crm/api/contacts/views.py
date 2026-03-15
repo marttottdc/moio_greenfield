@@ -184,7 +184,8 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         ],
     )
     def post(self, request):
-        tenant = getattr(request.user, "tenant", None)
+        self._ensure_tenant_schema(request)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
         if not tenant:
             return Response(
                 {"error": "tenant_required", "message": "Tenant context is required to create contacts."},

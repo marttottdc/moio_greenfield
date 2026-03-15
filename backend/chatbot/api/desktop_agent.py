@@ -19,16 +19,12 @@ from agent_console.services.runtime_service import (
     TenantRequiredError,
 )
 from central_hub.models import MoioUser
-from tenancy.resolution import ensure_request_tenant_context
-
 logger = logging.getLogger(__name__)
 
 
 def _request_tenant(request: Request):
-    try:
-        return ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=False)
-    except Exception:
-        return getattr(request.user, "tenant", None)
+    """Tenant is set by TenantAndRLSMiddleware."""
+    return getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
 
 
 def _request_tenant_id(request: Request):

@@ -18,7 +18,6 @@ from crm.models import Contact, ContactType, Ticket, TicketComment
 from chatbot.models.agent_session import AgentSession, SessionThread
 from moio_platform.authentication import BearerTokenAuthentication
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication, UserApiKeyAuthentication
-from tenancy.resolution import ensure_request_tenant_context
 
 
 def _error(code: str, message: str, http_status: int) -> Response:
@@ -95,31 +94,19 @@ class PaginationMixin:
         return tenant
 
     def _resolve_tenant_for_request(self, request):
-        try:
-            return ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            tenant = getattr(request.user, "tenant", None)
-            if tenant and getattr(tenant, "schema_name", None):
-                return tenant
-            return None
+        """Tenant is set by TenantAndRLSMiddleware; use request.tenant or user.tenant."""
+        tenant = getattr(request, "tenant", None)
+        if tenant is not None:
+            return tenant
+        user = getattr(request, "user", None)
+        return getattr(user, "tenant", None) if user else None
 
     def _get_tenant_or_none(self, request):
         return self._resolve_tenant_for_request(request)
 
     def _ensure_tenant_schema(self, request):
-        """Ensure DB connection uses tenant schema before tenant-scoped queries (fixes 'relation does not exist')."""
-        try:
-            ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            pass
+        """No-op: TenantAndRLSMiddleware sets request.tenant and app.current_tenant_slug for tenant/optional routes."""
+        pass
 
     def _paginate(
         self,
@@ -510,15 +497,8 @@ class TicketAPIMixin:
     MAX_PAGE_SIZE = 100
 
     def _ensure_tenant_schema(self, request):
-        """Ensure DB connection points to tenant schema for ticket queries."""
-        try:
-            ensure_request_tenant_context(
-                request,
-                user=getattr(request, "user", None),
-                require_tenant=False,
-            )
-        except Exception:
-            pass
+        """No-op: TenantAndRLSMiddleware sets request.tenant and app.current_tenant_slug."""
+        pass
 
     def _isoformat(self, dt) -> Optional[str]:
         if not dt:

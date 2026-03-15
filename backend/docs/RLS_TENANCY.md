@@ -22,11 +22,11 @@ Single public schema with PostgreSQL RLS by **tenant_id**. Safe for **async + Pg
 4. **Reset from schema-per-tenant (dev)**
    - Drop tenant schemas if you had them: `DROP SCHEMA IF EXISTS demo CASCADE;` (repeat for each tenant schema).
    - Run `migrate` with `USE_RLS_TENANCY=1` so all apps apply to public.
-   - Create one tenant and user (e.g. via admin or shell); RLS middleware sets `app.current_tenant_slug` from `request.tenant.rls_slug`.
+   - Create one tenant and user (e.g. via admin or shell); the central RLS middleware sets `app.current_tenant_slug` from the resolved `request.tenant.rls_slug`.
 
 ## How it works
 
-- **Middleware** (`tenancy.rls_middleware.TenantRLSMiddleware`): runs after `TenantMiddleware`, sets `SET LOCAL app.current_tenant_slug = <tenant.rls_slug or __none__>`. Slug is the tenant’s **subdomain** (obligatorio).
+- **Middleware** (`tenancy.rls_middleware.TenantAndRLSMiddleware`): central point for tenant + RLS. Runs after `TenantMiddleware` and `AuthenticationMiddleware`. For **public/external** routes it only sets `app.current_tenant_slug = __none__` (no auth). For **tenant/optional** routes it runs DRF authentication, resolves tenant (JWT, user, host or API key), binds `request.tenant` and sets `SET LOCAL app.current_tenant_slug`; if the route requires a tenant and none was resolved, it raises so the request is rejected. Public/external endpoints do not use tenant. Slug is the tenant’s **subdomain** (obligatorio).
 - **Policies**: each tenant-scoped table has RLS enabled and **FORCE ROW LEVEL SECURITY**. A row is visible if (1) it belongs to the current tenant (subdomain = current slug), or (2) it belongs to the **platform** tenant (subdomain = `'platform'`, the root). So any user sees their own tenant’s rows plus platform (root) rows.
 - **Models**: `TenantScopedModel` has `tenant_id` (FK) and optionally `tenant_uuid` (denormalized). RLS is based on `tenant_id` by resolving `app.current_tenant_slug` to tenant id. **Tenant.subdomain** is obligatorio (null=False); no puede haber tenants sin subdomain.
 - **Platform (root)**: el tenant con **subdomain = `'platform'`** es el root; sus filas son visibles para todos los usuarios. Crear un tenant con subdomain `'platform'` para datos compartidos de plataforma.
@@ -36,7 +36,7 @@ Single public schema with PostgreSQL RLS by **tenant_id**. Safe for **async + Pg
 Apps that use `models.Model` + `tenant = ForeignKey(Tenant)` (e.g. `flows`) do not get `tenant_uuid` from the base class. For full RLS on those tables you can:
 
 - Add `tenant_uuid = models.UUIDField(null=True, db_index=True, editable=False)` and a migration, then add them to the RLS migration table list and backfill; or
-- Keep using `ensure_request_tenant_context` (or equivalent) in those views until you add `tenant_uuid` and RLS.
+- Tenant and RLS are set centrally by `TenantAndRLSMiddleware`; use `request.tenant` in views. For tables that still need RLS/tenant_uuid, add `tenant_uuid` and RLS policy as needed.
 
 ## Local dev with RLS
 

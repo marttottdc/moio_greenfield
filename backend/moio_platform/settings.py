@@ -182,7 +182,7 @@ def _middleware_list():
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
     ]
     if USE_RLS_TENANCY:
-        base.append("tenancy.rls_middleware.TenantRLSMiddleware")
+        base.append("tenancy.rls_middleware.TenantAndRLSMiddleware")
     return base
 
 

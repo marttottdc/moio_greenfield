@@ -28,7 +28,6 @@ from datalab.imports.interpreters import ShapeInterpreter, ShapeInterpretationEr
 from central_hub.authentication import CsrfExemptSessionAuthentication, TenantJWTAAuthentication
 from moio_platform.authentication import BearerTokenAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from tenancy.resolution import ensure_request_tenant_context
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
 
 from . import serializers
@@ -47,8 +46,8 @@ class AuthenticatedDataLabView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get_tenant(self, request):
-        """Get tenant from request user."""
-        tenant = getattr(request.user, 'tenant', None)
+        """Tenant is set by TenantAndRLSMiddleware."""
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
         if tenant is None:
             raise ValidationError({'tenant': 'User must belong to a tenant'})
         return tenant
@@ -537,7 +536,6 @@ class ImportProcessViewSet(AuthenticatedDataLabView, viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Get ImportProcesses for current tenant."""
-        ensure_request_tenant_context(self.request, user=getattr(self.request, "user", None), require_tenant=False)
         tenant = self.get_tenant(self.request)
         return ImportProcess.objects.filter(tenant=tenant).order_by('-created_at')
 
