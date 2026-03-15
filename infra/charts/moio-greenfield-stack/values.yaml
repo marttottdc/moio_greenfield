@@ -38,8 +38,7 @@ ingress:
   # Certificados autogestionados por cert-manager (cluster-issuer). Para subdominios por tenant:
   wildcardHost: ""   # ej. "*.moio.ai" → peticiones a stressalpha.moio.ai, etc.
   tlsSecret: moio-ai-tls
-  # Si wildcardHost está definido: mismo secret (Certificate con ambos dnsNames) o uno solo para wildcard:
-  # wildcardTlsSecret: ""  # si está vacío se usa tlsSecret para el wildcard también
+  wildcardTlsSecret: ""  # si vacío, se usa tlsSecret (mismo Certificate con moio.ai + *.moio.ai)
 
 # Pushpin: reverse proxy for HTTP + WebSockets (like moio_platform)
 # When enabled, ingress backend paths point to pushpin-service; Pushpin forwards to backend.
