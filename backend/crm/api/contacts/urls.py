@@ -1,7 +1,12 @@
 from django.urls import path
 
-from crm.api.public_views import ContactDetailView, ContactExportView, ContactsView, ContactsSummaryView
-from crm.api.contacts.views import ContactPromoteView
+from crm.api.contacts.views import (
+    ContactDetailView,
+    ContactExportView,
+    ContactPromoteView,
+    ContactsSummaryView,
+    ContactsView,
+)
 
 urlpatterns = [
     path("summary/", ContactsSummaryView.as_view()),

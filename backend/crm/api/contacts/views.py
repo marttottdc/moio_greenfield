@@ -4,8 +4,9 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
+from django.db import DataError, IntegrityError
 from django.db.utils import ProgrammingError
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -15,7 +16,7 @@ from rest_framework import status, serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from crm.models import Contact, Customer
+from crm.models import Contact, Customer, CustomerContact
 
 from crm.api.contacts.serializers import ContactCreateSerializer
 from crm.api.mixins import ContactAPIMixin, ProtectedAPIView, _UNSET, _error
@@ -207,7 +208,30 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         try:
             with tenant_rls_context(tenant):
                 contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
+                account_ids = request.data.get("account_ids")
+                if isinstance(account_ids, (list, tuple)) and account_ids:
+                    for cid in account_ids:
+                        try:
+                            cust_id = uuid.UUID(str(cid))
+                        except (ValueError, TypeError):
+                            continue
+                        if Customer.objects.filter(tenant=tenant, id=cust_id).exists():
+                            CustomerContact.objects.get_or_create(
+                                tenant=tenant,
+                                customer_id=cust_id,
+                                contact=contact,
+                                defaults={"role": ""},
+                            )
                 response_payload = serializer.data
+        except (IntegrityError, DataError):
+            return Response(
+                {
+                    "error": "invalid_request",
+                    "message": "Invalid contact data (e.g. phone/email length or duplicate).",
+                    "details": {"phone": ["Check length and uniqueness per tenant."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except ProgrammingError as exc:
             if "row-level security policy" in str(exc).lower():
                 logger.error(
@@ -263,6 +287,7 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
             return None
         return (
             Contact.objects.select_related("ctype")
+            .prefetch_related("customer_contacts__customer")
             .filter(tenant=tenant, pk=contact_id)
             .first()
         )
@@ -363,10 +388,37 @@ class ContactDetailView(ContactAPIMixin, ProtectedAPIView):
             if changed:
                 fields_to_update.append("brief_facts")
 
-        if fields_to_update:
-            fields_to_update.append("updated")
+        if fields_to_update or "account_ids" in payload:
+            if fields_to_update:
+                fields_to_update.append("updated")
             with tenant_rls_context(contact.tenant):
-                contact.save(update_fields=fields_to_update)
+                if fields_to_update:
+                    contact.save(update_fields=fields_to_update)
+                if "account_ids" in payload:
+                    desired = set()
+                    for cid in payload.get("account_ids") or []:
+                        try:
+                            cust_id = uuid.UUID(str(cid))
+                        except (ValueError, TypeError):
+                            continue
+                        if Customer.objects.filter(tenant=contact.tenant, id=cust_id).exists():
+                            desired.add(cust_id)
+                    existing_ids = set(
+                        CustomerContact.objects.filter(contact=contact).values_list("customer_id", flat=True)
+                    )
+                    for cust_id in desired:
+                        if cust_id not in existing_ids:
+                            CustomerContact.objects.get_or_create(
+                                tenant=contact.tenant,
+                                customer_id=cust_id,
+                                contact=contact,
+                                defaults={"role": ""},
+                            )
+                    for cust_id in existing_ids:
+                        if cust_id not in desired:
+                            CustomerContact.objects.filter(
+                                contact=contact, customer_id=cust_id
+                            ).delete()
                 response_payload = self._serialize_contact(contact)
 
             try:
@@ -486,6 +538,57 @@ class ContactExportView(ContactAPIMixin, ProtectedAPIView):
             "preview": [self._serialize_contact(contact) for contact in contacts[:10]],
         }
         return Response(payload)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ContactsSummaryView(ContactAPIMixin, ProtectedAPIView):
+    """Summary metrics for contacts."""
+
+    def get(self, request):
+        self._ensure_tenant_schema(request)
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
+        if tenant is None:
+            return Response({
+                "total": 0,
+                "with_email": 0,
+                "with_phone": 0,
+                "do_not_contact": 0,
+                "bounced": 0,
+                "latest_updated": None,
+                "by_type": [],
+            })
+
+        queryset = Contact.objects.filter(tenant=tenant, is_deleted=False)
+        total = queryset.count()
+        with_email = queryset.exclude(email__isnull=True).exclude(email__exact="").count()
+        with_phone = queryset.filter(
+            Q(phone__isnull=False) & ~Q(phone__exact="")
+            | Q(mobile__isnull=False) & ~Q(mobile__exact="")
+        ).count()
+        do_not_contact = queryset.filter(do_not_contact=True).count()
+        bounced = queryset.filter(bounced=True).count()
+        latest = queryset.aggregate(latest=Max("updated"))
+        latest_updated = self._isoformat(latest.get("latest"))
+        type_stats = (
+            queryset.exclude(ctype__isnull=True)
+            .values("ctype__name")
+            .annotate(count=Count("pk"))
+            .order_by("-count")
+        )
+        by_type = [
+            {"type": entry["ctype__name"], "count": entry["count"]}
+            for entry in type_stats
+        ]
+
+        return Response({
+            "total": total,
+            "with_email": with_email,
+            "with_phone": with_phone,
+            "do_not_contact": do_not_contact,
+            "bounced": bounced,
+            "latest_updated": latest_updated,
+            "by_type": by_type,
+        })
 
 
 @method_decorator(csrf_exempt, name="dispatch")
