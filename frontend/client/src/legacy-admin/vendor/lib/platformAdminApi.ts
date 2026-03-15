@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { BootstrapPayload, PluginAdminState } from "../types";
+import type { BootstrapPayload, PlatformKPIsPayload, PluginAdminState } from "../types";
 import { resolveApiBase } from "./runtimeConfig";
 import { getAccessToken } from "@/lib/api";
 import { refreshAccessToken, forceLogout } from "@/lib/queryClient";
@@ -92,6 +92,14 @@ async function request<TPayload>(
 
 export function bootstrap() {
   return request<BootstrapPayload>("/bootstrap");
+}
+
+export function getKpis(params?: { tenant?: string; period?: string }) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.period) search.set("period", params.period);
+  const qs = search.toString();
+  return request<PlatformKPIsPayload>(qs ? `/kpis/?${qs}` : "/kpis/");
 }
 
 export function saveNotificationSettings(input: {

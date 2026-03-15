@@ -8,6 +8,7 @@ from central_hub.api.platform.views import (
     PlatformConfigurationSaveView,
     PlatformIntegrationsDeleteView,
     PlatformIntegrationsSaveView,
+    PlatformAdminKPIsView,
     PlatformNotificationsSaveView,
     PlatformPluginsView,
     PlatformPlansDeleteView,
@@ -27,6 +28,7 @@ from central_hub.api.platform.views import (
 urlpatterns = [
     path("bootstrap/", PlatformBootstrapView.as_view(), name="platform_bootstrap"),
     path("bootstrap", PlatformBootstrapView.as_view(), name="platform_bootstrap_noslash"),
+    path("kpis/", PlatformAdminKPIsView.as_view(), name="platform_kpis"),
     path("plans/", PlatformPlansSaveView.as_view(), name="platform_plans_save"),
     path("plans/delete/", PlatformPlansDeleteView.as_view(), name="platform_plans_delete"),
     path("roles/", PlatformRolesSaveView.as_view(), name="platform_roles_save"),

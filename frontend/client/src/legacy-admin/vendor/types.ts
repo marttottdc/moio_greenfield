@@ -252,6 +252,18 @@ export type BootstrapPayload = {
   notificationSettings: NotificationSettings;
 };
 
+export type PlatformKPIsPayload = {
+  contacts: number;
+  accounts: number;
+  deals: number;
+  activities: number;
+  flow_executions: number;
+  agent_sessions: number;
+  total_activity_per_hour: number | null;
+  period: string;
+  tenant: string;
+};
+
 export type ApiError = {
   message: string;
   status: number;

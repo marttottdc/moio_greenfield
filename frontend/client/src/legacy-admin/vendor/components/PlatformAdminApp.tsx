@@ -10,6 +10,7 @@ import {
   deleteRole,
   deleteTenant,
   deleteUser,
+  getKpis,
   logout,
   savePlatformPluginApproval,
   PlatformAdminApiError,
@@ -36,6 +37,7 @@ import type {
   NotificationSettings,
   Plan as PlanType,
   PlatformConfiguration,
+  PlatformKPIsPayload,
   PlatformUser,
   PluginAdminState,
   PluginRegistryEntry,
@@ -498,6 +500,11 @@ export default function PlatformAdminApp() {
   const [pluginUploadBusy, setPluginUploadBusy] = useState(false);
   const pluginUploadInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [kpis, setKpis] = useState<PlatformKPIsPayload | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(false);
+  const [kpiTenantFilter, setKpiTenantFilter] = useState<string>("");
+  const [kpiPeriodFilter, setKpiPeriodFilter] = useState<string>("");
+
   const [tenantForm, setTenantForm] = useState<TenantFormState>(DEFAULT_TENANT_FORM);
   const [planForm, setPlanForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
   const [roleForm, setRoleForm] = useState<RoleFormState>(DEFAULT_ROLE_FORM);
@@ -551,6 +558,30 @@ export default function PlatformAdminApp() {
       setSelectedPluginId(plugins[0].pluginId);
     }
   }, [plugins, selectedPluginId]);
+
+  useEffect(() => {
+    if (activeSection !== "overview") return;
+    let cancelled = false;
+    setKpisLoading(true);
+    getKpis({
+      tenant: kpiTenantFilter || undefined,
+      period: kpiPeriodFilter || undefined,
+    })
+      .then((payload) => {
+        if (!cancelled) {
+          setKpis(payload);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setKpis(null);
+      })
+      .finally(() => {
+        if (!cancelled) setKpisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, kpiTenantFilter, kpiPeriodFilter]);
 
   function setFlash(message: string, tone: FlashTone = "info") {
     setFlashText(message);
@@ -1343,7 +1374,66 @@ export default function PlatformAdminApp() {
                       <MetricCard label="Global Skills" value={globalSkills.length} />
                       <MetricCard label="Enabled Bindings" value={enabledBindingCount + enabledPluginBindingCount} />
                     </section>
-                    <p className="text-xs text-slate-500">KPIs and uptime reports will be added here.</p>
+
+                    <div className="rounded border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-3 flex flex-wrap items-center gap-3">
+                        <h2 className="text-sm font-semibold text-slate-800">Usage KPIs</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="text-xs text-slate-500">Tenant</label>
+                          <select
+                            value={kpiTenantFilter}
+                            onChange={(e) => setKpiTenantFilter(e.target.value)}
+                            className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+                          >
+                            <option value="">All</option>
+                            {tenants.map((t) => (
+                              <option key={t.id} value={t.slug}>
+                                {t.name || t.slug}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="text-xs text-slate-500">Period</label>
+                          <select
+                            value={kpiPeriodFilter}
+                            onChange={(e) => setKpiPeriodFilter(e.target.value)}
+                            className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+                          >
+                            <option value="">All time</option>
+                            <option value="24h">Last 24h</option>
+                            <option value="7d">Last 7 days</option>
+                            <option value="30d">Last 30 days</option>
+                          </select>
+                          {kpisLoading ? (
+                            <span className="text-xs text-slate-400">Loading…</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {kpisLoading && !kpis ? (
+                        <p className="text-xs text-slate-500">Loading KPIs…</p>
+                      ) : kpis ? (
+                        <>
+                          <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                            <MetricCard label="Contacts" value={kpis.contacts} />
+                            <MetricCard label="Accounts" value={kpis.accounts} />
+                            <MetricCard label="Deals" value={kpis.deals} />
+                            <MetricCard label="Activities" value={kpis.activities} />
+                            <MetricCard label="Flow executions" value={kpis.flow_executions} />
+                            <MetricCard label="Agent sessions" value={kpis.agent_sessions} />
+                            <article className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Activity / hour</p>
+                              <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">
+                                {kpis.total_activity_per_hour != null ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kpis.total_activity_per_hour) : "—"}
+                              </p>
+                            </article>
+                          </section>
+                          <p className="mt-2 text-[11px] text-slate-400">
+                            Tenant: {kpis.tenant === "all" ? "All" : kpis.tenant} · Period: {kpis.period}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-slate-500">Unable to load KPIs.</p>
+                      )}
+                    </div>
                   </section>
                 ) : null}
 

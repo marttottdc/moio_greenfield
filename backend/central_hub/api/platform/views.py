@@ -5,8 +5,12 @@ All require is_staff or is_superuser and return { "ok": true, "payload": Bootstr
 from __future__ import annotations
 
 import base64
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -21,6 +25,9 @@ from central_hub.models import Capability, Plan, PlatformConfiguration, Platform
 from agent_console.models import AgentConsoleInstalledPlugin
 from agent_console.services.runtime_service import invalidate_runtime_backend_cache
 from agent_console.services.plugin_installation_service import parse_plugin_bundle_zip
+from chatbot.models.agent_session import AgentSession
+from crm.models import ActivityRecord, Contact, Customer, Deal
+from flows.models import FlowExecution
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantDomain, TenantIntegration
 from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
@@ -133,6 +140,130 @@ class PlatformAdminMixin:
         if err is not None:
             return err
         payload = build_bootstrap_payload(request.user, request=request)
+        return Response({"ok": True, "payload": payload})
+
+
+def _parse_period(period: str | None):
+    """Return (start_dt, end_dt) for the period. end_dt=now, start_dt=now-delta. None means no filter."""
+    if not (period or str(period).strip()):
+        return None, None
+    now = timezone.now()
+    period = str(period).strip().lower()
+    if period in ("24h", "1d", "1day"):
+        return now - timedelta(hours=24), now
+    if period in ("7d", "7day", "7days", "1w"):
+        return now - timedelta(days=7), now
+    if period in ("30d", "30day", "30days", "1m"):
+        return now - timedelta(days=30), now
+    return None, None
+
+
+def _aggregate_kpis_for_tenant(rls_slug: str, start_dt, end_dt) -> dict:
+    """Run count queries inside tenant RLS context. Date filters applied when start_dt/end_dt are set."""
+    with tenant_rls_context(rls_slug):
+        contact_filter = Q()
+        customer_filter = Q()
+        deal_filter = Q()
+        activity_filter = Q()
+        flow_exec_filter = Q()
+        session_filter = Q()
+        if start_dt is not None and end_dt is not None:
+            contact_filter = Q(created__gte=start_dt, created__lte=end_dt)
+            customer_filter = Q(created__gte=start_dt, created__lte=end_dt)
+            deal_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
+            activity_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
+            flow_exec_filter = Q(started_at__gte=start_dt, started_at__lte=end_dt)
+            session_filter = Q(last_interaction__gte=start_dt, last_interaction__lte=end_dt)
+
+        contacts = Contact.objects.filter(contact_filter).count()
+        accounts = Customer.objects.filter(customer_filter).count()
+        deals = Deal.objects.filter(deal_filter).count()
+        activities = ActivityRecord.objects.filter(activity_filter).count()
+        flow_executions = FlowExecution.objects.filter(flow_exec_filter).count()
+        agent_sessions = AgentSession.objects.filter(session_filter).count()
+
+        return {
+            "contacts": contacts,
+            "accounts": accounts,
+            "deals": deals,
+            "activities": activities,
+            "flow_executions": flow_executions,
+            "agent_sessions": agent_sessions,
+        }
+
+
+class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
+    """
+    GET /api/platform/kpis/ — platform admin KPIs.
+    Query params: tenant (optional slug/schema_name, omit for all), period (optional: 24h, 7d, 30d, or omit for all time).
+    Returns counts: contacts, accounts, deals, activities, flow_executions, agent_sessions, and total_activity_per_hour.
+    """
+
+    def get(self, request):
+        err = self._check_platform_admin(request)
+        if err is not None:
+            return err
+        tenant_slug = (request.query_params.get("tenant") or "").strip() or None
+        period = (request.query_params.get("period") or "").strip() or None
+        start_dt, end_dt = _parse_period(period)
+
+        totals = {
+            "contacts": 0,
+            "accounts": 0,
+            "deals": 0,
+            "activities": 0,
+            "flow_executions": 0,
+            "agent_sessions": 0,
+        }
+
+        def run_for_tenants(tenant_list):
+            for t in tenant_list:
+                rls_slug = getattr(t, "rls_slug", None) or getattr(t, "subdomain", None)
+                if not rls_slug:
+                    continue
+                try:
+                    data = _aggregate_kpis_for_tenant(rls_slug, start_dt, end_dt)
+                    for k in totals:
+                        totals[k] += data.get(k, 0)
+                except Exception:
+                    continue
+
+        if tenants_enabled():
+            with tenant_rls_context(public_schema_name()):
+                if tenant_slug:
+                    tenant_list = list(Tenant.objects.filter(enabled=True).filter(
+                        Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
+                    ))
+                else:
+                    tenant_list = list(Tenant.objects.filter(enabled=True))
+                run_for_tenants(tenant_list)
+        else:
+            if tenant_slug:
+                tenant_list = list(Tenant.objects.filter(enabled=True).filter(
+                    Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
+                ))
+            else:
+                tenant_list = list(Tenant.objects.filter(enabled=True))
+            run_for_tenants(tenant_list)
+
+        # Total activity per hour: activities in period / hours in period
+        total_activity_per_hour = None
+        if start_dt is not None and end_dt is not None and totals["activities"] is not None:
+            delta = end_dt - start_dt
+            hours = max(delta.total_seconds() / 3600.0, 1e-6)
+            total_activity_per_hour = round(totals["activities"] / hours, 2)
+
+        payload = {
+            "contacts": totals["contacts"],
+            "accounts": totals["accounts"],
+            "deals": totals["deals"],
+            "activities": totals["activities"],
+            "flow_executions": totals["flow_executions"],
+            "agent_sessions": totals["agent_sessions"],
+            "total_activity_per_hour": total_activity_per_hour,
+            "period": period or "all",
+            "tenant": tenant_slug or "all",
+        }
         return Response({"ok": True, "payload": payload})
 
 
