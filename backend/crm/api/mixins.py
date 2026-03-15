@@ -341,6 +341,10 @@ class ContactAPIMixin:
         "phone": "phone",
     }
 
+    def _ensure_tenant_schema(self, request):
+        """No-op: tenant context is already resolved by middleware."""
+        pass
+
     def _isoformat(self, dt) -> Optional[str]:
         if not dt:
             return None
