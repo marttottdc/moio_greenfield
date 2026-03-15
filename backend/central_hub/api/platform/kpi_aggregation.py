@@ -35,56 +35,31 @@ def get_enabled_tenants_for_kpis(tenant_slug: str | None = None) -> list[tuple[i
     return result
 
 
-def aggregate_kpis_for_tenant(rls_slug: str, start_dt: datetime | None, end_dt: datetime | None) -> dict:
-    """Run count queries inside tenant RLS context. SET LOCAL must run in same transaction as queries."""
-    from crm.models import ActivityRecord, Contact, Customer, Deal
-    from flows.models import FlowExecution
-    from chatbot.models.agent_session import AgentSession
+# Table names for raw count queries (same connection as SET LOCAL; ORM goes through django_rls and can lose context).
+_KPI_TABLES = (
+    ("contacts", "crm_contact"),
+    ("accounts", "crm_customer"),
+    ("deals", "crm_deal"),
+    ("activities", "crm_activityrecord"),
+    ("flow_executions", "flows_flowexecution"),
+    ("agent_sessions", "chatbot_agentsession"),
+)
 
+
+def aggregate_kpis_for_tenant(rls_slug: str, start_dt: datetime | None, end_dt: datetime | None) -> dict:
+    """Run count queries inside tenant RLS context. Use raw SQL so counts see SET LOCAL (ORM can use different path)."""
     with transaction.atomic():
         with tenant_rls_context(rls_slug):
-            # Diagnostic: verify SET LOCAL is visible in this transaction (same connection)
-            try:
-                with connection.cursor() as cur:
-                    cur.execute("SELECT current_setting('app.current_tenant_slug', true)")
-                    row = cur.fetchone()
-                    setting_slug = (row[0] or "").strip() if row else ""
-                    cur.execute("SELECT count(*) FROM crm_contact")
-                    raw_contacts = (cur.fetchone() or (0,))[0]
-                logger.info(
-                    "Platform KPIs RLS diagnostic tenant=%s: current_setting=%r raw_crm_contact_count=%s",
-                    rls_slug,
-                    setting_slug,
-                    raw_contacts,
-                )
-            except Exception as e:
-                logger.warning("Platform KPIs RLS diagnostic failed tenant=%s: %s", rls_slug, e)
-
-            contact_filter = Q()
-            customer_filter = Q()
-            deal_filter = Q()
-            activity_filter = Q()
-            flow_exec_filter = Q()
-            session_filter = Q()
-            # Filtro de fecha desactivado para prueba: contar todos los registros sin filtrar por fecha.
-            # if start_dt is not None and end_dt is not None:
-            #     contact_filter = Q(created__gte=start_dt, created__lte=end_dt)
-            #     ...
-            contacts = Contact.objects.filter(contact_filter).count()
-            accounts = Customer.objects.filter(customer_filter).count()
-            deals = Deal.objects.filter(deal_filter).count()
-            activities = ActivityRecord.objects.filter(activity_filter).count()
-            flow_executions = FlowExecution.objects.filter(flow_exec_filter).count()
-            agent_sessions = AgentSession.objects.filter(session_filter).count()
-
-            return {
-                "contacts": contacts,
-                "accounts": accounts,
-                "deals": deals,
-                "activities": activities,
-                "flow_executions": flow_executions,
-                "agent_sessions": agent_sessions,
-            }
+            out = {}
+            with connection.cursor() as cur:
+                for key, table in _KPI_TABLES:
+                    try:
+                        quoted = connection.ops.quote_name(table)
+                        cur.execute("SELECT count(*) FROM " + quoted)
+                        out[key] = (cur.fetchone() or (0,))[0]
+                    except Exception:
+                        out[key] = 0
+            return out
 
 
 def run_full_sweep(
