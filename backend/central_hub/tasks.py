@@ -245,6 +245,11 @@ def refresh_platform_admin_kpi_snapshots(
         if not slugs_to_use:
             logger.warning("Platform KPI refresh: tenant_slugs empty, skipping")
             return
+        logger.info(
+            "Platform KPI refresh: using explicit tenant_slugs (%s): %s",
+            len(slugs_to_use),
+            slugs_to_use,
+        )
         if len(slugs_to_use) == 1:
             tenant_list = get_enabled_tenants_for_kpis(slugs_to_use[0])
             if tenant_list:
@@ -281,8 +286,15 @@ def refresh_platform_admin_kpi_snapshots(
                 "total_activity_per_hour": total_activity_per_hour,
             },
         )
+        logger.info(
+            "Platform KPI refresh period_key=%s: totals contacts=%s accounts=%s activities=%s",
+            period_key,
+            totals["contacts"],
+            totals["accounts"],
+            totals["activities"],
+        )
     logger.info(
-        "Platform admin KPI snapshots refreshed period_keys=%s tenant_slug=%s",
+        "Platform admin KPI snapshots refreshed period_keys=%s tenant_slugs=%s",
         keys,
-        tenant_slug or "all",
+        slugs_to_use if slugs_to_use is not None else (f"discovered(tenant_slug={tenant_slug!r})"),
     )

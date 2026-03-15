@@ -102,7 +102,7 @@ export function getKpis(params?: { tenant?: string; period?: string }) {
   return request<PlatformKPIsPayload>(qs ? `/kpis/?${qs}` : "/kpis/");
 }
 
-/** Start KPI refresh task; returns task_id for polling. Pass tenant_slugs so the backend uses that list (no discovery in worker). */
+/** Start KPI refresh task; returns task_id for polling. Always pass tenant_slugs (explicit list from UI). */
 export function startKpisRefresh(params?: {
   tenant?: string;
   period?: string;
@@ -112,13 +112,14 @@ export function startKpisRefresh(params?: {
   if (params?.tenant) search.set("tenant", params.tenant);
   if (params?.period) search.set("period", params.period);
   const qs = search.toString();
-  const body: { tenant?: string; period?: string; tenant_slugs?: string[] } = {};
+  const body: { tenant?: string; period?: string; tenant_slugs: string[] } = {
+    tenant_slugs: params?.tenant_slugs ?? [],
+  };
   if (params?.tenant) body.tenant = params.tenant;
   if (params?.period) body.period = params.period;
-  if (params?.tenant_slugs?.length) body.tenant_slugs = params.tenant_slugs;
   return request<{ task_id: string }>(
     qs ? `/kpis/refresh/?${qs}` : "/kpis/refresh/",
-    { method: "POST", bodyJson: Object.keys(body).length ? body : undefined }
+    { method: "POST", bodyJson: body }
   );
 }
 

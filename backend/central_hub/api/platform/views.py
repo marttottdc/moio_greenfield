@@ -299,12 +299,23 @@ class PlatformAdminKPIsRefreshView(PlatformAdminMixin, APIView):
             or (data.get("period") or "").strip()
             or None
         )
-        # Client may send tenant_slugs (list) so the task does not discover tenants in the worker
+        # Client must send tenant_slugs (explicit list); fallback to discovery only when missing (e.g. Beat)
+        import logging
+        _log = logging.getLogger(__name__)
         raw_slugs = data.get("tenant_slugs")
         if isinstance(raw_slugs, list):
             tenant_slugs = [str(s).strip() for s in raw_slugs if (s or "").strip()]
+            _log.info(
+                "Platform KPI refresh: using client tenant_slugs (%s slugs): %s",
+                len(tenant_slugs),
+                tenant_slugs,
+            )
         else:
             tenant_slugs = None
+            _log.info(
+                "Platform KPI refresh: no client tenant_slugs, discovering from tenant_slug=%s",
+                tenant_slug,
+            )
         if tenant_slugs is None:
             from central_hub.api.platform.kpi_aggregation import get_enabled_tenants_for_kpis
             tenant_list = get_enabled_tenants_for_kpis(tenant_slug)
