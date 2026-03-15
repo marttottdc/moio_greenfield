@@ -36,7 +36,7 @@ def get_enabled_tenants_for_kpis(tenant_slug: str | None = None) -> list[tuple[i
 
 
 def aggregate_kpis_for_tenant(rls_slug: str, start_dt: datetime | None, end_dt: datetime | None) -> dict:
-    """Run count queries inside tenant RLS context. Date filters applied when start_dt/end_dt are set."""
+    """Run count queries inside tenant RLS context. Date filters disabled for testing (count all rows)."""
     from crm.models import ActivityRecord, Contact, Customer, Deal
     from flows.models import FlowExecution
     from chatbot.models.agent_session import AgentSession
@@ -48,13 +48,14 @@ def aggregate_kpis_for_tenant(rls_slug: str, start_dt: datetime | None, end_dt: 
         activity_filter = Q()
         flow_exec_filter = Q()
         session_filter = Q()
-        if start_dt is not None and end_dt is not None:
-            contact_filter = Q(created__gte=start_dt, created__lte=end_dt)
-            customer_filter = Q(created__gte=start_dt, created__lte=end_dt)
-            deal_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
-            activity_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
-            flow_exec_filter = Q(started_at__gte=start_dt, started_at__lte=end_dt)
-            session_filter = Q(last_interaction__gte=start_dt, last_interaction__lte=end_dt)
+        # Filtro de fecha desactivado para prueba: contar todos los registros sin filtrar por fecha.
+        # if start_dt is not None and end_dt is not None:
+        #     contact_filter = Q(created__gte=start_dt, created__lte=end_dt)
+        #     customer_filter = Q(created__gte=start_dt, created__lte=end_dt)
+        #     deal_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
+        #     activity_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
+        #     flow_exec_filter = Q(started_at__gte=start_dt, started_at__lte=end_dt)
+        #     session_filter = Q(last_interaction__gte=start_dt, last_interaction__lte=end_dt)
 
         contacts = Contact.objects.filter(contact_filter).count()
         accounts = Customer.objects.filter(customer_filter).count()
@@ -105,6 +106,13 @@ def run_full_sweep(
     for tenant_id, subdomain in tenant_list:
         try:
             data = aggregate_kpis_for_tenant(subdomain, start_dt, end_dt)
+            logger.info(
+                "Platform KPIs sweep tenant=%s: contacts=%s accounts=%s activities=%s",
+                subdomain,
+                data.get("contacts", 0),
+                data.get("accounts", 0),
+                data.get("activities", 0),
+            )
             for k in totals:
                 totals[k] += data.get(k, 0)
         except Exception as exc:
@@ -151,6 +159,13 @@ def run_full_sweep_over_slugs(
     for slug in rls_slugs:
         try:
             data = aggregate_kpis_for_tenant(slug, start_dt, end_dt)
+            logger.info(
+                "Platform KPIs sweep tenant=%s: contacts=%s accounts=%s activities=%s",
+                slug,
+                data.get("contacts", 0),
+                data.get("accounts", 0),
+                data.get("activities", 0),
+            )
             for k in totals:
                 totals[k] += data.get(k, 0)
         except Exception as exc:
