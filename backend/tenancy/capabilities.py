@@ -133,6 +133,9 @@ def get_effective_capabilities(user, tenant_entitlements) -> EffectiveCapabiliti
     else:
         role_caps = ROLE_CAPABILITIES.get(role, ROLE_CAPABILITIES["member"]).copy()
     allowed = role_caps & tenant_allowed
+    # Tenant admin can always manage users so provisioning and stress flows succeed
+    if role == "tenant_admin":
+        allowed = allowed | {"users_manage"}
     effective_features = {k: k in allowed for k in tenant_allowed}
     for k, v in features.items():
         if k not in CAPABILITY_KEYS:

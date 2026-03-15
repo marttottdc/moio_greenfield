@@ -184,18 +184,24 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         ],
     )
     def post(self, request):
+        tenant = getattr(request.user, "tenant", None)
+        if not tenant:
+            return Response(
+                {"error": "tenant_required", "message": "Tenant context is required to create contacts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.serializer_class(data=request.data, context={"request": request})
         try:
             serializer.is_valid(raise_exception=True)
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
-        contact: Contact = serializer.save(tenant=request.user.tenant, created_by=request.user)
+        contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
 
         try:
             emit_event(
                 name="contact.created",
-                tenant_id=request.user.tenant.tenant_code,
+                tenant_id=tenant.tenant_code,
                 actor={"type": "user", "id": str(request.user.id)},
                 entity={"type": "contact", "id": str(contact.user_id)},
                 payload={

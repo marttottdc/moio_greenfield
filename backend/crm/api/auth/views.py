@@ -102,7 +102,14 @@ class AuthViewSet(viewsets.ViewSet):
         if not user.check_password(password):
             return Response({"error": "invalid_credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        refresh = TenantTokenObtainPairSerializer.get_token(user)
+        # Resolve tenant for JWT so shared-host clients (e.g. stress lab) get tenant_schema in token
+        tenant_id = request.data.get("tenant_id")
+        tenant_slug = (request.data.get("tenant_slug") or "").strip()
+        tenant = self._resolve_tenant(tenant_id=tenant_id, tenant_slug=tenant_slug)
+        if tenant is None:
+            tenant = getattr(user, "tenant", None)
+
+        refresh = TenantTokenObtainPairSerializer.get_token(user, tenant=tenant)
         access = str(refresh.access_token)
         refresh_str = str(refresh)
         # NOTE: match SimpleJWT default response shape (prod).

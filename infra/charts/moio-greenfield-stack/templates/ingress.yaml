@@ -14,6 +14,11 @@ spec:
     - hosts:
         - {{ .Values.ingress.host }}
       secretName: {{ .Values.ingress.tlsSecret }}
+    {{- if .Values.ingress.wildcardHost }}
+    - hosts:
+        - {{ .Values.ingress.wildcardHost }}
+      secretName: {{ default .Values.ingress.tlsSecret .Values.ingress.wildcardTlsSecret }}
+    {{- end }}
   rules:
     - host: {{ .Values.ingress.host }}
       http:
@@ -52,4 +57,43 @@ spec:
                 name: backend
                 port:
                   number: {{ .Values.backend.servicePort }}
+    {{- if .Values.ingress.wildcardHost }}
+    - host: {{ .Values.ingress.wildcardHost }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: {{ .Values.backend.servicePort }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                {{- if .Values.pushpin.enabled }}
+                name: pushpin-service
+                port:
+                  number: {{ .Values.pushpin.servicePort }}
+                {{- else }}
+                name: backend
+                port:
+                  number: {{ .Values.backend.servicePort }}
+                {{- end }}
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: {{ .Values.backend.servicePort }}
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: {{ .Values.backend.servicePort }}
+    {{- end }}
 {{- end }}
