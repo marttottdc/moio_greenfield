@@ -61,6 +61,7 @@ _EXTERNAL_PREFIXES = (
     "/api/v1/integrations/shopify/chat-widget-config",
     "/api/v1/integrations/shopify/app-proxy",
     "/api/v1/integrations/whatsapp/embedded-signup",
+    "/api/v1/integrations/email/oauth/callback",
 )
 
 _TENANT_REQUIRED_PREFIXES = (

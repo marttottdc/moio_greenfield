@@ -167,10 +167,20 @@ Resumen CRM: **Legacy** (public_views): communications, tickets, dashboard, temp
 - **Policy**: tenant. UserViewSet bajo router. Puede tener ramas platform-admin (listar todos los usuarios); si es así, la ruta sigue siendo tenant-required a nivel middleware; la view puede decidir por rol. Coherente si la view comprueba is_staff/platform.
 - **Finding F4-4**: Verificar en UserViewSet que list/retrieve/update estén scoped por tenant o por permiso platform. Severidad: media. Smoke: GET list con tenant JWT; GET list con usuario platform si existe. **Verified**: get_queryset filters by request.user.tenant for non-platform users; platform admins can pass tenant_id query param to scope.
 
+**C.3 Users – Criterio scope tenant vs platform (documentado):**
+- **Usuario normal (tenant)**: `get_queryset()` devuelve `UserModel.objects.filter(tenant=request.user.tenant)`. Solo ve usuarios del mismo tenant.
+- **Platform admin** (`is_superuser` o rol `platform_admin`): puede listar todos los usuarios; opcionalmente puede acotar con query param `tenant_id` para ver solo ese tenant. Implementación: `central_hub.api.users.views.UserViewSet.get_queryset`.
+- La ruta sigue siendo tenant-required a nivel de middleware (policy tenant); la view decide el scope según el usuario autenticado.
+
 ### integrations (`/api/v1/integrations/`)
 - **Policy**: tenant en bloque; excepciones en resolution para shopify/oauth, webhook, embed/bootstrap, chat-widget-config, app-proxy, whatsapp/embedded-signup.
 - **Orden de rutas**: v1 y shopify incluidos primero; luego slug genérico. Correcto para no capturar shopify como slug.
 - **Finding F4-5**: OAuth callbacks (p. ej. email) bajo tenant prefix pueden requerir AllowAny en esa view concreta; si no están en _EXTERNAL_PREFIXES, el middleware pedirá tenant. Revisar EmailOAuthCallbackView y similares. Severidad: media.
+
+**C.4 Integrations OAuth – Callbacks external (documentado):**
+- Rutas que no requieren tenant (provider redirige sin slug): en `tenancy.resolution._EXTERNAL_PREFIXES`.
+- Actuales: `/api/v1/integrations/shopify/oauth`, `/api/v1/integrations/shopify/webhook`, `/api/v1/integrations/shopify/embed/bootstrap`, `/api/v1/integrations/shopify/chat-widget-config`, `/api/v1/integrations/shopify/app-proxy`, `/api/v1/integrations/whatsapp/embedded-signup`, **`/api/v1/integrations/email/oauth/callback`** (añadido para Email OAuth callback; tenant/user se obtienen del `state` firmado).
+- Al añadir un nuevo callback bajo `/api/v1/integrations/` que reciba el redirect del provider sin tenant en path, añadir su prefijo a `_EXTERNAL_PREFIXES` y documentar aquí.
 
 ---
 
@@ -204,6 +214,12 @@ Resumen CRM: **Legacy** (public_views): communications, tickets, dashboard, temp
 ### resources
 - **Rutas**: whatsapp-templates (ViewSet), webhooks (WebhookConfigViewSet de CRM), contacts/search, agent_tools.
 - **Finding F5-6**: webhooks reutiliza CRM settings viewset; tenant y permisos coherentes. Severidad: baja. Smoke: GET whatsapp-templates, GET webhooks, GET agent_tools.
+
+**C.5 Flows, campaigns, docs_api, chatbot – Resumen documentado:**
+- **Flows**: Scheduled tasks y task executions tienen `tenant` en el modelo; RLS aplicado en 0008 (flows_scheduled_task, flows_task_execution). Auth en scheduled tasks: CsrfExemptSessionAuthentication, TenantJWTAAuthentication, ServiceJWTAuthentication; asegurar que el JWT o el contexto fijen tenant al ejecutar. Smoke: GET flows/, GET flow/<id>, GET scheduled_tasks con tenant JWT.
+- **Campaigns**: Dos estilos de API (legacy config/execution vs FSM flow-state/transitions y stream SSE). Documentar en código o en esta doc cuál es el camino recomendado para evitar inconsistencia. Smoke: GET campaigns, GET campaign/<id>.
+- **docs_api**: Rutas mayormente AllowAny (schema, navigation, guides, endpoints, examples, search). Contract drift: endpoint detail vs OpenAPI; revisar cuando se actualice la API. Smoke: GET endpoints, GET endpoint/<operation_id>.
+- **Chatbot (desktop-agent)**: Sesiones por tenant + contact; las vistas deben filtrar por tenant del usuario/contacto para evitar fuga cross-tenant. Smoke: GET sessions, GET status con tenant JWT.
 
 ---
 

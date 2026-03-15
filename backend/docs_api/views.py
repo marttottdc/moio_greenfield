@@ -191,8 +191,10 @@ def _build_endpoint_list_from_schema(schema, tag_filter=None, name_filter=None):
             if method not in ["get", "post", "put", "patch", "delete"]:
                 continue
             tags = details.get("tags", [])
-            if tag_filter and tag_filter not in tags:
-                continue
+            if tag_filter:
+                tags_lower = [t.lower() for t in tags] if tags else []
+                if tag_filter.strip().lower() not in tags_lower:
+                    continue
 
             if name_lower:
                 searchable = " ".join([
@@ -370,7 +372,8 @@ class DocsEndpointDetailView(APIView):
         response_format = _response_format_summary(endpoint_spec.get("responses") or {})
         request_body = _request_body_summary(endpoint_spec.get("requestBody"))
 
-        return Response({
+        # Contract: top-level operation_id, path, method for consumers that expect them
+        payload = {
             "spec": endpoint_spec,
             "response_format": response_format,
             "request_body": request_body,
@@ -378,7 +381,11 @@ class DocsEndpointDetailView(APIView):
             "examples": examples_serializer.data,
             "notes": notes_serializer.data,
             "schemas": referenced_schemas,
-        })
+        }
+        payload["operation_id"] = endpoint_spec.get("operationId", "")
+        payload["path"] = endpoint_spec.get("path", "")
+        payload["method"] = endpoint_spec.get("method", "")
+        return Response(payload)
 
 
 class DocsCodeExamplesView(APIView):
