@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from django.db import connection, transaction
 from django.db.models import Q
 
+from tenancy.models import Tenant
 from tenancy.tenant_support import tenant_rls_context
 
 if TYPE_CHECKING:
@@ -21,52 +22,15 @@ logger = logging.getLogger(__name__)
 
 def get_enabled_tenants_for_kpis(tenant_slug: str | None = None) -> list[tuple[int, str]]:
     """
-    Return list of (tenant_id, subdomain) for enabled tenants.
-    Uses raw SQL with RLS off in a single transaction so we always see all tenants.
+    Return list of (tenant_id, subdomain) for enabled tenants. ORM only, no RLS off.
+    In a Celery worker with no tenant context, prefer passing tenant_slugs from the caller.
     """
-    # SET LOCAL only applies within the same transaction; in autocommit each execute is its own
-    # transaction, so we must run SET LOCAL and SELECT in one atomic block.
-    with transaction.atomic():
-        with connection.cursor() as cursor:
-            try:
-                cursor.execute("SET LOCAL row_level_security = off")
-            except Exception:
-                pass
-            if tenant_slug:
-                cursor.execute(
-                    """
-                    SELECT id, TRIM(COALESCE(subdomain, ''))
-                    FROM portal_tenant
-                    WHERE enabled = true
-                      AND (schema_name = %s OR TRIM(COALESCE(subdomain, '')) = %s)
-                    ORDER BY id
-                    """,
-                    [tenant_slug, tenant_slug],
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT id, TRIM(COALESCE(subdomain, ''))
-                    FROM portal_tenant
-                    WHERE enabled = true
-                      AND TRIM(COALESCE(subdomain, '')) != ''
-                    ORDER BY id
-                    """,
-                )
-            rows = cursor.fetchall()
-    result = [(r[0], r[1]) for r in rows if r[1]]
-    if not result and not tenant_slug:
-        # Fallback: if raw SQL returned no tenants (e.g. RLS on portal_tenant in some env),
-        # use ORM so we at least get tenants visible in current context.
-        try:
-            from tenancy.models import Tenant
-            for t in Tenant.objects.filter(enabled=True).exclude(subdomain="").values_list("id", "subdomain"):
-                if t[1]:
-                    result.append((t[0], t[1].strip() if isinstance(t[1], str) else str(t[1])))
-            if result:
-                logger.info("Platform KPIs: tenant list from raw SQL was empty; used ORM fallback (%s tenants)", len(result))
-        except Exception as e:
-            logger.warning("Platform KPIs: ORM fallback for tenant list failed: %s", e)
+    qs = Tenant.objects.filter(enabled=True).exclude(subdomain="").exclude(subdomain__isnull=True)
+    if tenant_slug:
+        slug = (tenant_slug or "").strip()
+        qs = qs.filter(Q(schema_name=slug) | Q(subdomain=slug))
+    qs = qs.order_by("id").values_list("id", "subdomain")
+    result = [(row[0], (row[1] or "").strip()) for row in qs if (row[1] or "").strip()]
     logger.debug("Platform KPIs: get_enabled_tenants_for_kpis found %s tenants", len(result))
     return result
 
