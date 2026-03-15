@@ -22,7 +22,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: pgvector/pgvector:pg15-trixie
+        image: postgresql:17.5-16-bookworm
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -46,6 +46,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Enable pgvector extension
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/moio_test
+          DJANGO_SETTINGS_MODULE: moio_platform.settings
+          SECRET_KEY: test-secret
+        run: |
+          python -c "
+          import os
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moio_platform.settings')
+          import django
+          django.setup()
+          from django.db import connection
+          with connection.cursor() as cur:
+              cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
+          "
 
       - name: Run smoke tests
         env:
