@@ -228,16 +228,8 @@ class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
                 except Exception:
                     continue
 
-        if tenants_enabled():
-            with tenant_rls_context(public_schema_name()):
-                if tenant_slug:
-                    tenant_list = list(Tenant.objects.filter(enabled=True).filter(
-                        Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
-                    ))
-                else:
-                    tenant_list = list(Tenant.objects.filter(enabled=True))
-                run_for_tenants(tenant_list)
-        else:
+        # List tenants in public context so we see all enabled tenants (RLS or not).
+        with tenant_rls_context(public_schema_name()):
             if tenant_slug:
                 tenant_list = list(Tenant.objects.filter(enabled=True).filter(
                     Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
