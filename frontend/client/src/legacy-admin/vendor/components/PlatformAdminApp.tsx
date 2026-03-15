@@ -11,8 +11,10 @@ import {
   deleteTenant,
   deleteUser,
   getKpis,
+  getKpisRefreshStatus,
   logout,
   savePlatformPluginApproval,
+  startKpisRefresh,
   PlatformAdminApiError,
   listPlugins,
   uploadPluginBundle,
@@ -502,8 +504,12 @@ export default function PlatformAdminApp() {
 
   const [kpis, setKpis] = useState<PlatformKPIsPayload | null>(null);
   const [kpisLoading, setKpisLoading] = useState(false);
+  const [kpisRefreshing, setKpisRefreshing] = useState(false);
+  const [kpisRefreshError, setKpisRefreshError] = useState<string | null>(null);
   const [kpiTenantFilter, setKpiTenantFilter] = useState<string>("");
   const [kpiPeriodFilter, setKpiPeriodFilter] = useState<string>("");
+  const kpisRefreshPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const kpisRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [tenantForm, setTenantForm] = useState<TenantFormState>(DEFAULT_TENANT_FORM);
   const [planForm, setPlanForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
@@ -582,6 +588,74 @@ export default function PlatformAdminApp() {
       cancelled = true;
     };
   }, [activeSection, kpiTenantFilter, kpiPeriodFilter]);
+
+  useEffect(() => {
+    return () => {
+      if (kpisRefreshPollRef.current) {
+        clearInterval(kpisRefreshPollRef.current);
+        kpisRefreshPollRef.current = null;
+      }
+      if (kpisRefreshTimeoutRef.current) {
+        clearTimeout(kpisRefreshTimeoutRef.current);
+        kpisRefreshTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  function handleKpisRefreshNow() {
+    if (kpisRefreshing) return;
+    setKpisRefreshError(null);
+    setKpisRefreshing(true);
+    const tenant = kpiTenantFilter || undefined;
+    const period = kpiPeriodFilter || undefined;
+    startKpisRefresh({ tenant, period })
+      .then(({ task_id }) => {
+        const POLL_INTERVAL_MS = 2500;
+        const TIMEOUT_MS = 120000;
+
+        const stopPolling = () => {
+          if (kpisRefreshPollRef.current) {
+            clearInterval(kpisRefreshPollRef.current);
+            kpisRefreshPollRef.current = null;
+          }
+          if (kpisRefreshTimeoutRef.current) {
+            clearTimeout(kpisRefreshTimeoutRef.current);
+            kpisRefreshTimeoutRef.current = null;
+          }
+          setKpisRefreshing(false);
+        };
+
+        kpisRefreshTimeoutRef.current = setTimeout(() => {
+          stopPolling();
+          setKpisRefreshError("Refresh is taking longer than expected.");
+        }, TIMEOUT_MS);
+
+        kpisRefreshPollRef.current = setInterval(() => {
+          getKpisRefreshStatus({ task_id, tenant, period })
+            .then((payload) => {
+              if (payload.status === "SUCCESS") {
+                stopPolling();
+                if (payload.kpis) {
+                  setKpis(payload.kpis);
+                } else {
+                  getKpis({ tenant, period }).then(setKpis).catch(() => {});
+                }
+              } else if (payload.status === "FAILURE") {
+                stopPolling();
+                setKpisRefreshError(payload.error || "Refresh failed.");
+              }
+            })
+            .catch(() => {
+              stopPolling();
+              setKpisRefreshError("Failed to check refresh status.");
+            });
+        }, POLL_INTERVAL_MS);
+      })
+      .catch(() => {
+        setKpisRefreshing(false);
+        setKpisRefreshError("Failed to start KPI refresh.");
+      });
+  }
 
   function setFlash(message: string, tone: FlashTone = "info") {
     setFlashText(message);
@@ -1403,10 +1477,21 @@ export default function PlatformAdminApp() {
                             <option value="7d">Last 7 days</option>
                             <option value="30d">Last 30 days</option>
                           </select>
+                          <button
+                            type="button"
+                            onClick={handleKpisRefreshNow}
+                            disabled={kpisRefreshing}
+                            className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {kpisRefreshing ? "Updating KPIs…" : "Refresh now"}
+                          </button>
                           {kpisLoading ? (
                             <span className="text-xs text-slate-400">Loading…</span>
                           ) : null}
                         </div>
+                        {kpisRefreshError ? (
+                          <p className="mt-1 text-xs text-red-600">{kpisRefreshError}</p>
+                        ) : null}
                       </div>
                       {kpisLoading && !kpis ? (
                         <p className="text-xs text-slate-500">Loading KPIs…</p>

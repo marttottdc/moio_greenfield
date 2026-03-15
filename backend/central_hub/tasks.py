@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 
 from central_hub.integrations.shopify import tasks as _shopify_tasks  # noqa: F401,E402
 from central_hub.models import ProvisioningJob, PlatformAdminKpiSnapshot, UserProfile
@@ -217,25 +218,39 @@ def _parse_kpi_period(period_key: str):
     name="central_hub.tasks.refresh_platform_admin_kpi_snapshots",
     queue=settings.LOW_PRIORITY_Q,
 )
-def refresh_platform_admin_kpi_snapshots(self, period_keys: list[str] | None = None):
+def refresh_platform_admin_kpi_snapshots(
+    self,
+    period_keys: list[str] | None = None,
+    tenant_slug: str | None = None,
+):
     """
-    Sweep all enabled tenants and aggregate KPIs into PlatformAdminKpiSnapshot.
+    Aggregate KPIs into PlatformAdminKpiSnapshot (RLS-off sweep in Celery).
+    - tenant_slug=None: refresh "all tenants" (tenant_id=null). Use for Beat schedule.
+    - tenant_slug="acme": refresh only that tenant (tenant_id=X). Use when user selects a tenant in UI.
     period_keys: e.g. ["all", "24h", "7d", "30d"]. Default all four.
-    Updates rows with tenant_id=null (platform-wide).
     """
-    from central_hub.api.platform.kpi_aggregation import run_full_sweep
+    from central_hub.api.platform.kpi_aggregation import run_full_sweep_rls_off
 
     keys = period_keys or ["all", "24h", "7d", "30d"]
+    tenant_id = None
+    if tenant_slug:
+        t = Tenant.objects.filter(enabled=True).filter(
+            Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
+        ).first()
+        if not t:
+            logger.warning("Platform KPI refresh: tenant_slug=%s not found, skipping", tenant_slug)
+            return
+        tenant_id = t.id
     for period_key in keys:
         start_dt, end_dt = _parse_kpi_period(period_key)
-        totals = run_full_sweep(tenant_slug=None, start_dt=start_dt, end_dt=end_dt)
+        totals = run_full_sweep_rls_off(tenant_slug=tenant_slug, start_dt=start_dt, end_dt=end_dt)
         total_activity_per_hour = None
         if start_dt is not None and end_dt is not None:
             delta = end_dt - start_dt
             hours = max(delta.total_seconds() / 3600.0, 1e-6)
             total_activity_per_hour = round(totals["activities"] / hours, 2)
         PlatformAdminKpiSnapshot.objects.update_or_create(
-            tenant_id=None,
+            tenant_id=tenant_id,
             period_key=period_key,
             defaults={
                 "contacts": totals["contacts"],
@@ -247,4 +262,8 @@ def refresh_platform_admin_kpi_snapshots(self, period_keys: list[str] | None = N
                 "total_activity_per_hour": total_activity_per_hour,
             },
         )
-    logger.info("Platform admin KPI snapshots refreshed for period_keys=%s", keys)
+    logger.info(
+        "Platform admin KPI snapshots refreshed period_keys=%s tenant_slug=%s",
+        keys,
+        tenant_slug or "all",
+    )

@@ -102,6 +102,34 @@ export function getKpis(params?: { tenant?: string; period?: string }) {
   return request<PlatformKPIsPayload>(qs ? `/kpis/?${qs}` : "/kpis/");
 }
 
+/** Start KPI refresh task; returns task_id for polling. */
+export function startKpisRefresh(params?: { tenant?: string; period?: string }) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.period) search.set("period", params.period);
+  const qs = search.toString();
+  return request<{ task_id: string }>(
+    qs ? `/kpis/refresh/?${qs}` : "/kpis/refresh/",
+    { method: "POST" }
+  );
+}
+
+/** Poll KPI refresh status; when SUCCESS, payload includes kpis. */
+export function getKpisRefreshStatus(params: {
+  task_id: string;
+  tenant?: string;
+  period?: string;
+}) {
+  const search = new URLSearchParams({ task_id: params.task_id });
+  if (params.tenant) search.set("tenant", params.tenant);
+  if (params.period) search.set("period", params.period);
+  return request<{
+    status: "PENDING" | "SUCCESS" | "FAILURE";
+    kpis?: PlatformKPIsPayload;
+    error?: string;
+  }>(`/kpis/refresh/status/?${search.toString()}`);
+}
+
 export function saveNotificationSettings(input: {
   settings: Record<string, unknown>;
 }) {

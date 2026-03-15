@@ -264,6 +264,16 @@ export type PlatformKPIsPayload = {
   tenant: string;
 };
 
+/** Response from POST /api/platform/kpis/refresh/ */
+export type KpisRefreshResponse = { task_id: string };
+
+/** Response payload from GET /api/platform/kpis/refresh/status/ */
+export type KpisRefreshStatusPayload = {
+  status: "PENDING" | "SUCCESS" | "FAILURE";
+  kpis?: PlatformKPIsPayload;
+  error?: string;
+};
+
 export type ApiError = {
   message: string;
   status: number;

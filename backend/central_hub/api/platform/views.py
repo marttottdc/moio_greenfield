@@ -19,7 +19,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from central_hub.api.platform_bootstrap import build_bootstrap_payload, _is_platform_admin_user
-from central_hub.api.platform.kpi_aggregation import run_full_sweep
 from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from central_hub.authentication import TenantJWTAAuthentication
 from central_hub.models import (
@@ -163,7 +162,7 @@ def _parse_period(period: str | None):
     return None, None
 
 
-# KPI aggregation is in central_hub.api.platform.kpi_aggregation (run_full_sweep).
+# KPIs are always served from PlatformAdminKpiSnapshot, filled by Celery (refresh_platform_admin_kpi_snapshots).
 
 
 def _kpi_period_to_key(period: str | None) -> str:
@@ -180,17 +179,73 @@ def _kpi_period_to_key(period: str | None) -> str:
     return "all"
 
 
-# Max age (seconds) for cached snapshot to be considered fresh.
+# Max age (seconds) for snapshot to be considered fresh; older triggers a Celery refresh.
 PLATFORM_KPI_CACHE_MAX_AGE_SECONDS = 600  # 10 minutes
+
+
+def _get_kpi_snapshot(period_key: str, tenant_slug: str | None) -> PlatformAdminKpiSnapshot | None:
+    """Return the latest snapshot for this period and tenant (all vs single)."""
+    if tenant_slug:
+        tenant_id = Tenant.objects.filter(enabled=True).filter(
+            Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
+        ).values_list("id", flat=True).first()
+        if tenant_id is None:
+            return None
+        return (
+            PlatformAdminKpiSnapshot.objects.filter(
+                period_key=period_key,
+                tenant_id=tenant_id,
+            )
+            .order_by("-updated_at")
+            .first()
+        )
+    return (
+        PlatformAdminKpiSnapshot.objects.filter(
+            period_key=period_key,
+            tenant_id__isnull=True,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+
+
+def _snapshot_to_payload(snapshot: PlatformAdminKpiSnapshot | None, period: str | None, tenant_slug: str | None):
+    """Build API payload from snapshot or zeros if None."""
+    if snapshot is None:
+        return {
+            "contacts": 0,
+            "accounts": 0,
+            "deals": 0,
+            "activities": 0,
+            "flow_executions": 0,
+            "agent_sessions": 0,
+            "total_activity_per_hour": None,
+            "period": period or "all",
+            "tenant": tenant_slug or "all",
+            "from_cache": False,
+            "cached_at": None,
+        }
+    return {
+        "contacts": snapshot.contacts,
+        "accounts": snapshot.accounts,
+        "deals": snapshot.deals,
+        "activities": snapshot.activities,
+        "flow_executions": snapshot.flow_executions,
+        "agent_sessions": snapshot.agent_sessions,
+        "total_activity_per_hour": snapshot.total_activity_per_hour,
+        "period": period or "all",
+        "tenant": tenant_slug or "all",
+        "from_cache": True,
+        "cached_at": snapshot.updated_at.isoformat(),
+    }
 
 
 class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
     """
-    GET /api/platform/kpis/ — platform admin KPIs.
-    Query params: tenant (optional slug, omit for all), period (optional: 24h, 7d, 30d, or omit for all time),
-    use_cache (optional: 1 to return cached snapshot when fresh).
-    Returns counts: contacts, accounts, deals, activities, flow_executions, agent_sessions, total_activity_per_hour.
-    Data is gathered by sweeping tenant-by-tenant in RLS context; optionally served from PlatformAdminKpiSnapshot.
+    GET /api/platform/kpis/ — platform admin KPIs. Always served from snapshot (Celery).
+    Query params: tenant (optional slug, omit for all), period (optional: 24h, 7d, 30d).
+    Data is filled by refresh_platform_admin_kpi_snapshots (run on Beat or when triggered).
+    If snapshot is missing or stale, we trigger the task and return current data (or zeros).
     """
 
     def get(self, request):
@@ -199,83 +254,117 @@ class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
             return err
         tenant_slug = (request.query_params.get("tenant") or "").strip() or None
         period = (request.query_params.get("period") or "").strip() or None
-        use_cache = request.query_params.get("use_cache", "").strip() == "1"
-        start_dt, end_dt = _parse_period(period)
         period_key = _kpi_period_to_key(period)
+        from django.utils import timezone
 
-        # Optional: return cached snapshot when fresh (all-tenants or single-tenant).
-        if use_cache:
-            snapshot = None
-            if tenant_slug:
-                tenant_id = Tenant.objects.filter(enabled=True).filter(
-                    Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
-                ).values_list("id", flat=True).first()
-                if tenant_id is not None:
-                    snapshot = (
-                        PlatformAdminKpiSnapshot.objects.filter(
-                            period_key=period_key,
-                            tenant_id=tenant_id,
-                        )
-                        .order_by("-updated_at")
-                        .first()
-                    )
-            else:
-                snapshot = (
-                    PlatformAdminKpiSnapshot.objects.filter(
-                        period_key=period_key,
-                        tenant_id__isnull=True,
-                    )
-                    .order_by("-updated_at")
-                    .first()
-                )
-            if snapshot is not None:
-                from django.utils import timezone
-                age = (timezone.now() - snapshot.updated_at).total_seconds()
-                if age <= PLATFORM_KPI_CACHE_MAX_AGE_SECONDS:
-                    payload = {
-                        "contacts": snapshot.contacts,
-                        "accounts": snapshot.accounts,
-                        "deals": snapshot.deals,
-                        "activities": snapshot.activities,
-                        "flow_executions": snapshot.flow_executions,
-                        "agent_sessions": snapshot.agent_sessions,
-                        "total_activity_per_hour": snapshot.total_activity_per_hour,
-                        "period": period or "all",
-                        "tenant": tenant_slug or "all",
-                        "from_cache": True,
-                        "cached_at": snapshot.updated_at.isoformat(),
-                    }
-                    return Response({"ok": True, "payload": payload})
-
-        # Sweep tenant-by-tenant (always works; does not depend on current RLS for listing tenants).
-        totals = run_full_sweep(tenant_slug=tenant_slug, start_dt=start_dt, end_dt=end_dt)
-
-        total_activity_per_hour = None
-        if start_dt is not None and end_dt is not None and totals.get("activities") is not None:
-            delta = end_dt - start_dt
-            hours = max(delta.total_seconds() / 3600.0, 1e-6)
-            total_activity_per_hour = round(totals["activities"] / hours, 2)
-
-        # When sweeping "all" tenants, refresh snapshot in background so next request can use_cache=1.
-        if not tenant_slug:
+        snapshot = _get_kpi_snapshot(period_key, tenant_slug)
+        now = timezone.now()
+        age_seconds = (now - snapshot.updated_at).total_seconds() if snapshot else float("inf")  # no snapshot = stale
+        if snapshot is None or age_seconds > PLATFORM_KPI_CACHE_MAX_AGE_SECONDS:
             try:
                 from central_hub.tasks import refresh_platform_admin_kpi_snapshots
-                refresh_platform_admin_kpi_snapshots.delay(period_keys=[period_key])
+                refresh_platform_admin_kpi_snapshots.delay(
+                    period_keys=[period_key],
+                    tenant_slug=tenant_slug,
+                )
             except Exception:
                 pass
-
-        payload = {
-            "contacts": totals["contacts"],
-            "accounts": totals["accounts"],
-            "deals": totals["deals"],
-            "activities": totals["activities"],
-            "flow_executions": totals["flow_executions"],
-            "agent_sessions": totals["agent_sessions"],
-            "total_activity_per_hour": total_activity_per_hour,
-            "period": period or "all",
-            "tenant": tenant_slug or "all",
-        }
+        payload = _snapshot_to_payload(snapshot, period, tenant_slug)
         return Response({"ok": True, "payload": payload})
+
+
+class PlatformAdminKPIsRefreshView(PlatformAdminMixin, APIView):
+    """
+    POST /api/platform/kpis/refresh/ — enqueue Celery task to refresh KPIs.
+    Query/body: tenant (optional slug), period (optional: 24h, 7d, 30d).
+    Returns { "ok": true, "payload": { "task_id": "<id>" } }.
+    """
+
+    def post(self, request):
+        err = self._check_platform_admin(request)
+        if err is not None:
+            return err
+        data = getattr(request, "data", None) or {}
+        tenant_slug = (
+            (request.query_params.get("tenant") or "").strip()
+            or (data.get("tenant") or "").strip()
+            or None
+        )
+        period = (
+            (request.query_params.get("period") or "").strip()
+            or (data.get("period") or "").strip()
+            or None
+        )
+        period_key = _kpi_period_to_key(period)
+        try:
+            from central_hub.tasks import refresh_platform_admin_kpi_snapshots
+
+            result = refresh_platform_admin_kpi_snapshots.delay(
+                period_keys=[period_key],
+                tenant_slug=tenant_slug,
+            )
+            return Response(
+                {"ok": True, "payload": {"task_id": result.id}},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "ok": False,
+                    "error": {
+                        "message": f"Failed to enqueue KPI refresh: {e}",
+                        "code": "celery_unavailable",
+                    },
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+
+class PlatformAdminKPIsRefreshStatusView(PlatformAdminMixin, APIView):
+    """
+    GET /api/platform/kpis/refresh/status/?task_id=xxx&tenant=&period=
+    Returns { "ok": true, "payload": { "status": "PENDING"|"SUCCESS"|"FAILURE", "kpis"?: {...}, "error"?: str } }.
+    """
+
+    def get(self, request):
+        err = self._check_platform_admin(request)
+        if err is not None:
+            return err
+        task_id = (request.query_params.get("task_id") or "").strip()
+        if not task_id:
+            return Response(
+                {"ok": False, "error": {"message": "task_id is required", "code": "validation"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        tenant_slug = (request.query_params.get("tenant") or "").strip() or None
+        period = (request.query_params.get("period") or "").strip() or None
+        period_key = _kpi_period_to_key(period)
+
+        from celery.result import AsyncResult
+
+        ar = AsyncResult(task_id)
+        if not ar.ready():
+            return Response(
+                {"ok": True, "payload": {"status": "PENDING"}},
+                status=status.HTTP_200_OK,
+            )
+        if ar.successful():
+            snapshot = _get_kpi_snapshot(period_key, tenant_slug)
+            kpis = _snapshot_to_payload(snapshot, period, tenant_slug)
+            return Response(
+                {"ok": True, "payload": {"status": "SUCCESS", "kpis": kpis}},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "ok": True,
+                "payload": {
+                    "status": "FAILURE",
+                    "error": str(ar.result) if ar.result is not None else "Unknown error",
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # ---------------------------------------------------------------------------
