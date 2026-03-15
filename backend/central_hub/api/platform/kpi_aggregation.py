@@ -43,6 +43,23 @@ def aggregate_kpis_for_tenant(rls_slug: str, start_dt: datetime | None, end_dt: 
 
     with transaction.atomic():
         with tenant_rls_context(rls_slug):
+            # Diagnostic: verify SET LOCAL is visible in this transaction (same connection)
+            try:
+                with connection.cursor() as cur:
+                    cur.execute("SELECT current_setting('app.current_tenant_slug', true)")
+                    row = cur.fetchone()
+                    setting_slug = (row[0] or "").strip() if row else ""
+                    cur.execute("SELECT count(*) FROM crm_contact")
+                    raw_contacts = (cur.fetchone() or (0,))[0]
+                logger.info(
+                    "Platform KPIs RLS diagnostic tenant=%s: current_setting=%r raw_crm_contact_count=%s",
+                    rls_slug,
+                    setting_slug,
+                    raw_contacts,
+                )
+            except Exception as e:
+                logger.warning("Platform KPIs RLS diagnostic failed tenant=%s: %s", rls_slug, e)
+
             contact_filter = Q()
             customer_filter = Q()
             deal_filter = Q()
