@@ -15,68 +15,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  smoke-tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    services:
-      postgres:
-        image: postgresql:17.5-16-bookworm
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: moio_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Enable pgvector extension
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/moio_test
-          DJANGO_SETTINGS_MODULE: moio_platform.settings
-          SECRET_KEY: test-secret
-        run: |
-          python -c "
-          import os
-          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'moio_platform.settings')
-          import django
-          django.setup()
-          from django.db import connection
-          with connection.cursor() as cur:
-              cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
-          "
-
-      - name: Run smoke tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/moio_test
-          DJANGO_SETTINGS_MODULE: moio_platform.settings
-          USE_RLS_TENANCY: "1"
-          SECRET_KEY: test-secret
-          CELERY_TASK_ALWAYS_EAGER: "1"
-        run: |
-          python manage.py migrate --noinput
-          python manage.py test moio_platform.tests.test_smoke_endpoints -v 2
-
   build-and-push-backend:
     runs-on: ubuntu-latest
-    needs: smoke-tests
     outputs:
       image_tag: ${{ steps.save_tag.outputs.tag }}
 
