@@ -67,6 +67,58 @@ def _resolve_tenant_ref(tenant_ref) -> tuple[int | None, str]:
     return None, raw
 
 
+def get_current_rls_debug_context() -> dict[str, str]:
+    """Best-effort snapshot of the active RLS context values."""
+    try:
+        tenant_id = str(get_rls_context("tenant_id", default="") or "")
+    except Exception:
+        tenant_id = ""
+
+    legacy_slug = ""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting(%s, true)", ["app.current_tenant_slug"])
+            row = cursor.fetchone()
+            legacy_slug = row[0] if row and row[0] else ""
+    except Exception:
+        legacy_slug = ""
+
+    return {
+        "rls_tenant_id": tenant_id,
+        "legacy_tenant_slug": legacy_slug,
+    }
+
+
+def get_table_policies(table_name: str) -> list[dict[str, str]]:
+    """Best-effort policy dump for diagnostics."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT policyname, cmd, permissive, qual, with_check
+                FROM pg_policies
+                WHERE schemaname = current_schema()
+                  AND tablename = %s
+                ORDER BY policyname
+                """,
+                [table_name],
+            )
+            rows = cursor.fetchall()
+    except Exception:
+        return []
+
+    return [
+        {
+            "policyname": str(row[0] or ""),
+            "cmd": str(row[1] or ""),
+            "permissive": str(row[2] or ""),
+            "qual": str(row[3] or ""),
+            "with_check": str(row[4] or ""),
+        }
+        for row in rows
+    ]
+
+
 @contextmanager
 def tenant_rls_context(tenant_slug: str | None) -> Iterator[None]:
     """Set both django_rls and legacy slug context inside this block."""

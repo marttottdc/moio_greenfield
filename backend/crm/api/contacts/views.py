@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any, Dict, Optional
 
+from django.db.utils import ProgrammingError
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -18,13 +20,17 @@ from crm.models import Contact, Customer
 from crm.api.contacts.serializers import ContactCreateSerializer
 from crm.api.mixins import ContactAPIMixin, ProtectedAPIView, _UNSET, _error
 from tenancy.rbac import user_has_role
-from tenancy.tenant_support import tenant_rls_context
+from tenancy.tenant_support import (
+    get_current_rls_debug_context,
+    get_table_policies,
+    tenant_rls_context,
+)
 from crm.services.contact_service import ContactService
 from crm.services.contact import sync_whatsapp_blocklist, normalize_phone_e164
 from moio_platform.core.events import emit_event
 from moio_platform.core.events.snapshots import snapshot_contact
 from moio_platform.api_schemas import Tags, STANDARD_ERRORS
-
+logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Response Serializers for Documentation
@@ -198,9 +204,22 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
-        with tenant_rls_context(tenant):
-            contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
-            response_payload = serializer.data
+        try:
+            with tenant_rls_context(tenant):
+                contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
+                response_payload = serializer.data
+        except ProgrammingError as exc:
+            if "row-level security policy" in str(exc).lower():
+                logger.error(
+                    "Contact create RLS violation tenant_id=%s tenant_slug=%s request_tenant=%s context=%s policies=%s",
+                    getattr(tenant, "pk", None),
+                    getattr(tenant, "rls_slug", None),
+                    getattr(getattr(request, "tenant", None), "pk", None),
+                    get_current_rls_debug_context(),
+                    get_table_policies("crm_contact"),
+                    exc_info=True,
+                )
+            raise
 
         try:
             emit_event(
