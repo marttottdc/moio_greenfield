@@ -8,6 +8,7 @@ from crm.api.mixins import PaginationMixin, ProtectedAPIView
 from moio_platform.core.events import emit_event
 from moio_platform.core.events.snapshots import snapshot_contact, snapshot_deal
 from crm.models import Deal, Pipeline, PipelineStage, DealStatusChoices, Customer
+from tenancy.tenant_support import tenant_rls_context
 from crm.api.deals.serializers import (
     DealSerializer, DealCreateSerializer, DealUpdateSerializer,
     PipelineSerializer, PipelineCreateSerializer, PipelineStageSerializer,
@@ -161,7 +162,8 @@ class DealsView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        deal = serializer.save(tenant=tenant, created_by=request.user)
+        with tenant_rls_context(tenant):
+            deal = serializer.save(tenant=tenant, created_by=request.user)
         
         emit_event(
             name="deal.created",
@@ -240,7 +242,8 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
                 new_value = getattr(new_value, "id", None)
             previous_values[field_name] = serialize_value(old_value)
 
-        serializer.save()
+        with tenant_rls_context(tenant):
+            serializer.save()
 
         new_values = {}
         changed_fields = []
@@ -287,7 +290,8 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
         except Deal.DoesNotExist:
             return Response({"error": "Deal not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        deal.delete()
+        with tenant_rls_context(tenant):
+            deal.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -326,8 +330,9 @@ class DealMoveStageView(PaginationMixin, ProtectedAPIView):
             )
 
         from_stage_id = str(deal.stage_id) if deal.stage_id else None
-        deal.stage = stage
-        deal.save()
+        with tenant_rls_context(tenant):
+            deal.stage = stage
+            deal.save()
         
         emit_event(
             name="deal.stage_changed",
@@ -443,12 +448,13 @@ class DealCommentsView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        comment = deal.add_comment(
-            text=serializer.validated_data['text'],
-            author=request.user,
-            comment_type=serializer.validated_data.get('type', 'general')
-        )
-        deal.save()
+        with tenant_rls_context(tenant):
+            comment = deal.add_comment(
+                text=serializer.validated_data['text'],
+                author=request.user,
+                comment_type=serializer.validated_data.get('type', 'general')
+            )
+            deal.save()
 
         return Response({"comment": comment}, status=status.HTTP_201_CREATED)
 
@@ -476,7 +482,8 @@ class PipelinesView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        pipeline = serializer.save(tenant=tenant)
+        with tenant_rls_context(tenant):
+            pipeline = serializer.save(tenant=tenant)
         return Response(PipelineSerializer(pipeline).data, status=status.HTTP_201_CREATED)
 
 
@@ -504,7 +511,8 @@ class PipelineDetailView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer.save()
+        with tenant_rls_context(tenant):
+            serializer.save()
         return Response(PipelineSerializer(pipeline).data)
 
     @extend_schema(summary="Delete pipeline", responses={204: OpenApiResponse(description="Pipeline deleted")})
@@ -515,7 +523,8 @@ class PipelineDetailView(PaginationMixin, ProtectedAPIView):
         except Pipeline.DoesNotExist:
             return Response({"error": "Pipeline not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        pipeline.delete()
+        with tenant_rls_context(tenant):
+            pipeline.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -545,7 +554,8 @@ class PipelineStagesView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        stage = serializer.save(tenant=tenant, pipeline=pipeline)
+        with tenant_rls_context(tenant):
+            stage = serializer.save(tenant=tenant, pipeline=pipeline)
         return Response(PipelineStageSerializer(stage).data, status=status.HTTP_201_CREATED)
 
 
@@ -565,7 +575,8 @@ class PipelineStageDetailView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer.save()
+        with tenant_rls_context(tenant):
+            serializer.save()
         return Response(PipelineStageSerializer(stage).data)
 
     @extend_schema(summary="Delete pipeline stage", responses={204: OpenApiResponse(description="Stage deleted")})
@@ -578,7 +589,8 @@ class PipelineStageDetailView(PaginationMixin, ProtectedAPIView):
         except PipelineStage.DoesNotExist:
             return Response({"error": "Stage not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        stage.delete()
+        with tenant_rls_context(tenant):
+            stage.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -595,27 +607,28 @@ class PipelineCreateDefaultView(PaginationMixin, ProtectedAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        pipeline = Pipeline.objects.create(
-            tenant=tenant,
-            name="Sales Pipeline",
-            description="Default sales pipeline",
-            is_default=True
-        )
-
-        default_stages = [
-            {"name": "Qualification", "order": 1, "probability": 10, "color": "#94a3b8"},
-            {"name": "Proposal", "order": 2, "probability": 30, "color": "#60a5fa"},
-            {"name": "Negotiation", "order": 3, "probability": 60, "color": "#fbbf24"},
-            {"name": "Won", "order": 4, "probability": 100, "is_won_stage": True, "color": "#22c55e"},
-            {"name": "Lost", "order": 5, "probability": 0, "is_lost_stage": True, "color": "#ef4444"},
-        ]
-
-        for stage_data in default_stages:
-            PipelineStage.objects.create(
+        with tenant_rls_context(tenant):
+            pipeline = Pipeline.objects.create(
                 tenant=tenant,
-                pipeline=pipeline,
-                **stage_data
+                name="Sales Pipeline",
+                description="Default sales pipeline",
+                is_default=True
             )
+
+            default_stages = [
+                {"name": "Qualification", "order": 1, "probability": 10, "color": "#94a3b8"},
+                {"name": "Proposal", "order": 2, "probability": 30, "color": "#60a5fa"},
+                {"name": "Negotiation", "order": 3, "probability": 60, "color": "#fbbf24"},
+                {"name": "Won", "order": 4, "probability": 100, "is_won_stage": True, "color": "#22c55e"},
+                {"name": "Lost", "order": 5, "probability": 0, "is_lost_stage": True, "color": "#ef4444"},
+            ]
+
+            for stage_data in default_stages:
+                PipelineStage.objects.create(
+                    tenant=tenant,
+                    pipeline=pipeline,
+                    **stage_data
+                )
 
         return Response(
             PipelineSerializer(pipeline).data,

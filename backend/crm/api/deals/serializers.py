@@ -3,11 +3,21 @@ from crm.models import Deal, Pipeline, PipelineStage, Contact, Customer, DealSta
 from central_hub.models import MoioUser
 
 
+def _request_tenant(request):
+    if not request:
+        return None
+    tenant = getattr(request, "tenant", None)
+    if tenant is not None:
+        return tenant
+    user = getattr(request, "user", None)
+    return getattr(user, "tenant", None) if user else None
+
+
 class TenantScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         request = self.context.get('request')
-        if request and hasattr(request.user, 'tenant'):
-            tenant = request.user.tenant
+        tenant = _request_tenant(request)
+        if tenant is not None:
             queryset = super().get_queryset()
             if queryset is not None:
                 return queryset.filter(tenant=tenant)
@@ -17,8 +27,8 @@ class TenantScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
 class ContactPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         request = self.context.get('request')
-        if request and hasattr(request.user, 'tenant'):
-            tenant = request.user.tenant
+        tenant = _request_tenant(request)
+        if tenant is not None:
             return Contact._base_manager.filter(tenant=tenant)
         return Contact._base_manager.none()
 
@@ -131,8 +141,8 @@ class DealCreateSerializer(serializers.ModelSerializer):
     def validate_owner(self, value):
         if value:
             request = self.context.get('request')
-            if request and hasattr(request.user, 'tenant'):
-                tenant = request.user.tenant
+            tenant = _request_tenant(request)
+            if tenant is not None:
                 if value.tenant_id != tenant.id:
                     raise serializers.ValidationError('Owner must belong to the same tenant.')
         return value
@@ -187,8 +197,8 @@ class DealUpdateSerializer(serializers.ModelSerializer):
     def validate_owner(self, value):
         if value:
             request = self.context.get('request')
-            if request and hasattr(request.user, 'tenant'):
-                tenant = request.user.tenant
+            tenant = _request_tenant(request)
+            if tenant is not None:
                 if value.tenant_id != tenant.id:
                     raise serializers.ValidationError('Owner must belong to the same tenant.')
         return value
@@ -209,10 +219,9 @@ class DealStageUpdateSerializer(serializers.Serializer):
 
     def validate_stage_id(self, value):
         request = self.context.get('request')
-        if not request or not hasattr(request.user, 'tenant'):
+        tenant = _request_tenant(request)
+        if tenant is None:
             raise serializers.ValidationError('Unable to validate tenant.')
-
-        tenant = request.user.tenant
         try:
             stage = PipelineStage.objects.get(id=value, tenant=tenant)
             return stage

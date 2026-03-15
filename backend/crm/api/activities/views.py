@@ -403,7 +403,8 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
 
         # Use activity manager for updates
         try:
-            updated_activity = activity_manager.update_activity(str(activity.id), updates)
+            with tenant_rls_context(activity.tenant):
+                updated_activity = activity_manager.update_activity(str(activity.id), updates)
             return Response(self._serialize_activity(updated_activity))
         except Exception as exc:
             return _error("update_failed", f"Failed to update activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -417,7 +418,8 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
         activity = self._get_activity(request, activity_id)
         if not activity:
             return _error("activity_not_found", "Activity not found", status.HTTP_404_NOT_FOUND)
-        activity.delete()
+        with tenant_rls_context(activity.tenant):
+            activity.delete()
         return Response({"message": "Activity deleted successfully"})
 
 
@@ -484,12 +486,13 @@ class ActivitySuggestionAcceptView(PaginationMixin, ProtectedAPIView):
         if tenant is None:
             return _error("tenant_required", "User must belong to a tenant", status.HTTP_400_BAD_REQUEST)
         try:
-            record = accept_suggestion(
-                suggestion_id,
-                request.user,
-                overrides=(request.data or {}).get("overrides"),
-                tenant=tenant,
-            )
+            with tenant_rls_context(tenant):
+                record = accept_suggestion(
+                    suggestion_id,
+                    request.user,
+                    overrides=(request.data or {}).get("overrides"),
+                    tenant=tenant,
+                )
         except (
             ValueError,
             TypeError,
@@ -516,7 +519,8 @@ class ActivitySuggestionDismissView(PaginationMixin, ProtectedAPIView):
         if tenant is None:
             return _error("tenant_required", "User must belong to a tenant", status.HTTP_400_BAD_REQUEST)
         try:
-            dismiss_suggestion(suggestion_id, tenant=tenant)
+            with tenant_rls_context(tenant):
+                dismiss_suggestion(suggestion_id, tenant=tenant)
         except ValueError as e:
             return _error("invalid_state", str(e), status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Suggestion dismissed"}, status=status.HTTP_200_OK)

@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "backend/**"
+      - "infra/**"
+      - ".github/workflows/build-backend-deploy-preprod.yml"
   workflow_dispatch: {}
 
 env:
