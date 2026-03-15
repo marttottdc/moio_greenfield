@@ -1,4 +1,13 @@
-"""Canonical tenant resolution helpers for HTTP request boundaries."""
+"""Canonical tenant resolution helpers for HTTP request boundaries.
+
+Route policy (path → policy):
+- PUBLIC_EXACT_PATHS / PUBLIC_PREFIXES: no auth, no tenant, no RLS (e.g. health, schema, /api/docs/, /api/platform/).
+- EXTERNAL_PREFIXES: callbacks/webhooks/self-provision; no tenant in request; add new external integration URLs here.
+- OPTIONAL_PREFIXES: auth/me, logout, api-key; tenant resolved if present.
+- TENANT_REQUIRED_PREFIXES: all other /api/v1/…; middleware requires tenant or returns 403.
+
+When adding a new external callback under /api/v1/integrations/, add its path to _EXTERNAL_PREFIXES.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

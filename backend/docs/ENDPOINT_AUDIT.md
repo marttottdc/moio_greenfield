@@ -78,10 +78,12 @@ Resumen CRM: **Legacy** (public_views): communications, tickets, dashboard, temp
 ### resolution.py
 - **Prefijos vs policy**: Coherente. `_TENANT_REQUIRED_PREFIXES` incluye `/api/v1/crm/`, `/api/v1/activities/`, `/api/v1/capture/`, etc. `_PUBLIC_PREFIXES`: `/api/docs/`, `/api/platform/`. `_EXTERNAL_PREFIXES`: webhooks, tenants, integraciones Shopify/WhatsApp específicas.
 - **Riesgo**: Rutas bajo `/api/v1/integrations/` son tenant en bloque; las excepciones external son por prefijo exacto (shopify/oauth, webhook, embed/bootstrap, etc.). Cualquier nueva ruta external bajo integrations debe añadirse a `_EXTERNAL_PREFIXES` o quedará como tenant.
+- **Doc**: Módulo `tenancy/resolution.py` tiene docstring con la política por grupo y recordatorio de añadir callbacks external a `_EXTERNAL_PREFIXES`.
 
 ### django_rls_middleware.py
 - **Flujo**: Para policy distinta de public/external, abre `transaction.atomic()`, corre `_prepare_request_context` (DRF auth + bind_request_tenant o ensure_request_tenant_context), luego `_set_local_rls_context` (SET LOCAL rls.tenant_id, rls.user_id, app.current_tenant_slug). Respuesta se sirve dentro del mismo atomic.
 - **Riesgo**: Rutas public/external no reciben transacción ni contexto RLS en middleware; si alguna view bajo platform o docs hace queries a tablas RLS, podría depender de contexto heredado o vacío. Revisar que ningún handler bajo `/api/platform/` o `/api/docs/` asuma tenant.
+- **Verificado**: Búsqueda en `central_hub/api/platform` y `docs_api`: ninguna view usa `request.tenant` ni `current_tenant`. Platform/docs no asumen tenant.
 
 ### tenancy/authentication.py
 - **UserApiKeyAuthentication**: Devuelve (user, api_key); api_key tiene `.tenant`. Tenant se resuelve después vía middleware usando `request.auth.tenant`.
@@ -93,7 +95,13 @@ Resumen CRM: **Legacy** (public_views): communications, tickets, dashboard, temp
 - **ContactAPIMixin**, **TicketAPIMixin**: Definen `_ensure_tenant_schema` (no-op), `_isoformat`, helpers de paginación/queryset. Usados por vistas modular y por public_views (que además define sus propias copias de ProtectedAPIView y mixins en public_views.py).
 - **Riesgo**: Duplicación de base/mixins entre mixins.py y public_views.py. Cambios en uno no se reflejan en el otro; cualquier fix de auth/tenant en mixins debe replicarse o unificar.
 
-**Finding F2-1**: Duplicación de ProtectedAPIView/ContactAPIMixin/TicketAPIMixin en `public_views.py` respecto de `mixins.py`. Severidad: media. Recomendación: consolidar en mixins y que public_views importe desde ahí (o eliminar vistas duplicadas y apuntar urls a módulos).
+**Finding F2-1**: Duplicación de ProtectedAPIView/ContactAPIMixin/TicketAPIMixin en `public_views.py` respecto de `mixins.py`. Severidad: media. **Resuelto**: public_views importa ProtectedAPIView y TicketAPIMixin desde `crm.api.mixins`; eliminadas las clases duplicadas en public_views.
+
+### Checklist Fase 2 (cerrada)
+- [x] resolution.py: prefijos coherentes; documentado en docstring del módulo.
+- [x] django_rls_middleware.py: flujo documentado; platform/docs verificados (no usan request.tenant).
+- [x] tenancy/authentication.py: sin setters duplicados; documentado.
+- [x] crm/api/mixins.py: F2-1 resuelto (mixins unificados, public_views importa desde mixins).
 
 ---
 
