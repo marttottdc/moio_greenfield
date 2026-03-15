@@ -1,5 +1,5 @@
 from django.db.models import Count, Max
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework.response import Response
 
 from crm.api.mixins import ProtectedAPIView
@@ -8,6 +8,7 @@ from crm.models import Ticket
 
 @extend_schema(tags=["dashboard"])
 class DashboardSummaryView(ProtectedAPIView):
+    @extend_schema(summary="Dashboard summary", description="Ticket counts (total, open, closed) and latest.", responses={200: OpenApiResponse(description="tickets: total, open, closed, latest")})
     def get(self, request):
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:

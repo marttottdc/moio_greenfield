@@ -6,7 +6,8 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -67,6 +68,7 @@ class CaptureEntriesView(_CaptureSerializerMixin, PaginationMixin, ProtectedAPIV
             return ActivityCaptureEntry.objects.none()
         return ActivityCaptureEntry.objects.filter(tenant=tenant).select_related("actor", "tenant")
 
+    @extend_schema(summary="List capture entries", parameters=[OpenApiParameter("status", OpenApiTypes.STR), OpenApiParameter("anchor_model", OpenApiTypes.STR), OpenApiParameter("anchor_id", OpenApiTypes.STR), OpenApiParameter("page", OpenApiTypes.INT), OpenApiParameter("limit", OpenApiTypes.INT)], responses={200: OpenApiResponse(description="entries, pagination")})
     def get(self, request):
         qs = self._base_queryset(request)
 
@@ -82,6 +84,7 @@ class CaptureEntriesView(_CaptureSerializerMixin, PaginationMixin, ProtectedAPIV
         qs = qs.order_by("-created_at")
         return Response(self._paginate(qs, request, self._serialize, "entries"))
 
+    @extend_schema(summary="Create capture entry", description="raw_text, anchor_model, anchor_id, raw_source, channel_hint, visibility, idempotency_key", responses={200: OpenApiResponse(description="entry"), 201: OpenApiResponse(description="entry created")})
     def post(self, request):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -132,6 +135,7 @@ class CaptureEntryDetailView(_CaptureSerializerMixin, PaginationMixin, Protected
         except ActivityCaptureEntry.DoesNotExist:
             return None
 
+    @extend_schema(summary="Get capture entry", responses={200: OpenApiResponse(description="entry")})
     def get(self, request, entry_id):
         entry = self._get_entry(request, entry_id)
         if not entry:
@@ -147,6 +151,7 @@ def _ensure_mutable(entry: ActivityCaptureEntry) -> None:
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["capture"])
 class CaptureEntryApproveView(_CaptureSerializerMixin, PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Approve capture entry", description="Optional body: final (object). Sets status to REVIEWED and queues apply.", responses={200: OpenApiResponse(description="entry")})
     def post(self, request, entry_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -180,6 +185,7 @@ class CaptureEntryApproveView(_CaptureSerializerMixin, PaginationMixin, Protecte
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["capture"])
 class CaptureEntryNoteOnlyView(_CaptureSerializerMixin, PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Approve as note only", description="Marks entry as note-only (no intents), queues apply.", responses={200: OpenApiResponse(description="entry")})
     def post(self, request, entry_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -207,6 +213,7 @@ class CaptureEntryNoteOnlyView(_CaptureSerializerMixin, PaginationMixin, Protect
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["capture"])
 class CaptureEntryRejectView(_CaptureSerializerMixin, PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Reject capture entry", description="Body: reason (optional). Sets final.rejected.", responses={200: OpenApiResponse(description="entry")})
     def post(self, request, entry_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -240,6 +247,7 @@ class CaptureEntrySplitView(_CaptureSerializerMixin, PaginationMixin, ProtectedA
       { "parts": ["text1", "text2", ...] }
     """
 
+    @extend_schema(summary="Split capture entry", description="Body: parts (array of strings). Creates child entries.", responses={200: OpenApiResponse(description="entries")})
     def post(self, request, entry_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -312,6 +320,7 @@ class CaptureClassifySyncView(_CaptureSerializerMixin, PaginationMixin, Protecte
     the activity on the spot.
     """
 
+    @extend_schema(summary="Classify capture (sync)", description="Body: raw_text, anchor_model, anchor_id, ... Returns entry, classification, proposed_activity.", responses={200: OpenApiResponse(description="entry, classification, suggested_activities, proposed_activity")})
     def post(self, request):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -407,6 +416,7 @@ class CaptureEntryApplySyncView(_CaptureSerializerMixin, PaginationMixin, Protec
     classification and runs apply in-process, then returns the entry and applied_refs.
     """
 
+    @extend_schema(summary="Apply capture entry (sync)", description="Applies entry to create activity. Returns entry and applied_refs.", responses={200: OpenApiResponse(description="entry, applied_refs")})
     def post(self, request, entry_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:

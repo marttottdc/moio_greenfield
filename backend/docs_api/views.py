@@ -205,8 +205,9 @@ def _build_endpoint_list_from_schema(schema, tag_filter=None, name_filter=None):
                 if name_lower not in searchable:
                     continue
 
-            # Derive response format summary from OpenAPI responses
+            # Derive response format and request body summary from OpenAPI spec
             response_format = _response_format_summary(details.get("responses") or {})
+            request_body = _request_body_summary(details.get("requestBody"))
 
             endpoints.append({
                 "operation_id": details.get("operationId", ""),
@@ -217,9 +218,28 @@ def _build_endpoint_list_from_schema(schema, tag_filter=None, name_filter=None):
                 "tags": tags,
                 "deprecated": details.get("deprecated", False),
                 "response_format": response_format,
+                "request_body": request_body,
                 "form_component": details.get("x-form-component"),
             })
     return endpoints
+
+
+def _request_body_summary(request_body):
+    """Build a short request body summary from OpenAPI requestBody."""
+    if not request_body or not isinstance(request_body, dict):
+        return None
+    out = []
+    content = request_body.get("content", {}) or {}
+    for media_type, media_spec in content.items():
+        schema_ref = None
+        if isinstance(media_spec, dict) and "schema" in media_spec:
+            s = media_spec["schema"]
+            if isinstance(s, dict) and "$ref" in s:
+                schema_ref = s["$ref"].split("/")[-1]
+            elif isinstance(s, dict) and "type" in s:
+                schema_ref = s.get("type", "object")
+        out.append({"content_type": media_type, "schema": schema_ref or "object"})
+    return out if out else None
 
 
 def _response_format_summary(responses):
@@ -348,10 +368,12 @@ class DocsEndpointDetailView(APIView):
                     referenced_schemas[schema_name] = schema_def
         
         response_format = _response_format_summary(endpoint_spec.get("responses") or {})
+        request_body = _request_body_summary(endpoint_spec.get("requestBody"))
 
         return Response({
             "spec": endpoint_spec,
             "response_format": response_format,
+            "request_body": request_body,
             "form_component": endpoint_spec.get("x-form-component"),
             "examples": examples_serializer.data,
             "notes": notes_serializer.data,

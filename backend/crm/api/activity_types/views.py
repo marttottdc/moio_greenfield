@@ -5,11 +5,17 @@ from typing import Any, Dict, Optional
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.response import Response
 
 from crm.models import ActivityType, ActivityTypeCategory, VisibilityChoices
+from crm.api.activity_types.serializers import (
+    ActivityTypeResponseSerializer,
+    ActivityTypeCreateRequestSerializer,
+    ActivityTypeUpdateRequestSerializer,
+)
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 
 
@@ -45,6 +51,16 @@ class ActivityTypesView(PaginationMixin, ProtectedAPIView):
             return ActivityType.objects.none()
         return ActivityType.objects.filter(tenant=tenant)
 
+    @extend_schema(
+        summary="List activity types",
+        parameters=[
+            OpenApiParameter("category", OpenApiTypes.STR),
+            OpenApiParameter("search", OpenApiTypes.STR),
+            OpenApiParameter("page", OpenApiTypes.INT, default=1),
+            OpenApiParameter("limit", OpenApiTypes.INT, default=50),
+        ],
+        responses={200: ActivityTypeResponseSerializer(many=True)},
+    )
     def get(self, request):
         queryset = self._base_queryset(request)
         category = request.query_params.get("category")
@@ -60,6 +76,7 @@ class ActivityTypesView(PaginationMixin, ProtectedAPIView):
             self._paginate(queryset, request, self._serialize_activity_type, "activity_types")
         )
 
+    @extend_schema(summary="Create activity type", request=ActivityTypeCreateRequestSerializer, responses={201: ActivityTypeResponseSerializer})
     def post(self, request):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -140,6 +157,7 @@ class ActivityTypeDetailView(PaginationMixin, ProtectedAPIView):
             "order": at.order,
         }
 
+    @extend_schema(summary="Get activity type", responses={200: ActivityTypeResponseSerializer})
     def get(self, request, type_id):
         at = self._get_activity_type(request, type_id)
         if not at:
@@ -150,6 +168,7 @@ class ActivityTypeDetailView(PaginationMixin, ProtectedAPIView):
             )
         return Response(self._serialize_activity_type(at))
 
+    @extend_schema(summary="Update activity type", request=ActivityTypeUpdateRequestSerializer, responses={200: ActivityTypeResponseSerializer})
     def patch(self, request, type_id):
         at = self._get_activity_type(request, type_id)
         if not at:

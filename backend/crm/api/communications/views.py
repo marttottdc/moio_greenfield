@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional
 from django.db.models import Count, Max, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.text import slugify
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -16,6 +17,7 @@ from chatbot.models.agent_session import AgentSession
 
 @extend_schema(tags=["communications"])
 class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
+    @extend_schema(summary="List conversations", parameters=[OpenApiParameter("search", OpenApiTypes.STR), OpenApiParameter("channel", OpenApiTypes.STR), OpenApiParameter("status", OpenApiTypes.STR), OpenApiParameter("contact_id", OpenApiTypes.UUID), OpenApiParameter("include_messages", OpenApiTypes.BOOL), OpenApiParameter("page", OpenApiTypes.INT), OpenApiParameter("page_size", OpenApiTypes.INT)], responses={200: OpenApiResponse(description="conversations, pagination, optional messages")})
     def get(self, request):
         tenant_sessions = self._tenant_sessions_queryset(request)
 
@@ -106,6 +108,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
 
         return Response(payload)
 
+    @extend_schema(summary="Create conversation", description="Body: contact_id (required), channel, started_by, context", responses={201: OpenApiResponse(description="conversation")})
     def post(self, request):
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
@@ -160,6 +163,7 @@ class CommunicationsConversationsView(ProtectedAPIView, CommunicationsAPIMixin):
 
 @extend_schema(tags=["communications"])
 class CommunicationsConversationDetailView(ProtectedAPIView, CommunicationsAPIMixin):
+    @extend_schema(summary="Get conversation", responses={200: OpenApiResponse(description="conversation with messages")})
     def get(self, request, session_id: str):
         session = self._get_session_for_request(request, session_id)
         if session is None:
@@ -189,6 +193,7 @@ class CommunicationsConversationDetailView(ProtectedAPIView, CommunicationsAPIMi
         }
         return Response(payload)
 
+    @extend_schema(summary="Update conversation", description="Body: end_conversation, human_mode, final_summary, csat", responses={200: OpenApiResponse(description="conversation")})
     def patch(self, request, session_id: str):
         session = self._get_session_for_request(request, session_id)
         if session is None:
@@ -248,6 +253,7 @@ class CommunicationsConversationDetailView(ProtectedAPIView, CommunicationsAPIMi
 
 @extend_schema(tags=["communications"])
 class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPIMixin):
+    @extend_schema(summary="List conversation messages", parameters=[OpenApiParameter("page", OpenApiTypes.INT), OpenApiParameter("page_size", OpenApiTypes.INT)], responses={200: OpenApiResponse(description="messages, pagination")})
     def get(self, request, session_id: str):
         session = self._get_session_for_request(request, session_id)
         if session is None:
@@ -275,6 +281,7 @@ class CommunicationsConversationMessagesView(ProtectedAPIView, CommunicationsAPI
 
 @extend_schema(tags=["communications"])
 class CommunicationsConversationMarkReadView(ProtectedAPIView, CommunicationsAPIMixin):
+    @extend_schema(summary="Mark conversation as read", responses={200: OpenApiResponse(description="conversation_id, unread_count, marked_at")})
     def patch(self, request, session_id: str):
         session = self._get_session_for_request(request, session_id)
         if session is None:
@@ -308,6 +315,7 @@ class CommunicationsConversationMarkReadView(ProtectedAPIView, CommunicationsAPI
 
 @extend_schema(tags=["communications"])
 class CommunicationsChannelsView(ProtectedAPIView, CommunicationsAPIMixin):
+    @extend_schema(summary="List channels", responses={200: OpenApiResponse(description="channels")})
     def get(self, request):
         channels = []
         tenant_sessions = self._tenant_sessions_queryset(request)

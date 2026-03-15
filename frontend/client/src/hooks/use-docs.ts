@@ -56,6 +56,11 @@ export interface DocsEndpointResponseFormatItem {
   description?: string;
 }
 
+export interface DocsEndpointRequestBodyItem {
+  content_type?: string;
+  schema?: string;
+}
+
 export interface DocsEndpointListItem {
   operation_id: string;
   path: string;
@@ -65,6 +70,7 @@ export interface DocsEndpointListItem {
   tags?: string[];
   deprecated?: boolean;
   response_format?: DocsEndpointResponseFormatItem[];
+  request_body?: DocsEndpointRequestBodyItem[] | null;
 }
 
 // Alias for endpoint card component compatibility
@@ -92,6 +98,7 @@ export interface DocsEndpointDetail {
     requestBody?: any;
   };
   response_format?: DocsEndpointResponseFormatItem[];
+  request_body?: DocsEndpointRequestBodyItem[] | null;
   examples?: DocsEndpointExample[];
   notes?: Array<{
     id: string;

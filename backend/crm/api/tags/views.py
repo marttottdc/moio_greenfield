@@ -5,11 +5,13 @@ from typing import Any, Dict, Optional
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.response import Response
 
 from crm.models import Tag
+from crm.api.tags.serializers import TagResponseSerializer, TagCreateRequestSerializer, TagUpdateRequestSerializer
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 
 
@@ -35,6 +37,18 @@ class TagsView(PaginationMixin, ProtectedAPIView):
             return Tag.objects.none()
         return Tag.objects.filter(tenant=tenant)
 
+    @extend_schema(
+        summary="List tags",
+        parameters=[
+            OpenApiParameter("search", OpenApiTypes.STR),
+            OpenApiParameter("context", OpenApiTypes.STR),
+            OpenApiParameter("sort_by", OpenApiTypes.STR, default="name"),
+            OpenApiParameter("order", OpenApiTypes.STR, default="asc"),
+            OpenApiParameter("page", OpenApiTypes.INT, default=1),
+            OpenApiParameter("limit", OpenApiTypes.INT, default=50),
+        ],
+        responses={200: TagResponseSerializer(many=True)},
+    )
     def get(self, request):
         queryset = self._base_queryset(request)
 
@@ -61,6 +75,7 @@ class TagsView(PaginationMixin, ProtectedAPIView):
         queryset = queryset.order_by(f"{prefix}{sort_by}")
         return Response(self._paginate(queryset, request, self._serialize_tag, "tags"))
 
+    @extend_schema(summary="Create tag", request=TagCreateRequestSerializer, responses={201: TagResponseSerializer})
     def post(self, request):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -105,12 +120,14 @@ class TagDetailView(PaginationMixin, ProtectedAPIView):
             "updated_at": self._isoformat(tag.updated_at),
         }
 
+    @extend_schema(summary="Get tag", responses={200: TagResponseSerializer})
     def get(self, request, tag_id):
         tag = self._get_tag(request, tag_id)
         if not tag:
             return _error("tag_not_found", "Tag not found", status.HTTP_404_NOT_FOUND)
         return Response(self._serialize_tag(tag))
 
+    @extend_schema(summary="Update tag", request=TagUpdateRequestSerializer, responses={200: TagResponseSerializer})
     def patch(self, request, tag_id):
         tag = self._get_tag(request, tag_id)
         if not tag:
@@ -127,6 +144,7 @@ class TagDetailView(PaginationMixin, ProtectedAPIView):
         tag.save()
         return Response(self._serialize_tag(tag))
 
+    @extend_schema(summary="Delete tag", responses={200: OpenApiResponse(description="message")})
     def delete(self, request, tag_id):
         tag = self._get_tag(request, tag_id)
         if not tag:

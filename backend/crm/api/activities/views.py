@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from jsonschema import ValidationError as JsonSchemaValidationError
 from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status
@@ -17,6 +18,14 @@ from crm.models import (
     ActivitySuggestionStatus,
     ActivityType,
     ActivityKind,
+)
+from crm.api.activities.serializers import (
+    ActivityCreateRequestSerializer,
+    ActivityUpdateRequestSerializer,
+    ActivityResponseSerializer,
+    ActivityListResponseSerializer,
+    ActivitySuggestionAcceptRequestSerializer,
+    ActivitySuggestionListResponseSerializer,
 )
 from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 from crm.services.activity_service import _normalize_content, activity_manager
@@ -129,6 +138,23 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
         )
         return qs.filter(visible)
 
+    @extend_schema(
+        summary="List activities",
+        description="Paginated list of activities for the current tenant.",
+        parameters=[
+            OpenApiParameter("search", OpenApiTypes.STR, description="Search in title, source"),
+            OpenApiParameter("kind", OpenApiTypes.STR, description="Filter by kind"),
+            OpenApiParameter("status", OpenApiTypes.STR, description="Filter by status"),
+            OpenApiParameter("contact_id", OpenApiTypes.UUID, description="Filter by contact"),
+            OpenApiParameter("customer_id", OpenApiTypes.UUID, description="Filter by customer"),
+            OpenApiParameter("deal_id", OpenApiTypes.UUID, description="Filter by deal"),
+            OpenApiParameter("sort_by", OpenApiTypes.STR, description="Sort field", default="created_at"),
+            OpenApiParameter("order", OpenApiTypes.STR, description="asc or desc", default="desc"),
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number", default=1),
+            OpenApiParameter("limit", OpenApiTypes.INT, description="Items per page", default=50),
+        ],
+        responses={200: ActivityListResponseSerializer},
+    )
     def get(self, request):
         queryset = self._base_queryset(request)
 
@@ -188,6 +214,12 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
         queryset = queryset.order_by(f"{prefix}{sort_by}")
         return Response(self._paginate(queryset, request, self._serialize_activity, "activities"))
 
+    @extend_schema(
+        summary="Create activity",
+        description="Create a new activity for the current tenant.",
+        request=ActivityCreateRequestSerializer,
+        responses={201: ActivityResponseSerializer},
+    )
     def post(self, request):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -288,12 +320,23 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
         except ActivityRecord.DoesNotExist:
             return None
 
+    @extend_schema(
+        summary="Get activity",
+        description="Retrieve a single activity by ID.",
+        responses={200: ActivityResponseSerializer},
+    )
     def get(self, request, activity_id):
         activity = self._get_activity(request, activity_id)
         if not activity:
             return _error("activity_not_found", "Activity not found", status.HTTP_404_NOT_FOUND)
         return Response(self._serialize_activity(activity))
 
+    @extend_schema(
+        summary="Update activity",
+        description="Partial update of an activity.",
+        request=ActivityUpdateRequestSerializer,
+        responses={200: ActivityResponseSerializer},
+    )
     def patch(self, request, activity_id):
         activity = self._get_activity(request, activity_id)
         if not activity:
@@ -362,6 +405,11 @@ class ActivityDetailView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIV
         except Exception as exc:
             return _error("update_failed", f"Failed to update activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Delete activity",
+        description="Delete an activity.",
+        responses={200: OpenApiResponse(description="Activity deleted successfully")},
+    )
     def delete(self, request, activity_id):
         activity = self._get_activity(request, activity_id)
         if not activity:
@@ -400,6 +448,16 @@ class ActivitySuggestionsView(PaginationMixin, ProtectedAPIView):
             return ActivitySuggestion.objects.none()
         return ActivitySuggestion.objects.filter(tenant=tenant)
 
+    @extend_schema(
+        summary="List suggestions",
+        description="Paginated list of activity suggestions for the current tenant.",
+        parameters=[
+            OpenApiParameter("status", OpenApiTypes.STR, description="Filter by status"),
+            OpenApiParameter("page", OpenApiTypes.INT, default=1),
+            OpenApiParameter("limit", OpenApiTypes.INT, default=50),
+        ],
+        responses={200: ActivitySuggestionListResponseSerializer},
+    )
     def get(self, request):
         queryset = self._base_queryset(request)
         status_filter = request.query_params.get("status")
@@ -412,6 +470,12 @@ class ActivitySuggestionsView(PaginationMixin, ProtectedAPIView):
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["activities"])
 class ActivitySuggestionAcceptView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(
+        summary="Accept suggestion",
+        description="Accept an activity suggestion, optionally with overrides.",
+        request=ActivitySuggestionAcceptRequestSerializer,
+        responses={200: OpenApiResponse(description="activity_id and message")},
+    )
     def post(self, request, suggestion_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:
@@ -439,6 +503,11 @@ class ActivitySuggestionAcceptView(PaginationMixin, ProtectedAPIView):
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(tags=["activities"])
 class ActivitySuggestionDismissView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(
+        summary="Dismiss suggestion",
+        description="Dismiss an activity suggestion.",
+        responses={200: OpenApiResponse(description="message")},
+    )
     def post(self, request, suggestion_id):
         tenant = self._get_tenant_or_none(request)
         if tenant is None:

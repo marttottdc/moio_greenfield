@@ -1,5 +1,6 @@
 from django.db.models import Sum, Count, Q
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -19,6 +20,25 @@ from crm.api.deals.serializers import (
 class DealsView(PaginationMixin, ProtectedAPIView):
     DEFAULT_PAGE_SIZE = 50
 
+    @extend_schema(
+        summary="List deals",
+        description="Paginated list of deals with pipelines and stats.",
+        parameters=[
+            OpenApiParameter("status", OpenApiTypes.STR),
+            OpenApiParameter("pipeline", OpenApiTypes.UUID),
+            OpenApiParameter("stage", OpenApiTypes.UUID),
+            OpenApiParameter("priority", OpenApiTypes.STR),
+            OpenApiParameter("owner", OpenApiTypes.INT),
+            OpenApiParameter("customer_id", OpenApiTypes.UUID),
+            OpenApiParameter("contact_id", OpenApiTypes.UUID),
+            OpenApiParameter("search", OpenApiTypes.STR),
+            OpenApiParameter("sort_by", OpenApiTypes.STR, default="created_at"),
+            OpenApiParameter("order", OpenApiTypes.STR, default="desc"),
+            OpenApiParameter("page", OpenApiTypes.INT, default=1),
+            OpenApiParameter("limit", OpenApiTypes.INT, default=50),
+        ],
+        responses={200: OpenApiResponse(description="deals, pipelines, stats, pagination")},
+    )
     def get(self, request):
         ensure_request_tenant_context(request, user=getattr(request, "user", None), require_tenant=True)
         tenant = self._get_tenant(request)
@@ -132,6 +152,11 @@ class DealsView(PaginationMixin, ProtectedAPIView):
         }
         return Response(response)
 
+    @extend_schema(
+        summary="Create deal",
+        request=DealCreateSerializer,
+        responses={201: DealSerializer},
+    )
     def post(self, request):
         tenant = self._get_tenant(request)
         serializer = DealCreateSerializer(data=request.data, context={'request': request})
@@ -174,6 +199,7 @@ class DealsView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["deals"])
 class DealDetailView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Get deal", responses={200: DealSerializer})
     def get(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -185,10 +211,12 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
 
         return Response(DealSerializer(deal).data)
 
+    @extend_schema(summary="Partial update deal", request=DealUpdateSerializer, responses={200: DealSerializer})
     def patch(self, request, deal_id):
         """Partial update; delegates to put (serializer already uses partial=True)."""
         return self.put(request, deal_id)
 
+    @extend_schema(summary="Update deal", request=DealUpdateSerializer, responses={200: DealSerializer})
     def put(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -253,6 +281,7 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
                 )
         return Response(DealSerializer(deal).data)
 
+    @extend_schema(summary="Delete deal", responses={204: OpenApiResponse(description="Deal deleted")})
     def delete(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -266,6 +295,7 @@ class DealDetailView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["deals"])
 class DealMoveStageView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Move deal to stage", request=DealStageUpdateSerializer, responses={200: DealSerializer})
     def post(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -386,6 +416,7 @@ class DealMoveStageView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["deals"])
 class DealCommentsView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="List deal comments", responses={200: OpenApiResponse(description="deal_id, comments, count")})
     def get(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -402,6 +433,7 @@ class DealCommentsView(PaginationMixin, ProtectedAPIView):
             "count": len(comments_sorted)
         })
 
+    @extend_schema(summary="Add deal comment", request=DealCommentSerializer, responses={201: OpenApiResponse(description="comment")})
     def post(self, request, deal_id):
         tenant = self._get_tenant(request)
         try:
@@ -427,6 +459,7 @@ class DealCommentsView(PaginationMixin, ProtectedAPIView):
 class PipelinesView(PaginationMixin, ProtectedAPIView):
     DEFAULT_PAGE_SIZE = 50
 
+    @extend_schema(summary="List pipelines", parameters=[OpenApiParameter("active", OpenApiTypes.BOOL, default=True)], responses={200: OpenApiResponse(description="pipelines")})
     def get(self, request):
         tenant = self._get_tenant(request)
         pipelines = Pipeline.objects.filter(tenant=tenant).prefetch_related('stages')
@@ -438,6 +471,7 @@ class PipelinesView(PaginationMixin, ProtectedAPIView):
         serialized = PipelineSerializer(pipelines, many=True).data
         return Response({"pipelines": serialized})
 
+    @extend_schema(summary="Create pipeline", request=PipelineCreateSerializer, responses={201: PipelineSerializer})
     def post(self, request):
         tenant = self._get_tenant(request)
         serializer = PipelineCreateSerializer(data=request.data, context={'request': request})
@@ -450,6 +484,7 @@ class PipelinesView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["pipelines"])
 class PipelineDetailView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Get pipeline", responses={200: PipelineSerializer})
     def get(self, request, pipeline_id):
         tenant = self._get_tenant(request)
         try:
@@ -459,6 +494,7 @@ class PipelineDetailView(PaginationMixin, ProtectedAPIView):
 
         return Response(PipelineSerializer(pipeline).data)
 
+    @extend_schema(summary="Update pipeline", request=PipelineCreateSerializer, responses={200: PipelineSerializer})
     def put(self, request, pipeline_id):
         tenant = self._get_tenant(request)
         try:
@@ -473,6 +509,7 @@ class PipelineDetailView(PaginationMixin, ProtectedAPIView):
         serializer.save()
         return Response(PipelineSerializer(pipeline).data)
 
+    @extend_schema(summary="Delete pipeline", responses={204: OpenApiResponse(description="Pipeline deleted")})
     def delete(self, request, pipeline_id):
         tenant = self._get_tenant(request)
         try:
@@ -486,6 +523,7 @@ class PipelineDetailView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["pipelines"])
 class PipelineStagesView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="List pipeline stages", responses={200: PipelineStageSerializer(many=True)})
     def get(self, request, pipeline_id):
         tenant = self._get_tenant(request)
         try:
@@ -497,6 +535,7 @@ class PipelineStagesView(PaginationMixin, ProtectedAPIView):
         serialized = PipelineStageSerializer(stages, many=True).data
         return Response({"stages": serialized})
 
+    @extend_schema(summary="Create pipeline stage", request=PipelineStageSerializer, responses={201: PipelineStageSerializer})
     def post(self, request, pipeline_id):
         tenant = self._get_tenant(request)
         try:
@@ -514,6 +553,7 @@ class PipelineStagesView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["pipelines"])
 class PipelineStageDetailView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Update pipeline stage", request=PipelineStageSerializer, responses={200: PipelineStageSerializer})
     def put(self, request, pipeline_id, stage_id):
         tenant = self._get_tenant(request)
         try:
@@ -530,6 +570,7 @@ class PipelineStageDetailView(PaginationMixin, ProtectedAPIView):
         serializer.save()
         return Response(PipelineStageSerializer(stage).data)
 
+    @extend_schema(summary="Delete pipeline stage", responses={204: OpenApiResponse(description="Stage deleted")})
     def delete(self, request, pipeline_id, stage_id):
         tenant = self._get_tenant(request)
         try:
@@ -545,6 +586,7 @@ class PipelineStageDetailView(PaginationMixin, ProtectedAPIView):
 
 @extend_schema(tags=["pipelines"])
 class PipelineCreateDefaultView(PaginationMixin, ProtectedAPIView):
+    @extend_schema(summary="Create default pipeline", responses={201: PipelineSerializer, 400: OpenApiResponse(description="Pipelines already exist")})
     def post(self, request):
         tenant = self._get_tenant(request)
 
