@@ -6,8 +6,8 @@ Endpoints:
 - GET /api/docs/navigation/       - Sidebar navigation structure
 - GET /api/docs/guides/           - All guides by category
 - GET /api/docs/guides/{slug}/    - Single guide detail
-- GET /api/docs/endpoints/        - All API endpoints (filterable by tag)
-- GET /api/docs/endpoints/{id}/   - Single endpoint with examples
+- GET /api/docs/endpoints/        - All API endpoints (paginated; filter by tag, search/name)
+- GET /api/docs/endpoints/{id}/   - Single endpoint with full spec, response format, examples
 - GET /api/docs/examples/{id}/    - Code examples for endpoint
 - GET /api/docs/search/?q=        - Search guides and endpoints
 - GET /api/docs/ingestion/status/ - Ingestion status

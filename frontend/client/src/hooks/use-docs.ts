@@ -49,6 +49,13 @@ export interface DocsEndpointExample {
   code: string;
 }
 
+export interface DocsEndpointResponseFormatItem {
+  status?: string;
+  content_type?: string;
+  schema?: string;
+  description?: string;
+}
+
 export interface DocsEndpointListItem {
   operation_id: string;
   path: string;
@@ -57,6 +64,7 @@ export interface DocsEndpointListItem {
   description?: string;
   tags?: string[];
   deprecated?: boolean;
+  response_format?: DocsEndpointResponseFormatItem[];
 }
 
 // Alias for endpoint card component compatibility
@@ -65,6 +73,10 @@ export type DocsEndpoint = DocsEndpointListItem;
 export interface DocsEndpointListResponse {
   endpoints: DocsEndpointListItem[];
   count?: number;
+  total_count?: number;
+  page?: number;
+  page_size?: number;
+  total_pages?: number;
 }
 
 export interface DocsEndpointDetail {
@@ -79,6 +91,7 @@ export interface DocsEndpointDetail {
     responses?: Record<string, any>;
     requestBody?: any;
   };
+  response_format?: DocsEndpointResponseFormatItem[];
   examples?: DocsEndpointExample[];
   notes?: Array<{
     id: string;
@@ -133,11 +146,30 @@ export function useDocsGuide(slug?: string) {
   });
 }
 
-export function useDocsEndpoints(tag?: string) {
+export interface UseDocsEndpointsParams {
+  tag?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function useDocsEndpoints(params?: UseDocsEndpointsParams | string) {
+  const resolved =
+    typeof params === "string" ? { tag: params } : params ?? {};
+  const { tag, search, page, page_size } = resolved;
+  const queryParams: Record<string, string | number | undefined> = {};
+  if (tag) queryParams.tag = tag;
+  if (search) queryParams.search = search;
+  if (page != null) queryParams.page = page;
+  if (page_size != null) queryParams.page_size = page_size;
+
   return useQuery<DocsEndpointListResponse>({
-    queryKey: ["docs", "endpoints", tag],
+    queryKey: ["docs", "endpoints", tag, search, page, page_size],
     queryFn: () =>
-      fetchJson<DocsEndpointListResponse>(`${DOCS_BASE}/endpoints/`, tag ? { tag } : undefined),
+      fetchJson<DocsEndpointListResponse>(
+        `${DOCS_BASE}/endpoints/`,
+        Object.keys(queryParams).length ? queryParams : undefined
+      ),
     staleTime: 5 * 60 * 1000,
   });
 }

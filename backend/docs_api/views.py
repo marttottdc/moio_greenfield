@@ -14,7 +14,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from drf_spectacular.generators import SchemaGenerator
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
 from .models import GuideCategory, Guide, CodeExample, ApiEndpointNote
 from .serializers import (
@@ -177,45 +178,119 @@ class DocsGuideDetailView(APIView):
         })
 
 
+def _build_endpoint_list_from_schema(schema, tag_filter=None, name_filter=None):
+    """Build list of endpoint items from OpenAPI schema with optional tag and name filter."""
+    endpoints = []
+    if not schema or "paths" not in schema:
+        return endpoints
+
+    name_lower = (name_filter or "").strip().lower()
+
+    for path, methods in schema["paths"].items():
+        for method, details in methods.items():
+            if method not in ["get", "post", "put", "patch", "delete"]:
+                continue
+            tags = details.get("tags", [])
+            if tag_filter and tag_filter not in tags:
+                continue
+
+            if name_lower:
+                searchable = " ".join([
+                    path,
+                    details.get("operationId", ""),
+                    details.get("summary", ""),
+                    details.get("description", ""),
+                    " ".join(tags),
+                ]).lower()
+                if name_lower not in searchable:
+                    continue
+
+            # Derive response format summary from OpenAPI responses
+            response_format = _response_format_summary(details.get("responses") or {})
+
+            endpoints.append({
+                "operation_id": details.get("operationId", ""),
+                "path": path,
+                "method": method.upper(),
+                "summary": details.get("summary", ""),
+                "description": details.get("description", ""),
+                "tags": tags,
+                "deprecated": details.get("deprecated", False),
+                "response_format": response_format,
+                "form_component": details.get("x-form-component"),
+            })
+    return endpoints
+
+
+def _response_format_summary(responses):
+    """Build a short response format summary from OpenAPI responses dict."""
+    out = []
+    for status_code, content in sorted(responses.items()):
+        desc = content.get("description", "")
+        content_media = content.get("content", {}) or {}
+        for media_type, media_spec in content_media.items():
+            schema_ref = None
+            if isinstance(media_spec, dict) and "schema" in media_spec:
+                s = media_spec["schema"]
+                if isinstance(s, dict) and "$ref" in s:
+                    schema_ref = s["$ref"].split("/")[-1]
+                elif isinstance(s, dict) and "type" in s:
+                    schema_ref = s.get("type", "object")
+            if schema_ref:
+                out.append({"status": status_code, "content_type": media_type, "schema": schema_ref})
+            else:
+                out.append({"status": status_code, "content_type": media_type, "description": desc or ""})
+    return out if out else [{"description": "No response schema documented"}]
+
+
 class DocsEndpointsView(APIView):
     """
     GET /api/docs/endpoints/
-    GET /api/docs/endpoints/?tag=CRM - Contacts
-    
-    Returns list of API endpoints, optionally filtered by tag.
+
+    List all API endpoints with spec, method, and response format.
+    Paginated and filterable by tag and name (search).
     """
     permission_classes = [AllowAny]
-    
-    @extend_schema(exclude=True)
+
+    @extend_schema(
+        exclude=True,
+        parameters=[
+            OpenApiParameter("tag", OpenApiTypes.STR, description="Filter by OpenAPI tag"),
+            OpenApiParameter("search", OpenApiTypes.STR, description="Filter by name (path, operationId, summary, tags)"),
+            OpenApiParameter("name", OpenApiTypes.STR, description="Alias for search"),
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number (default 1)"),
+            OpenApiParameter("page_size", OpenApiTypes.INT, description="Items per page (default 20, max 100)"),
+        ],
+    )
     def get(self, request):
-        tag_filter = request.query_params.get("tag")
-        
+        tag_filter = request.query_params.get("tag", "").strip() or None
+        name_filter = request.query_params.get("search") or request.query_params.get("name") or request.query_params.get("q")
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(100, max(1, int(request.query_params.get("page_size", request.query_params.get("limit", 20)))))
+        except (TypeError, ValueError):
+            page_size = 20
+
         generator = SchemaGenerator()
         schema = generator.get_schema(request=request, public=True)
-        
-        endpoints = []
-        
-        if schema and "paths" in schema:
-            for path, methods in schema["paths"].items():
-                for method, details in methods.items():
-                    if method in ["get", "post", "put", "patch", "delete"]:
-                        tags = details.get("tags", [])
-                        
-                        if tag_filter and tag_filter not in tags:
-                            continue
-                        
-                        endpoints.append({
-                            "operation_id": details.get("operationId", ""),
-                            "path": path,
-                            "method": method.upper(),
-                            "summary": details.get("summary", ""),
-                            "description": details.get("description", ""),
-                            "tags": tags,
-                            "deprecated": details.get("deprecated", False),
-                            "form_component": details.get("x-form-component"),  # optional hint for frontend rendering
-                        })
-        
-        return Response({"endpoints": endpoints, "count": len(endpoints)})
+        endpoints = _build_endpoint_list_from_schema(schema, tag_filter=tag_filter, name_filter=name_filter)
+
+        total = len(endpoints)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_items = endpoints[start:end]
+
+        return Response({
+            "endpoints": page_items,
+            "count": len(page_items),
+            "total_count": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size if page_size else 0,
+        })
 
 
 class DocsEndpointDetailView(APIView):
@@ -272,8 +347,11 @@ class DocsEndpointDetailView(APIView):
                 if f"#/components/schemas/{schema_name}" in spec_str:
                     referenced_schemas[schema_name] = schema_def
         
+        response_format = _response_format_summary(endpoint_spec.get("responses") or {})
+
         return Response({
             "spec": endpoint_spec,
+            "response_format": response_format,
             "form_component": endpoint_spec.get("x-form-component"),
             "examples": examples_serializer.data,
             "notes": notes_serializer.data,
