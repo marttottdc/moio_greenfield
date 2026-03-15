@@ -1,4 +1,8 @@
+import logging
+
+from django.db import transaction
 from django.db.models import Sum, Count, Q
+from django.db.utils import ProgrammingError
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
@@ -8,12 +12,15 @@ from crm.api.mixins import PaginationMixin, ProtectedAPIView
 from moio_platform.core.events import emit_event
 from moio_platform.core.events.snapshots import snapshot_contact, snapshot_deal
 from crm.models import Deal, Pipeline, PipelineStage, DealStatusChoices, Customer
-from tenancy.tenant_support import tenant_rls_context
+from tenancy.tenant_support import get_current_rls_debug_context, get_table_policies, tenant_rls_context
 from crm.api.deals.serializers import (
     DealSerializer, DealCreateSerializer, DealUpdateSerializer,
     PipelineSerializer, PipelineCreateSerializer, PipelineStageSerializer,
     DealStageUpdateSerializer, DealCommentSerializer
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=["deals"])
@@ -162,9 +169,21 @@ class DealsView(PaginationMixin, ProtectedAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        with tenant_rls_context(tenant):
-            deal = serializer.save(tenant=tenant, created_by=request.user)
-            response_payload = DealSerializer(deal).data
+        try:
+            with transaction.atomic(), tenant_rls_context(tenant):
+                deal = serializer.save(tenant=tenant, created_by=request.user)
+                response_payload = DealSerializer(deal).data
+        except ProgrammingError as exc:
+            if "row-level security policy" in str(exc).lower():
+                logger.error(
+                    "Deal create RLS violation tenant_id=%s tenant_slug=%s context=%s policies=%s",
+                    getattr(tenant, "pk", None),
+                    getattr(tenant, "rls_slug", None),
+                    get_current_rls_debug_context(),
+                    {"crm_deal": get_table_policies("crm_deal")},
+                    exc_info=True,
+                )
+            raise
         
         emit_event(
             name="deal.created",

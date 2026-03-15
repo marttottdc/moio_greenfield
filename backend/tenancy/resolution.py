@@ -5,10 +5,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from django.conf import settings
-from django_rls.db.functions import set_rls_context
-
 from tenancy.context_utils import current_tenant
-from tenancy.tenant_support import public_schema_name, RLS_NO_TENANT_SLUG
+from tenancy.tenant_support import (
+    public_schema_name,
+    RLS_NO_TENANT_SLUG,
+    set_current_legacy_tenant_slug,
+    set_current_rls_tenant,
+)
 
 
 def _current_connection_schema() -> str:
@@ -291,12 +294,12 @@ def bind_request_tenant(
         try:
             from django.db import connection
 
-            set_rls_context("tenant_id", getattr(tenant, "pk", "") or "", is_local=False)
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT set_config(%s, %s, %s)",
-                    ["app.current_tenant_slug", str(slug).strip() or RLS_NO_TENANT_SLUG, False],
-                )
+            is_local = bool(getattr(connection, "in_atomic_block", False))
+            set_current_rls_tenant(getattr(tenant, "pk", "") or "", is_local=is_local)
+            set_current_legacy_tenant_slug(
+                str(slug).strip() or RLS_NO_TENANT_SLUG,
+                is_local=is_local,
+            )
         except Exception:
             pass
 

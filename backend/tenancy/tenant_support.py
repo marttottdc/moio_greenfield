@@ -1,12 +1,15 @@
 """Helpers for RLS tenant context in the single-schema runtime."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from typing import Iterator
 
 from django.db import connection
 from django.db.models import Q
-from django_rls.db.functions import get_rls_context, set_rls_context
+from django_rls.db.functions import get_rls_context
+
+logger = logging.getLogger(__name__)
 
 
 def tenants_enabled() -> bool:
@@ -89,6 +92,30 @@ def get_current_rls_debug_context() -> dict[str, str]:
     }
 
 
+def _set_pg_context(setting_name: str, value, *, is_local: bool = False) -> None:
+    value = str(value or "")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT set_config(%s, %s, %s)",
+            [setting_name, value, is_local],
+        )
+
+
+def set_current_rls_tenant(tenant_id, *, is_local: bool = False) -> None:
+    """Set the active django_rls tenant context."""
+    _set_pg_context("rls.tenant_id", tenant_id, is_local=is_local)
+
+
+def set_current_rls_user(user_id, *, is_local: bool = False) -> None:
+    """Set the active django_rls user context."""
+    _set_pg_context("rls.user_id", user_id, is_local=is_local)
+
+
+def set_current_legacy_tenant_slug(slug: str, *, is_local: bool = False) -> None:
+    """Set the legacy slug-based RLS context."""
+    _set_pg_context("app.current_tenant_slug", slug, is_local=is_local)
+
+
 def get_table_policies(table_name: str) -> list[dict[str, str]]:
     """Best-effort policy dump for diagnostics."""
     try:
@@ -125,37 +152,57 @@ def tenant_rls_context(tenant_slug: str | None) -> Iterator[None]:
     tenant_id, slug = _resolve_tenant_ref(tenant_slug)
     previous_tenant_id = ""
     previous_slug = ""
+    is_local = bool(getattr(connection, "in_atomic_block", False))
     try:
-        previous_tenant_id = get_rls_context("tenant_id", default="") or ""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT current_setting(%s, true)",
-                ["app.current_tenant_slug"],
-            )
-            row = cursor.fetchone()
-            previous_slug = row[0] if row and row[0] else ""
-        set_rls_context("tenant_id", tenant_id or "", is_local=False)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT set_config(%s, %s, %s)",
-                ["app.current_tenant_slug", slug, False],
+        try:
+            previous_tenant_id = get_rls_context("tenant_id", default="") or ""
+        except Exception:
+            previous_tenant_id = ""
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT current_setting(%s, true)",
+                    ["app.current_tenant_slug"],
+                )
+                row = cursor.fetchone()
+                previous_slug = row[0] if row and row[0] else ""
+        except Exception:
+            previous_slug = ""
+
+        set_current_rls_tenant(tenant_id, is_local=is_local)
+        set_current_legacy_tenant_slug(slug, is_local=is_local)
+
+        debug_context = get_current_rls_debug_context()
+        expected_tenant_id = str(tenant_id or "")
+        if (
+            debug_context.get("rls_tenant_id", "") != expected_tenant_id
+            or debug_context.get("legacy_tenant_slug", "") != str(slug)
+        ):
+            logger.error(
+                "RLS context mismatch after set expected_tenant_id=%s expected_slug=%s actual=%s",
+                expected_tenant_id,
+                slug,
+                debug_context,
             )
     except Exception:
-        # If the RLS setup itself fails, continue without injecting tenant context.
-        # Do not swallow exceptions raised inside the wrapped block.
-        pass
+        logger.exception(
+            "Failed to set tenant RLS context tenant_id=%s slug=%s",
+            tenant_id,
+            slug,
+        )
+        raise
     try:
         yield
     finally:
         try:
-            set_rls_context("tenant_id", previous_tenant_id, is_local=False)
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT set_config(%s, %s, %s)",
-                    ["app.current_tenant_slug", previous_slug, False],
-                )
+            set_current_rls_tenant(previous_tenant_id, is_local=is_local)
+            set_current_legacy_tenant_slug(previous_slug, is_local=is_local)
         except Exception:
-            pass
+            logger.exception(
+                "Failed to restore previous tenant RLS context previous_tenant_id=%s previous_slug=%s",
+                previous_tenant_id,
+                previous_slug,
+            )
 
 
 # Backward-compatible aliases while the codebase migrates away from schema naming.

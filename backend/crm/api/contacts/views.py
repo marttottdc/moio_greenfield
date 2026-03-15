@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
-from django.db import DataError, IntegrityError
+from django.db import DataError, IntegrityError, transaction
 from django.db.utils import ProgrammingError
 from django.db.models import Count, Max, Q
 from django.utils import timezone
@@ -206,7 +206,7 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            with tenant_rls_context(tenant):
+            with transaction.atomic(), tenant_rls_context(tenant):
                 contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
                 account_ids = request.data.get("account_ids")
                 if isinstance(account_ids, (list, tuple)) and account_ids:
@@ -240,7 +240,10 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
                     getattr(tenant, "rls_slug", None),
                     getattr(getattr(request, "tenant", None), "pk", None),
                     get_current_rls_debug_context(),
-                    get_table_policies("crm_contact"),
+                    {
+                        "crm_contact": get_table_policies("crm_contact"),
+                        "crm_customercontact": get_table_policies("crm_customercontact"),
+                    },
                     exc_info=True,
                 )
             raise

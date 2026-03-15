@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from django.db.utils import ProgrammingError
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -32,7 +34,11 @@ from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 from crm.services.activity_service import _normalize_content, activity_manager
 from crm.services.activity_suggestion_service import accept_suggestion, dismiss_suggestion
 from tenancy.rbac import user_has_role
-from tenancy.tenant_support import tenant_rls_context
+from tenancy.tenant_support import get_current_rls_debug_context, get_table_policies, tenant_rls_context
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _related_display(obj) -> Optional[str]:
@@ -288,7 +294,7 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
             activity_data["created_by_id"] = payload.get("created_by_id")
 
         try:
-            with tenant_rls_context(tenant):
+            with transaction.atomic(), tenant_rls_context(tenant):
                 activity = activity_manager.create_activity(
                     activity_data,
                     tenant=tenant,
@@ -296,6 +302,17 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
                     activity_type=activity_type
                 )
                 response_payload = self._serialize_activity(activity)
+        except ProgrammingError as exc:
+            if "row-level security policy" in str(exc).lower():
+                logger.error(
+                    "Activity create RLS violation tenant_id=%s tenant_slug=%s context=%s policies=%s",
+                    getattr(tenant, "pk", None),
+                    getattr(tenant, "rls_slug", None),
+                    get_current_rls_debug_context(),
+                    {"crm_activityrecord": get_table_policies("crm_activityrecord")},
+                    exc_info=True,
+                )
+            return _error("creation_failed", f"Failed to create activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as exc:
             return _error("creation_failed", f"Failed to create activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(response_payload, status=status.HTTP_201_CREATED)
