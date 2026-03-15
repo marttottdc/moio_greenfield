@@ -8,8 +8,6 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
-from django.db.models import Q
-
 from central_hub.integrations.shopify import tasks as _shopify_tasks  # noqa: F401,E402
 from central_hub.models import ProvisioningJob, PlatformAdminKpiSnapshot, UserProfile
 from tenancy.models import Tenant
@@ -222,28 +220,49 @@ def refresh_platform_admin_kpi_snapshots(
     self,
     period_keys: list[str] | None = None,
     tenant_slug: str | None = None,
+    tenant_slugs: list[str] | None = None,
 ):
     """
-    Aggregate KPIs into PlatformAdminKpiSnapshot (RLS-off sweep in Celery).
-    - tenant_slug=None: refresh "all tenants" (tenant_id=null). Use for Beat schedule.
-    - tenant_slug="acme": refresh only that tenant (tenant_id=X). Use when user selects a tenant in UI.
+    Aggregate KPIs into PlatformAdminKpiSnapshot (loop with tenant_rls_context per tenant).
+    - tenant_slugs: optional list of rls_slugs (subdomains) to sweep. If provided, no tenant
+      discovery in the worker; caller must pass the list (e.g. from get_enabled_tenants_for_kpis).
+    - If tenant_slugs is not provided: tenant_slug=None means "all tenants", tenant_slug="acme"
+      means that tenant only (list discovered via get_enabled_tenants_for_kpis in the task).
     period_keys: e.g. ["all", "24h", "7d", "30d"]. Default all four.
     """
-    from central_hub.api.platform.kpi_aggregation import run_full_sweep_rls_off
+    from central_hub.api.platform.kpi_aggregation import (
+        get_enabled_tenants_for_kpis,
+        run_full_sweep,
+        run_full_sweep_over_slugs,
+    )
 
     keys = period_keys or ["all", "24h", "7d", "30d"]
     tenant_id = None
-    if tenant_slug:
-        t = Tenant.objects.filter(enabled=True).filter(
-            Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
-        ).first()
-        if not t:
-            logger.warning("Platform KPI refresh: tenant_slug=%s not found, skipping", tenant_slug)
+    slugs_to_use = None
+
+    if tenant_slugs:
+        slugs_to_use = [s for s in tenant_slugs if (s or "").strip()]
+        if not slugs_to_use:
+            logger.warning("Platform KPI refresh: tenant_slugs empty, skipping")
             return
-        tenant_id = t.id
+        if len(slugs_to_use) == 1:
+            tenant_list = get_enabled_tenants_for_kpis(slugs_to_use[0])
+            if tenant_list:
+                tenant_id = tenant_list[0][0]
+    else:
+        if tenant_slug:
+            tenant_list = get_enabled_tenants_for_kpis(tenant_slug)
+            if not tenant_list:
+                logger.warning("Platform KPI refresh: tenant_slug=%s not found, skipping", tenant_slug)
+                return
+            tenant_id = tenant_list[0][0]
+
     for period_key in keys:
         start_dt, end_dt = _parse_kpi_period(period_key)
-        totals = run_full_sweep_rls_off(tenant_slug=tenant_slug, start_dt=start_dt, end_dt=end_dt)
+        if slugs_to_use is not None:
+            totals = run_full_sweep_over_slugs(slugs_to_use, start_dt=start_dt, end_dt=end_dt)
+        else:
+            totals = run_full_sweep(tenant_slug=tenant_slug, start_dt=start_dt, end_dt=end_dt)
         total_activity_per_hour = None
         if start_dt is not None and end_dt is not None:
             delta = end_dt - start_dt

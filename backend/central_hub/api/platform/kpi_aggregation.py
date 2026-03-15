@@ -157,6 +157,55 @@ def run_full_sweep(
     return totals
 
 
+def run_full_sweep_over_slugs(
+    rls_slugs: list[str],
+    start_dt: datetime | None = None,
+    end_dt: datetime | None = None,
+) -> dict:
+    """
+    Sweep over an explicit list of tenant rls_slugs (subdomains); no tenant discovery.
+    Caller is responsible for passing the list (e.g. from get_enabled_tenants_for_kpis).
+    """
+    if not rls_slugs:
+        return {
+            "contacts": 0,
+            "accounts": 0,
+            "deals": 0,
+            "activities": 0,
+            "flow_executions": 0,
+            "agent_sessions": 0,
+        }
+    totals = {
+        "contacts": 0,
+        "accounts": 0,
+        "deals": 0,
+        "activities": 0,
+        "flow_executions": 0,
+        "agent_sessions": 0,
+    }
+    errors = 0
+    for slug in rls_slugs:
+        try:
+            data = aggregate_kpis_for_tenant(slug, start_dt, end_dt)
+            for k in totals:
+                totals[k] += data.get(k, 0)
+        except Exception as exc:
+            errors += 1
+            logger.warning(
+                "Platform KPIs sweep (over slugs): failed for slug=%s: %s",
+                slug,
+                exc,
+                exc_info=False,
+            )
+    if errors:
+        logger.info(
+            "Platform KPIs sweep (over slugs): completed with %s errors across %s slugs",
+            errors,
+            len(rls_slugs),
+        )
+    return totals
+
+
 def run_full_sweep_rls_off(
     tenant_slug: str | None = None,
     start_dt: datetime | None = None,

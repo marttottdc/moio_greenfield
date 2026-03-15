@@ -263,9 +263,13 @@ class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
         if snapshot is None or age_seconds > PLATFORM_KPI_CACHE_MAX_AGE_SECONDS:
             try:
                 from central_hub.tasks import refresh_platform_admin_kpi_snapshots
+                from central_hub.api.platform.kpi_aggregation import get_enabled_tenants_for_kpis
+                tenant_list = get_enabled_tenants_for_kpis(tenant_slug)
+                tenant_slugs = [s for _, s in tenant_list] if tenant_list else None
                 refresh_platform_admin_kpi_snapshots.delay(
                     period_keys=[period_key],
                     tenant_slug=tenant_slug,
+                    tenant_slugs=tenant_slugs,
                 )
             except Exception:
                 pass
@@ -295,6 +299,16 @@ class PlatformAdminKPIsRefreshView(PlatformAdminMixin, APIView):
             or (data.get("period") or "").strip()
             or None
         )
+        # Client may send tenant_slugs (list) so the task does not discover tenants in the worker
+        raw_slugs = data.get("tenant_slugs")
+        if isinstance(raw_slugs, list):
+            tenant_slugs = [str(s).strip() for s in raw_slugs if (s or "").strip()]
+        else:
+            tenant_slugs = None
+        if tenant_slugs is None:
+            from central_hub.api.platform.kpi_aggregation import get_enabled_tenants_for_kpis
+            tenant_list = get_enabled_tenants_for_kpis(tenant_slug)
+            tenant_slugs = [s for _, s in tenant_list] if tenant_list else None
         period_key = _kpi_period_to_key(period)
         try:
             from central_hub.tasks import refresh_platform_admin_kpi_snapshots
@@ -302,6 +316,7 @@ class PlatformAdminKPIsRefreshView(PlatformAdminMixin, APIView):
             result = refresh_platform_admin_kpi_snapshots.delay(
                 period_keys=[period_key],
                 tenant_slug=tenant_slug,
+                tenant_slugs=tenant_slugs,
             )
             return Response(
                 {"ok": True, "payload": {"task_id": result.id}},

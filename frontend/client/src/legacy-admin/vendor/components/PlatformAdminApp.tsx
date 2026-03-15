@@ -608,7 +608,8 @@ export default function PlatformAdminApp() {
     setKpisRefreshing(true);
     const tenant = kpiTenantFilter || undefined;
     const period = kpiPeriodFilter || undefined;
-    startKpisRefresh({ tenant, period })
+    const tenant_slugs = tenant ? [tenant] : tenants.map((t) => t.slug);
+    startKpisRefresh({ tenant, period, tenant_slugs })
       .then(({ task_id }) => {
         const POLL_INTERVAL_MS = 2500;
         const TIMEOUT_MS = 120000;
