@@ -210,6 +210,42 @@ class ProvisioningJob(models.Model):
         self.save(update_fields=["stages", "current_stage", "status", "error_message", "updated_at"])
 
 
+class PlatformAdminKpiSnapshot(models.Model):
+    """
+    Cached platform admin KPIs aggregated by a Celery task (sweep tenant by tenant).
+    Scope: tenant_id is null for "all tenants"; period_key is e.g. "all", "24h", "7d", "30d".
+    View can return this when use_cache=1 and updated_at is recent (e.g. last 10 min).
+    """
+    tenant_id = models.IntegerField(null=True, blank=True, db_index=True)
+    period_key = models.CharField(max_length=20, default="all", db_index=True)
+    contacts = models.PositiveIntegerField(default=0)
+    accounts = models.PositiveIntegerField(default=0)
+    deals = models.PositiveIntegerField(default=0)
+    activities = models.PositiveIntegerField(default=0)
+    flow_executions = models.PositiveIntegerField(default=0)
+    agent_sessions = models.PositiveIntegerField(default=0)
+    total_activity_per_hour = models.FloatField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        db_table = "platform_admin_kpi_snapshot"
+        verbose_name = "Platform admin KPI snapshot"
+        verbose_name_plural = "Platform admin KPI snapshots"
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["period_key"],
+                condition=models.Q(tenant_id__isnull=True),
+                name="platform_admin_kpi_snapshot_all_period_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["tenant_id", "period_key"],
+                condition=models.Q(tenant_id__isnull=False),
+                name="platform_admin_kpi_snapshot_tenant_period_uniq",
+            ),
+        ]
+
+
 class PlatformNotificationSettings(models.Model):
     """
     Platform-wide notification settings (PWA, in-app, flows, agent console).

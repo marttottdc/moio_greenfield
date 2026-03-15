@@ -1,7 +1,8 @@
 # A.2: Add RLS to tenant-scoped tables not in original RLS_TABLES.
 # Same policy as 0006: visible if tenant = current tenant (by slug) OR tenant is platform (subdomain 'platform').
+# Each table is applied in a savepoint so one missing table does not abort the whole migration.
 
-from django.db import migrations
+from django.db import migrations, transaction
 
 # Tables with tenant_id (FK to Tenant) that were missing from RLS_TABLES in 0002/0006.
 RLS_TABLES_ADD = [
@@ -45,16 +46,18 @@ def enable_rls_new_tables(apps, schema_editor):
     )
     condition = "(%s) OR (%s)" % (my_tenant_condition, platform_condition)
     for table in RLS_TABLES_ADD:
+        # Use a savepoint per table so a missing/failing table does not abort the whole transaction.
         try:
-            tn = q(table)
-            policy_name = q("rls_tenant_slug")
-            schema_editor.execute(f"ALTER TABLE {tn} ENABLE ROW LEVEL SECURITY")
-            schema_editor.execute(f"ALTER TABLE {tn} FORCE ROW LEVEL SECURITY")
-            schema_editor.execute(f"DROP POLICY IF EXISTS {policy_name} ON {tn}")
-            schema_editor.execute(
-                f"CREATE POLICY {policy_name} ON {tn} "
-                f"USING ({condition}) WITH CHECK ({condition})"
-            )
+            with transaction.atomic(using=connection.alias):
+                tn = q(table)
+                policy_name = q("rls_tenant_slug")
+                schema_editor.execute(f"ALTER TABLE {tn} ENABLE ROW LEVEL SECURITY")
+                schema_editor.execute(f"ALTER TABLE {tn} FORCE ROW LEVEL SECURITY")
+                schema_editor.execute(f"DROP POLICY IF EXISTS {policy_name} ON {tn}")
+                schema_editor.execute(
+                    f"CREATE POLICY {policy_name} ON {tn} "
+                    f"USING ({condition}) WITH CHECK ({condition})"
+                )
         except Exception:
             pass
 
@@ -64,6 +67,8 @@ def noop_reverse(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+
+    atomic = False  # One missing/failing table must not abort the rest (each table in own transaction).
 
     dependencies = [
         ("tenancy", "0007_alter_tenant_plan_default"),

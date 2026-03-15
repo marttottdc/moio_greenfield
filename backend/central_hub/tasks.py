@@ -10,7 +10,8 @@ from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
 
 from central_hub.integrations.shopify import tasks as _shopify_tasks  # noqa: F401,E402
-from central_hub.models import ProvisioningJob, Tenant, UserProfile
+from central_hub.models import ProvisioningJob, PlatformAdminKpiSnapshot, UserProfile
+from tenancy.models import Tenant
 from central_hub.plan_policy import get_self_provision_default_plan
 from central_hub.signals import ensure_tenant_crm_defaults
 from tenancy.bootstrap_context import skip_tenant_bootstrap_signals
@@ -196,3 +197,54 @@ def create_primary_user_for_provisioning(
     except Exception as exc:
         _mark_job_failure(job_id, stage, exc)
         raise
+
+
+def _parse_kpi_period(period_key: str):
+    """Return (start_dt, end_dt) for period_key. None, None for 'all'."""
+    from django.utils import timezone
+    now = timezone.now()
+    if period_key == "24h":
+        return now - timezone.timedelta(hours=24), now
+    if period_key == "7d":
+        return now - timezone.timedelta(days=7), now
+    if period_key == "30d":
+        return now - timezone.timedelta(days=30), now
+    return None, None
+
+
+@shared_task(
+    bind=True,
+    name="central_hub.tasks.refresh_platform_admin_kpi_snapshots",
+    queue=settings.LOW_PRIORITY_Q,
+)
+def refresh_platform_admin_kpi_snapshots(self, period_keys: list[str] | None = None):
+    """
+    Sweep all enabled tenants and aggregate KPIs into PlatformAdminKpiSnapshot.
+    period_keys: e.g. ["all", "24h", "7d", "30d"]. Default all four.
+    Updates rows with tenant_id=null (platform-wide).
+    """
+    from central_hub.api.platform.kpi_aggregation import run_full_sweep
+
+    keys = period_keys or ["all", "24h", "7d", "30d"]
+    for period_key in keys:
+        start_dt, end_dt = _parse_kpi_period(period_key)
+        totals = run_full_sweep(tenant_slug=None, start_dt=start_dt, end_dt=end_dt)
+        total_activity_per_hour = None
+        if start_dt is not None and end_dt is not None:
+            delta = end_dt - start_dt
+            hours = max(delta.total_seconds() / 3600.0, 1e-6)
+            total_activity_per_hour = round(totals["activities"] / hours, 2)
+        PlatformAdminKpiSnapshot.objects.update_or_create(
+            tenant_id=None,
+            period_key=period_key,
+            defaults={
+                "contacts": totals["contacts"],
+                "accounts": totals["accounts"],
+                "deals": totals["deals"],
+                "activities": totals["activities"],
+                "flow_executions": totals["flow_executions"],
+                "agent_sessions": totals["agent_sessions"],
+                "total_activity_per_hour": total_activity_per_hour,
+            },
+        )
+    logger.info("Platform admin KPI snapshots refreshed for period_keys=%s", keys)

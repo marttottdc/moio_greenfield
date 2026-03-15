@@ -19,15 +19,20 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from central_hub.api.platform_bootstrap import build_bootstrap_payload, _is_platform_admin_user
+from central_hub.api.platform.kpi_aggregation import run_full_sweep
 from central_hub.api.platform.plugin_admin_state import platform_plugin_admin_state
 from central_hub.authentication import TenantJWTAAuthentication
-from central_hub.models import Capability, Plan, PlatformConfiguration, PlatformNotificationSettings, Role
+from central_hub.models import (
+    Capability,
+    Plan,
+    PlatformAdminKpiSnapshot,
+    PlatformConfiguration,
+    PlatformNotificationSettings,
+    Role,
+)
 from agent_console.models import AgentConsoleInstalledPlugin
 from agent_console.services.runtime_service import invalidate_runtime_backend_cache
 from agent_console.services.plugin_installation_service import parse_plugin_bundle_zip
-from chatbot.models.agent_session import AgentSession
-from crm.models import ActivityRecord, Contact, Customer, Deal
-from flows.models import FlowExecution
 from moio_platform.authentication import BearerTokenAuthentication
 from tenancy.models import IntegrationDefinition, Tenant, TenantDomain, TenantIntegration
 from tenancy.tenant_support import public_schema_name, tenant_rls_context, tenants_enabled
@@ -158,45 +163,34 @@ def _parse_period(period: str | None):
     return None, None
 
 
-def _aggregate_kpis_for_tenant(rls_slug: str, start_dt, end_dt) -> dict:
-    """Run count queries inside tenant RLS context. Date filters applied when start_dt/end_dt are set."""
-    with tenant_rls_context(rls_slug):
-        contact_filter = Q()
-        customer_filter = Q()
-        deal_filter = Q()
-        activity_filter = Q()
-        flow_exec_filter = Q()
-        session_filter = Q()
-        if start_dt is not None and end_dt is not None:
-            contact_filter = Q(created__gte=start_dt, created__lte=end_dt)
-            customer_filter = Q(created__gte=start_dt, created__lte=end_dt)
-            deal_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
-            activity_filter = Q(created_at__gte=start_dt, created_at__lte=end_dt)
-            flow_exec_filter = Q(started_at__gte=start_dt, started_at__lte=end_dt)
-            session_filter = Q(last_interaction__gte=start_dt, last_interaction__lte=end_dt)
+# KPI aggregation is in central_hub.api.platform.kpi_aggregation (run_full_sweep).
 
-        contacts = Contact.objects.filter(contact_filter).count()
-        accounts = Customer.objects.filter(customer_filter).count()
-        deals = Deal.objects.filter(deal_filter).count()
-        activities = ActivityRecord.objects.filter(activity_filter).count()
-        flow_executions = FlowExecution.objects.filter(flow_exec_filter).count()
-        agent_sessions = AgentSession.objects.filter(session_filter).count()
 
-        return {
-            "contacts": contacts,
-            "accounts": accounts,
-            "deals": deals,
-            "activities": activities,
-            "flow_executions": flow_executions,
-            "agent_sessions": agent_sessions,
-        }
+def _kpi_period_to_key(period: str | None) -> str:
+    """Normalize period query param to snapshot period_key."""
+    if not (period or "").strip():
+        return "all"
+    p = (period or "").strip().lower()
+    if p in ("24h", "1d", "1day"):
+        return "24h"
+    if p in ("7d", "7day", "7days", "1w"):
+        return "7d"
+    if p in ("30d", "30day", "30days", "1m"):
+        return "30d"
+    return "all"
+
+
+# Max age (seconds) for cached snapshot to be considered fresh.
+PLATFORM_KPI_CACHE_MAX_AGE_SECONDS = 600  # 10 minutes
 
 
 class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
     """
     GET /api/platform/kpis/ — platform admin KPIs.
-    Query params: tenant (optional slug/schema_name, omit for all), period (optional: 24h, 7d, 30d, or omit for all time).
-    Returns counts: contacts, accounts, deals, activities, flow_executions, agent_sessions, and total_activity_per_hour.
+    Query params: tenant (optional slug, omit for all), period (optional: 24h, 7d, 30d, or omit for all time),
+    use_cache (optional: 1 to return cached snapshot when fresh).
+    Returns counts: contacts, accounts, deals, activities, flow_executions, agent_sessions, total_activity_per_hour.
+    Data is gathered by sweeping tenant-by-tenant in RLS context; optionally served from PlatformAdminKpiSnapshot.
     """
 
     def get(self, request):
@@ -205,45 +199,70 @@ class PlatformAdminKPIsView(PlatformAdminMixin, APIView):
             return err
         tenant_slug = (request.query_params.get("tenant") or "").strip() or None
         period = (request.query_params.get("period") or "").strip() or None
+        use_cache = request.query_params.get("use_cache", "").strip() == "1"
         start_dt, end_dt = _parse_period(period)
+        period_key = _kpi_period_to_key(period)
 
-        totals = {
-            "contacts": 0,
-            "accounts": 0,
-            "deals": 0,
-            "activities": 0,
-            "flow_executions": 0,
-            "agent_sessions": 0,
-        }
-
-        def run_for_tenants(tenant_list):
-            for t in tenant_list:
-                rls_slug = getattr(t, "rls_slug", None) or getattr(t, "subdomain", None)
-                if not rls_slug:
-                    continue
-                try:
-                    data = _aggregate_kpis_for_tenant(rls_slug, start_dt, end_dt)
-                    for k in totals:
-                        totals[k] += data.get(k, 0)
-                except Exception:
-                    continue
-
-        # List tenants in public context so we see all enabled tenants (RLS or not).
-        with tenant_rls_context(public_schema_name()):
+        # Optional: return cached snapshot when fresh (all-tenants or single-tenant).
+        if use_cache:
+            snapshot = None
             if tenant_slug:
-                tenant_list = list(Tenant.objects.filter(enabled=True).filter(
+                tenant_id = Tenant.objects.filter(enabled=True).filter(
                     Q(schema_name=tenant_slug) | Q(subdomain=tenant_slug)
-                ))
+                ).values_list("id", flat=True).first()
+                if tenant_id is not None:
+                    snapshot = (
+                        PlatformAdminKpiSnapshot.objects.filter(
+                            period_key=period_key,
+                            tenant_id=tenant_id,
+                        )
+                        .order_by("-updated_at")
+                        .first()
+                    )
             else:
-                tenant_list = list(Tenant.objects.filter(enabled=True))
-            run_for_tenants(tenant_list)
+                snapshot = (
+                    PlatformAdminKpiSnapshot.objects.filter(
+                        period_key=period_key,
+                        tenant_id__isnull=True,
+                    )
+                    .order_by("-updated_at")
+                    .first()
+                )
+            if snapshot is not None:
+                from django.utils import timezone
+                age = (timezone.now() - snapshot.updated_at).total_seconds()
+                if age <= PLATFORM_KPI_CACHE_MAX_AGE_SECONDS:
+                    payload = {
+                        "contacts": snapshot.contacts,
+                        "accounts": snapshot.accounts,
+                        "deals": snapshot.deals,
+                        "activities": snapshot.activities,
+                        "flow_executions": snapshot.flow_executions,
+                        "agent_sessions": snapshot.agent_sessions,
+                        "total_activity_per_hour": snapshot.total_activity_per_hour,
+                        "period": period or "all",
+                        "tenant": tenant_slug or "all",
+                        "from_cache": True,
+                        "cached_at": snapshot.updated_at.isoformat(),
+                    }
+                    return Response({"ok": True, "payload": payload})
 
-        # Total activity per hour: activities in period / hours in period
+        # Sweep tenant-by-tenant (always works; does not depend on current RLS for listing tenants).
+        totals = run_full_sweep(tenant_slug=tenant_slug, start_dt=start_dt, end_dt=end_dt)
+
         total_activity_per_hour = None
-        if start_dt is not None and end_dt is not None and totals["activities"] is not None:
+        if start_dt is not None and end_dt is not None and totals.get("activities") is not None:
             delta = end_dt - start_dt
             hours = max(delta.total_seconds() / 3600.0, 1e-6)
             total_activity_per_hour = round(totals["activities"] / hours, 2)
+
+        # When sweeping "all" tenants, refresh snapshot in background so next request can use_cache=1.
+        if not tenant_slug:
+            try:
+                from central_hub.tasks import refresh_platform_admin_kpi_snapshots
+                refresh_platform_admin_kpi_snapshots.delay(period_keys=[period_key])
+            except Exception:
+                pass
 
         payload = {
             "contacts": totals["contacts"],
