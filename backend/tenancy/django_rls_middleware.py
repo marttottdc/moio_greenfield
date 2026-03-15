@@ -16,6 +16,22 @@ class MoioRLSContextMiddleware(RLSContextMiddleware):
     are still present in existing databases.
     """
 
+    def _get_tenant_id(self, request):
+        tenant = getattr(request, "tenant", None)
+        if tenant is not None and getattr(tenant, "pk", None) is not None:
+            return tenant.pk
+
+        user = getattr(request, "user", None)
+        profile = getattr(user, "profile", None) if user is not None else None
+        if profile is not None and getattr(profile, "tenant_id", None):
+            return profile.tenant_id
+
+        session = getattr(request, "session", None)
+        if session is not None:
+            return session.get("tenant_id")
+
+        return None
+
     def _set_rls_context(self, request):
         super()._set_rls_context(request)
 
