@@ -7,7 +7,7 @@ from typing import Literal
 from django.conf import settings
 
 from tenancy.context_utils import current_tenant
-from tenancy.tenant_support import public_schema_name
+from tenancy.tenant_support import public_schema_name, RLS_NO_TENANT_SLUG
 
 
 def _current_connection_schema() -> str:
@@ -282,6 +282,17 @@ def bind_request_tenant(
     )
     current_tenant.set(tenant)
     activate_tenant(tenant)
+    # So RLS sees the tenant when it was resolved later (e.g. from user in TenantJWTAAuthentication)
+    if getattr(settings, "USE_RLS_TENANCY", False) and tenant is not None:
+        slug = getattr(tenant, "rls_slug", None) or ""
+        if not slug or not str(slug).strip():
+            slug = RLS_NO_TENANT_SLUG
+        try:
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL app.current_tenant_slug = %s", [str(slug).strip() or RLS_NO_TENANT_SLUG])
+        except Exception:
+            pass
 
 
 def ensure_request_tenant_context(request, *, user=None, require_tenant: bool | None = None):
