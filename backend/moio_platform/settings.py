@@ -103,6 +103,7 @@ SHARED_APPS_BASE = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
+    "django_rls",
     "channels",
     "django_extensions",
     "cacheops",
@@ -179,10 +180,10 @@ def _middleware_list():
         "moio_platform.csrf_middleware.DynamicCsrfMiddleware",
         "django.contrib.auth.middleware.AuthenticationMiddleware",
         "tenancy.middleware.TenantMiddleware",
-        "django.middleware.clickjacking.XFrameOptionsMiddleware",
     ]
     if USE_RLS_TENANCY:
-        base.append("tenancy.rls_middleware.TenantAndRLSMiddleware")
+        base.append("tenancy.django_rls_middleware.MoioRLSContextMiddleware")
+    base.append("django.middleware.clickjacking.XFrameOptionsMiddleware")
     return base
 
 
@@ -200,6 +201,11 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "moio_platform.api_exceptions.api_exception_handler",
+}
+
+DJANGO_RLS = {
+    "DEFAULT_SCHEMA_EDITOR": "django_rls.backends.postgresql.RLSDatabaseSchemaEditor",
+    "AUTO_ENABLE_RLS": False,
 }
 
 SIMPLE_JWT = {
@@ -333,7 +339,7 @@ else:
 if USE_RLS_TENANCY and DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
     raise RuntimeError("USE_RLS_TENANCY requires PostgreSQL; SQLite is not supported.")
 if USE_RLS_TENANCY:
-    DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
+    DATABASES["default"]["ENGINE"] = "django_rls.backends.postgresql"
 DATABASE_ROUTERS = []
 
 # Password validation

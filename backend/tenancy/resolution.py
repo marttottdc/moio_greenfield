@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from django.conf import settings
+from django_rls.db.functions import set_rls_context
 
 from tenancy.context_utils import current_tenant
 from tenancy.tenant_support import public_schema_name, RLS_NO_TENANT_SLUG
@@ -282,15 +283,20 @@ def bind_request_tenant(
     )
     current_tenant.set(tenant)
     activate_tenant(tenant)
-    # So RLS sees the tenant when it was resolved later (e.g. from user in TenantJWTAAuthentication)
-    if getattr(settings, "USE_RLS_TENANCY", False) and tenant is not None:
-        slug = getattr(tenant, "rls_slug", None) or ""
+    # Keep request-time RLS context in sync when tenant was resolved after middleware.
+    if getattr(settings, "USE_RLS_TENANCY", False):
+        slug = getattr(tenant, "rls_slug", None) if tenant is not None else ""
         if not slug or not str(slug).strip():
             slug = RLS_NO_TENANT_SLUG
         try:
             from django.db import connection
+
+            set_rls_context("tenant_id", getattr(tenant, "pk", "") or "", is_local=False)
             with connection.cursor() as cursor:
-                cursor.execute("SET LOCAL app.current_tenant_slug = %s", [str(slug).strip() or RLS_NO_TENANT_SLUG])
+                cursor.execute(
+                    "SELECT set_config(%s, %s, %s)",
+                    ["app.current_tenant_slug", str(slug).strip() or RLS_NO_TENANT_SLUG, False],
+                )
         except Exception:
             pass
 

@@ -16,30 +16,28 @@ from tenancy.tenant_support import tenant_rls_context
 logger = logging.getLogger(__name__)
 
 
-def _resolve_schema_name(event_uuid: UUID, tenant_id: str | None) -> str | None:
-    """Resolve tenant schema for an event task."""
+def _resolve_event_tenant(event_uuid: UUID, tenant_id: str | None) -> Tenant | None:
+    """Resolve the tenant object for event routing."""
     if tenant_id:
         try:
             tenant_uuid = UUID(str(tenant_id))
         except (TypeError, ValueError):
             logger.error("Invalid tenant_id=%s for event=%s", tenant_id, event_uuid)
             return None
-        tenant = Tenant.objects.filter(tenant_code=tenant_uuid).only("schema_name").first()
-        return getattr(tenant, "schema_name", None) if tenant else None
+        return Tenant.objects.filter(tenant_code=tenant_uuid).first()
 
     # Backward-compatibility: older queued jobs may not include tenant_id.
-    # Scan tenant schemas to find where this EventLog lives.
-    logger.warning("Missing tenant_id for event=%s, scanning tenant schemas", event_uuid)
-    for tenant in Tenant.objects.only("schema_name").iterator():
-        schema_name = getattr(tenant, "schema_name", None)
-        if not schema_name:
+    # Scan tenants to find where this EventLog lives.
+    logger.warning("Missing tenant_id for event=%s, scanning tenants", event_uuid)
+    for tenant in Tenant.objects.iterator():
+        if not getattr(tenant, "pk", None):
             continue
         try:
-            with tenant_rls_context(schema_name):
+            with tenant_rls_context(tenant):
                 from flows.models import EventLog
 
                 if EventLog.objects.filter(id=event_uuid).exists():
-                    return schema_name
+                    return tenant
         except Exception:
             continue
     return None
@@ -67,10 +65,10 @@ def route_event_task(self, event_id: str, tenant_id: str | None = None):
 
     try:
         event_uuid = UUID(event_id)
-        schema_name = _resolve_schema_name(event_uuid, tenant_id)
-        if not schema_name:
+        tenant = _resolve_event_tenant(event_uuid, tenant_id)
+        if not tenant:
             logger.error(
-                "Cannot route event %s: unable to resolve tenant schema",
+                "Cannot route event %s: unable to resolve tenant context",
                 event_id,
             )
             return {
@@ -79,7 +77,7 @@ def route_event_task(self, event_id: str, tenant_id: str | None = None):
                 "status": "skipped_tenant_not_found",
             }
 
-        with tenant_rls_context(schema_name):
+        with tenant_rls_context(tenant):
             results = route_event(event_uuid)
         logger.info(f"Event {event_id} routed to {len(results)} flow(s)")
         # Best-effort: create ActivityRecords for contact-related events (never fail routing)

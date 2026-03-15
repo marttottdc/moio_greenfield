@@ -18,6 +18,7 @@ from crm.models import Contact, Customer
 from crm.api.contacts.serializers import ContactCreateSerializer
 from crm.api.mixins import ContactAPIMixin, ProtectedAPIView, _UNSET, _error
 from tenancy.rbac import user_has_role
+from tenancy.tenant_support import tenant_rls_context
 from crm.services.contact_service import ContactService
 from crm.services.contact import sync_whatsapp_blocklist, normalize_phone_e164
 from moio_platform.core.events import emit_event
@@ -197,7 +198,8 @@ class ContactsView(ContactAPIMixin, ProtectedAPIView):
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
-        contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
+        with tenant_rls_context(tenant):
+            contact: Contact = serializer.save(tenant=tenant, created_by=request.user)
 
         try:
             emit_event(

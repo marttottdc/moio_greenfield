@@ -31,6 +31,7 @@ from crm.api.mixins import PaginationMixin, ProtectedAPIView, _error
 from crm.services.activity_service import _normalize_content, activity_manager
 from crm.services.activity_suggestion_service import accept_suggestion, dismiss_suggestion
 from tenancy.rbac import user_has_role
+from tenancy.tenant_support import tenant_rls_context
 
 
 def _related_display(obj) -> Optional[str]:
@@ -276,12 +277,13 @@ class ActivitiesView(ActivitySerializerMixin, PaginationMixin, ProtectedAPIView)
             activity_data["created_by_id"] = payload.get("created_by_id")
 
         try:
-            activity = activity_manager.create_activity(
-                activity_data,
-                tenant=tenant,
-                user=request.user if request.user.is_authenticated else None,
-                activity_type=activity_type
-            )
+            with tenant_rls_context(tenant):
+                activity = activity_manager.create_activity(
+                    activity_data,
+                    tenant=tenant,
+                    user=request.user if request.user.is_authenticated else None,
+                    activity_type=activity_type
+                )
         except Exception as exc:
             return _error("creation_failed", f"Failed to create activity: {str(exc)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(self._serialize_activity(activity), status=status.HTTP_201_CREATED)

@@ -17,6 +17,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
+from django_rls.models import RLSModel
+from django_rls.policies import TenantPolicy
 
 from tenancy.context_utils import current_tenant
 from tenancy.validators import validate_subdomain_rfc
@@ -163,7 +165,7 @@ class ContentBlockManager(models.Manager):
 RLS_NO_TENANT_UUID = "00000000-0000-0000-0000-000000000000"
 
 
-class TenantScopedModel(models.Model):
+class TenantScopedModel(RLSModel):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     # Denormalized from tenant.tenant_code; backfilled on read when NULL (RLS uses tenant_id).
     tenant_uuid = models.UUIDField(null=True, db_index=True, editable=False)
@@ -171,6 +173,9 @@ class TenantScopedModel(models.Model):
 
     class Meta:
         abstract = True
+        rls_policies = [
+            TenantPolicy("tenant_isolation", tenant_field="tenant"),
+        ]
 
     @classmethod
     def from_db(cls, db, field_names, values):
